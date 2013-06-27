@@ -1,0 +1,3113 @@
+<?PHP
+class pageContent
+{
+	//Simple control to wrap objects
+	protected $controls = array();
+
+	public function addControl($control)
+	{
+		array_push($this->controls, $control);
+	}
+	public function insertControl($control)
+	{
+		array_unshift($this->controls, $control);
+	}
+	function insertControlAt($control, $index)
+	{
+		$firstHalf = array_slice($this->controls, 0, $index);
+		$secondHalf = array_slice($this->controls, $index);
+	
+		array_unshift($secondHalf, $control);
+		$this->controls = array_merge($firstHalf, $secondHalf);
+	}
+	function render()
+	{
+		$content = "";
+		
+		foreach($this->controls as $control)
+		{
+			$content .= $control->render();
+		}
+		
+		return $content;
+	}
+}
+class webControl extends pageContent
+{
+	private $attributes = array();
+	private $parameters = array();
+	
+	public $controlTag;
+	public $controlData;
+	public $controlCloseTag;	
+	
+	public $webControls = array();
+	public $renderedControls;
+	
+	public $classes = array();
+	
+	//Render Order: 1=Controls first 2=Content first
+	public $renderOrder=2;	
+	
+	public $breakAfter=false;
+	
+	public $preContent = "";
+	public $postContent = "";
+	
+	function webControl()
+	{		
+	}
+	function addAttribute($method, $value)
+	{
+		$this->$method = $value;	
+	}
+	function addClass($class)
+	{
+		$this->classes[$class] = $class;
+	}
+	public function __set($key, $value)
+	{			
+		if ($key == "id" && get_class($this) != "phpHeader") $this->name = $value;
+		
+		if ($key == "class")
+		{
+			$this->classes = Array($value=>$value);
+			return;
+		}
+				
+		$this->attributes[$key] = $value;
+	}
+	public function __get($key)
+	{
+		return $this->attributes[$key];	
+	}
+	public function addParameter($value)
+	{
+		$this->parameters[$value] = $value;
+	}
+	function render()
+	{	
+		$controls = parent::render();
+		
+		$strControl = $this->getOpenTag().($this->renderOrder == 1 ? $controls.$this->controlData : $this->controlData.$controls);
+		
+		if ($this->controlCloseTag == true) $strControl .= $this->getCloseTag();		
+		
+		return $this->preContent.$strControl.$this->postContent.($this->breakAfter ? "<br style='clear:both;' />" : "");	
+	}
+	function getOpenTag()
+	{		
+		return "<".strtolower($this->controlTag)." ".$this->renderAttributes()." ".(!$this->controlCloseTag ? " /" : "").">";
+	}
+	function getCloseTag()
+	{
+ 		$strControl .= "</".strtolower($this->controlTag).">";
+		return $strControl;
+	}
+	private function renderAttributes()
+	{
+		$attArr = array();		
+		
+		if (count($this->classes)) $attArr[] = "class=\"".implode(" ", $this->classes)."\"";
+		
+		//If there are no attributes, don't bother
+		foreach($this->attributes as $key=>$attr)
+		{
+			$evt = strtolower($key);
+			$attArr[] = "$evt=\"$attr\"";
+		}
+		
+		foreach($this->parameters as $value)
+		{
+			$attArr[] = "$value=\"$value\"";	
+		}	
+		
+		return implode(" ", $attArr);
+	}
+	function __clone() 
+	{
+        foreach ($this as $key => $val) 
+        {
+            if (is_object($val) || (is_array($val))) 
+            {
+                $this->{$key} = unserialize(serialize($val));
+            }
+        }
+    }
+    function loadContent($contentKey, $defaultType = 1)
+    {    	
+    	$iObj = new inlineContent($contentKey);
+    	
+    	if (!$iObj->id && !$this->controlData)
+    	{
+			$this->controlData = "[b]No content configured for `$contentKey`[/b]";						 
+    	}
+    	
+    	if($iObj->id)
+    	{	
+    		$this->controlData = $iObj->formatted_content;    		   		
+    	}
+    	else
+    	{
+    		$d = new DAL(true);
+    		
+    		$defaultContent = $this->controlData;
+    		validation::makeSafe($defaultContent);
+    		
+    		//Content is not configured - setup the initial record
+    		$cv[contentKey] = "'$contentKey'";
+    		$cv[typeID] = $defaultType;
+    		$cv[content] = "'$defaultContent'";
+    		
+    		$d->qryInsertByArray("inlineContent", $cv);
+    		
+    		$this->controlData = validation::prepForDisplay($this->controlData);
+    	}
+    	
+    	$this->addClass('inlineContent');
+    	$this->addAttribute("data-contentkey", $contentKey);
+    }    
+}
+class stylesheetControl extends webControl
+{
+	public function __construct($file)
+	{
+		$this->controlTag = "link";
+		$this->controlCloseTag = false;
+		$this->rel = "stylesheet";
+		$this->href = $file;
+		
+		$this->postContent = "\n";
+	}
+}
+class javascriptControl extends webControl
+{
+	public function __construct($script="", $src="")
+	{
+		$this->controlTag = "script";
+		$this->addAttribute("type","text/javascript");
+		$this->controlCloseTag = true;
+		$this->controlData = $script;
+
+		if ($src)
+		{
+			global $config;
+			if ($config[jsRev] && !preg_match("/^http/i", $src)) $src .= "?rev=$config[jsRev]";
+				
+			$this->src = $src;
+		}
+		
+		$this->postContent = "\n";
+	}
+}
+/*     Proteus        */
+class proteus_footer extends pageContent
+{
+	function proteus_footer()
+	{
+		global $config;
+		
+		$renderTime = round(pageClass::getMicroTime() - START_TIME, 4);
+		
+		$fBlock = new panelBlock();
+		$fBlock->addControl(new phpLiteral($config[businessName]." - Powered by: Proteus Small Business CMS".($renderTime ? "<br />Page rendered in $renderTime(s)" : "")));
+		
+		$this->addControl($fBlock);
+	}		
+}
+class proteus_header extends pageContent
+{
+	function proteus_header()
+	{
+		global $config, $g_sec;
+		
+		$img = new image($config[theme]."/images/logo_medium.gif");
+		$img->class = "logo";
+		
+		$top = new phpHeader(1, $config[businessName]);
+		$top->style = "text-align: left;";
+		
+		$mid = new phpSpan("Powered By: Proteus Small Business CMS",'hdrMid');		
+		$mid->style = "text-align: left;";
+		
+		$bot = new phpFiller();
+		
+		if ($g_sec->id || $g_sec->name)
+		{			
+			$bot = new phpSpan("Logged in as: ".($g_sec->login ? $g_sec->login : "<em class='global'>{$g_sec->name}</em>"), 'hdrBottom');			
+		}
+		
+		$hBlock = new panelBlock();		
+		$hBlock->id = 'mainHeaderBlock';		
+			
+		$hBlock->addControl($img);		
+		$hBlock->addControl($top);
+		$hBlock->addControl($mid);
+		$hBlock->addControl($bot);		
+		
+		$this->addControl($hBlock);
+	}	
+}
+/************************/
+
+class image extends webControl
+{	
+	function image($url, $alt='', $class='')
+	{		
+		$this->src = $url;
+		
+		$this->controlTag = "img";		
+		
+		//Always define an alt tag, even its empty!
+		$this->setAltTag($alt ? $alt : '&nbsp;');
+		
+		if ($class) $this->class = $class;
+	}
+	function setAltTag($text)
+	{
+		$this->addAttribute('alt',$text);
+		$this->addAttribute('title',$text);
+	}	
+}
+class resizedImage extends image 
+{	
+	function resizedImage($file, $width='', $height='')
+	{
+		global $config;		
+		
+		if (!$width && !$height)
+		{
+			//Don't bother if there are no resizeable dimensions to specify!
+			parent::image($file);
+			return;	
+		}
+		
+		$tmp = split("/", $file);
+		
+		//Only support 3 dirs...
+		$fileName = $width."_".$tmp[2];
+		$subDir = $tmp[1]."/";
+		$baseDir = $tmp[0]."/";
+		
+		$oFile = $config[baseAppDir].$file;
+		
+		if (!file_exists($oFile)) 
+		{
+			//Don't process if the local file cannot be found!
+			parent::image($file);
+			return;	
+		}
+		
+		if (!eregi("^.*\.(jpeg|jpg|gif)$", $fileName, $regs))
+		{
+			// This should never happen!!
+			error("Invalid image file: $file. Please contact Proteus Support");
+		}		
+		
+		$tDir = $config[baseAppDir].'images/'.$subDir.'thumbnails';
+		
+		if (!file_exists($tDir))
+		{
+			//Create the thumbnail folder if it doesn't exist
+			if (!mkdir($tDir)) die('could not create resized storage directory '.$tDir);			
+		}	
+		
+		$tFile = $tDir.'/'.$fileName;
+		
+		if (!file_exists($tFile))
+		{
+			switch(strtolower($regs[1]))
+			{
+				case "jpg":
+				case "jpeg":
+					$img = imagecreatefromjpeg($oFile);
+					break;
+				case "gif":	
+					$img = imagecreatefromgif($oFile);
+					break;
+			}
+			
+			if (!$img) die("could not create image resource (thumbnail) for $file");
+			
+			list($width_orig, $height_orig) = getimagesize($oFile);
+			
+			$ratio_orig = $width_orig/$height_orig;						
+			
+			//Only update the width / height if there isn't one (keep aspect ratio). One or the other MUST be defined.
+			
+			if ($width && $width_orig < $width) $width = $width_orig;
+			if ($height && $height_orig < $height) $height = $height_orig;
+			
+			if (!$width)
+			{
+				$width = $height * $ratio_orig;	
+			}
+			
+			if (!$height)
+			{	
+				$height = $width / $ratio_orig;
+			}
+			
+			$newImg = imagecreatetruecolor($width, $height);
+			
+			imagecopyresampled($newImg, $img, 0,0,0,0,$width, $height, $width_orig, $height_orig);
+			
+			switch(strtolower($regs[1]))
+			{
+				case "jpg":
+				case "jpeg":
+					$res = imagejpeg($newImg, $tFile, 100);
+					break;
+				case "gif":	
+					$res = imagegif($newImg, $tFile);
+					break;
+			}
+			
+			imagedestroy($newImg);
+			imagedestroy($img);
+			
+			if (!$res) die("Could not create thumbnail: ".$file." at $tFile");
+		}
+		
+		parent::image($baseDir.$subDir.'thumbnails/'.$fileName);
+	}	
+}
+class formInput extends webControl
+{			
+	var $label;	
+	var $required;
+	var $validation = "^.{1,}$";
+	
+	//Set to 1 to render the label AFTER the control (checkboxes)
+	var $labelRenderOrder = 0;
+	
+ 	var $desc;	
+	
+	function formInput($name, $type, $value='')
+	{		
+		$this->name = $name;
+		$this->id = $name;
+		
+		$type = strtolower($type);
+		
+		$this->addAttribute("type",$type);
+		$this->addAttribute("value",$value);
+		
+		$this->controlTag = "input";				
+	}		
+	function setLabel($label, $class='', $breakAfter=false)
+	{
+		$this->label = new phpLabel($label, $this->id, $class);			
+		if ($breakAfter) $this->label->breakAfter = true;
+	}
+	function setDescription($desc, $class='')
+	{
+		$this->desc = new phpSpan($desc, $class);
+		//$this->addControl($desc);	
+		
+		/*$this->desc = "* ".$desc;
+		$this->descClass = $class;*/
+	}
+	function setRequired($desc='', $class='')
+	{
+		$this->required = true;	
+		
+		$tmp = "* ".$desc;
+		//if (isset($this->desc) && !$desc) $tmp = substr($this->desc->controlData, 2);
+		if (isset($this->desc) && !$desc) $tmp = "* ".$this->desc->controlData;
+		
+		$this->setDescription($tmp, $class);
+	}
+	function render()
+	{
+		if (isset($this->label) && !$this->labelRenderOrder) $this->preContent = $this->label->render();
+		if (isset($this->label) && $this->labelRenderOrder) $this->postContent = $this->label->render();
+		
+		if (isset($this->desc) && !$this->controlCloseTag) $this->addControl($this->desc);
+		return parent::render();
+	}
+}
+class phpCheckbox extends formInput 
+{
+	public function __construct($name, $value, $selected = false, $class='')
+	{
+		if ($class) $this->class = $class;		
+		parent::formInput($name, 'checkbox', $value);
+		
+		//Render the label AFTER the control!
+		$this->labelRenderOrder = 1;
+		if ($selected) $this->addParameter('checked');
+	}	
+}
+class hiddenInput extends formInput
+{			
+	function hiddenInput($name, $value='')
+	{		
+		parent::formInput($name, 'hidden', $value);		
+	}		
+}
+class phpForm extends webControl
+{	
+	var $validate_fields;
+	
+	function phpForm($method, $id='', $action='')
+	{	
+		$this->addAttribute("method",$method);
+		$this->useFieldset = $useFieldset;
+		
+		if ($id) $this->id = $id;
+		//if (!$action) $action = '#';
+		
+		if (!$action) $action = $_SERVER['PHP_SELF'];
+		
+		$this->addAttribute('action',$action);
+		
+		$this->controlTag = "form";
+		$this->controlCloseTag = true;
+		
+		//if ($useFieldset) $this->fieldSet = new phpFormFieldset();
+	}
+	/*function addControl($inCtl)
+	{
+		if ($this->useFieldset)
+		{			
+			$this->fieldSet->addControl($inCtl);	
+		}	
+		else
+		{
+			parent::addControl($inCtl);	
+		}
+	}*/
+	function getRequired_string($controls)
+	{
+		foreach((array)$controls as $control)
+		{	
+			if ($control->required)
+			{
+				$req[] = $control->id;
+			}						
+			
+			$cReq = $this->getRequired_string($control->webControls);
+			if ($cReq) $req[] = $cReq;
+		}	
+		
+		return implode(",", (array)$req);
+	}
+	function getRequiredWithValidation_string($controls)
+	{
+		foreach((array)$controls as $control)
+		{	
+			if ($control->required)
+			{
+				$req[] = $control->id."::".$control->validation;
+			}						
+			
+			$cReq = $this->getRequiredWithValidation_string($control->webControls);
+			if ($cReq) $req[] = $cReq;
+		}	
+		
+		return implode(";;", (array)$req);
+	}
+	function render()
+	{
+		//if ($this->useFieldset) parent::addControl($this->fieldSet);		
+		if ($this->validate_fields)
+		{
+			$reqString = $this->getRequired_string($this->webControls);			
+			$this->addAttribute('onsubmit', "if (window.validate_fields) {return validate_fields(this,'".$reqString."');}else{alert('No validation function registered'); return false;}");
+		}
+		
+		return parent::render();	
+	}
+}
+class phpFormFieldset extends webControl 
+{
+	public $legend;
+	
+	function phpFormFieldset($title='', $class='')
+	{			
+		$this->controlTag = "fieldset";
+		$this->controlCloseTag = true;
+		if ($class) $this->class = $class;
+		
+		if ($title) $this->legend = new phpLegend($title);
+		$this->addControl($this->legend);
+	}
+}
+class phpLegend extends webControl
+{
+	public function __construct($content)
+	{
+		$this->controlCloseTag = true;
+		$this->controlTag = "legend";
+		$this->controlData = $content;
+	}
+}
+class phpUploader extends phpForm 
+{	
+	function phpUploader($ctl_name, $max_size=50000000, $id='', $action='')
+	{
+		$this->phpForm("POST", $id, $action);
+		
+		$this->addAttribute("enctype", "multipart/form-data");
+		
+		$this->addControl(new hiddenInput("MAX_FILE_SIZE", $max_size));
+		$this->addControl(new formInput($ctl_name, 'file'));		
+	}	
+}
+class tblCell extends webControl
+{		
+	function tblCell($content='', $class='', $align='', $colspan='', $width = '')
+	{		
+		if (is_object($content) && is_callable(array($content, "render")))
+		{
+			$this->addControl($content);
+		}
+		else if (is_array($content))
+		{
+			//Array must be an array of controls - no checks here, let it bomb ungracefully if incorrect data type.
+			foreach($content as $itm)
+			{		
+				//No idea why this needed to be wrapped...		
+				$this->addControl(new phpLiteral($itm->render()));	
+			}
+		}
+		else
+		{
+			$this->controlData = $content;
+		}
+		
+		$this->class = $class;
+		$this->width = $width;
+		
+		if ($align) $this->addAttribute("align", $align);
+		if ($colspan) $this->addAttribute('colspan', $colspan);
+		
+		$this->controlTag = "TD";
+		$this->controlCloseTag = true;				
+	}
+}
+class tblHeader extends tblCell
+{		
+	function tblHeader($content='', $class='', $align='', $colspan='', $width = '')
+	{		
+		$this->tblCell($content, $class, $align, $colspan, $width);
+
+		//Override just this tag	
+		$this->controlTag = "TH";		
+	}
+}
+class tblRow extends webControl
+{	
+	//I'd rather use a type-of and loop through the control set but this seems more efficient... ??
+	var $cellCount;
+	var $headerCount;
+	
+	function tblRow($class='', $bgColor='', $align='')
+	{	
+		$this->class = $class;
+		
+		if ($bgColor) $this->addAttribute("bgcolor",$bgColor);
+		if ($align) $this->addAttribute("align",$align);
+		
+		$this->controlTag = "TR";
+		$this->controlCloseTag = true;	
+		$this->renderOrder = 2;
+	}	
+	function &addCell($cell='')
+	{
+		if (empty($cell))
+		{
+			$cell = new tblCell();	
+		}
+		$this->addControl($cell);
+		$this->cellCount++;
+		
+		return $cell;
+	}
+	function &addHeader($header='')
+	{
+		if (empty($header))
+		{
+			$header = new tblHeader();	
+		}
+		$this->addControl($header);
+		$this->headerCount++;
+		
+		return $header;
+	}	
+}
+class tblBuilder extends webControl
+{
+	var $rows;	
+	
+	function tblBuilder($align='', $border='', $cellspacing='', $cellpadding='', $width='')
+	{
+		$this->addAttribute("align",$align);
+		$this->addAttribute("border",$border);
+		$this->addAttribute("cellspacing",$cellspacing);
+		$this->addAttribute("cellpadding",$cellpadding);
+		
+		$this->width = $width;
+		
+		$this->controlTag = "TABLE";
+		$this->controlCloseTag = true;		
+		
+		$this->addControl(new phpLiteral("<thead>"));
+	}	
+	function &addRow($tblRow='')
+	{		
+		if (empty($tblRow))
+		{				
+			$tblRow = new tblRow();
+		}
+		
+		$this->addControl($tblRow);	
+		return $tblRow;	
+	}			
+	function render()
+	{			
+		foreach($this->webControls as $key=>$tRow)
+		{
+			if (!$key) continue;
+			
+			if (!$tRow->headerCount)
+			{
+				$this->insertControlAt(new phpLiteral("</thead><tbody>"), $key);
+				break;
+			}			
+		}
+		
+		$this->addControl(new phpLiteral("</tbody>"));
+		return parent::render();	
+	}
+}
+
+//Experimental...
+class DivHeader extends phpDIV 
+{
+	function DivHeader($content, $class)
+	{
+		$hContent = new phpHeader(3, $content);
+		$hContent->class = "divHeader";
+		
+		$this->phpDIV($hContent->render(), $class);	
+	}
+}
+class DivCell extends phpDIV 
+{
+	function DivCell($content='', $class='', $breakAfter='')
+	{
+		if ($content)
+		{
+			$hContent = new phpLiteral($content);
+		}
+		else
+		{
+			$hContent = new phpFiller();	
+		}
+		
+		$this->phpDIV($hContent->render(), $class);	
+		$this->breakAfter = $breakAfter;
+	}
+}
+class DivRow extends phpDIV 
+{
+	var $cellCount=0;	
+	
+	function &addCell($divCell='')
+	{
+		if ($divCell->controlTag == "TD")
+		{
+			//Support converting from tblCells to DivCells
+			$divCell = new DivCell($divCell->controlData, 'divCell');	
+		}
+		elseif ($divCell->controlTag == "TH")
+		{
+			//Support converting from tblHeaders to DivCells
+			$divCell = new DivHeader($divCell->controlData, 'divHeader');	
+		}
+		
+		if (empty($divCell))
+		{
+			$divCell = new DivCell('', 'divCell');	
+		}
+		
+		$this->addControl($divCell);
+		$this->cellCount++;
+		/*
+		$width = round(100 / $this->cellCount, 0);
+		
+		//Loop through the cells and adjust the widths to all match
+		for($i=0; $i < $this->cellCount; $i++)
+		{
+			$this->webControls[$i]->addAttribute("style", "width: $width%;");	
+		}
+		*/
+		return $cell;
+	}
+	function &addHeader($divHeader='')
+	{
+		return $this->addCell($divHeader);
+	}
+}
+class DivTable extends phpDIV
+{
+	var $rowCount = 0;
+	
+	function &addRow($divRow='', $class='')
+	{		
+		if (empty($divRow))
+		{				
+			$divRow = new DivRow('', 'divRow');
+		}
+		
+		if ($class) $divRow->class = $divRow->class.' '.$class;
+		
+		$this->addControl($divRow);	
+		$this->rowCount++;
+			
+		return $divRow;	
+	}		
+}
+////////////////////////////////////////
+class phpList extends webControl
+{	
+	var $listItems;
+	
+	function phpList($type)
+	{
+		$this->controlTag = $type;
+		$this->controlCloseTag = true;
+	}	
+	function &addListItem($htmlListItem='')
+	{
+		$idx = count($this->listItems);		
+		
+		if (!empty($htmlListItem))
+		{				
+			$this->listItems[$idx] = $htmlListItem;		
+		}
+		else
+		{
+			$this->listItems[$idx] = new htmlListItem();
+			return $this->listItems[$idx];
+		}		
+	}	
+	function render()
+	{
+		for($i=0, $ct=count($this->listItems); $i < $ct; $i++)
+		{
+			$this->addControl($this->listItems[$i]);			
+		}	
+		
+		return parent::render();
+	}
+}
+class phpOrderedList extends phpList
+{
+	function phpOrderedList()
+	{
+		parent::phpList("ol");			
+	}	
+}
+class phpUnOrderedList extends phpList
+{
+	function phpUnOrderedList()
+	{
+		parent::phpList("ul");			
+	}	
+}
+class htmlListItem extends webControl
+{
+	function htmlListItem($content='')
+	{
+		$this->controlTag = "li";
+		$this->controlCloseTag = true;	
+		$this->controlData = $content;
+	}	
+}
+class phpListItem extends webControl
+{	
+	var $value;
+	var $data;
+	
+	function phpListItem($display='', $value='', $selected='')
+	{		
+		$this->value = trim($value);
+		$this->data = trim($display);				
+			
+		$selected = (string)$selected;
+		
+		if (strlen($selected) && (!strcmp($selected,$display) || !strcmp($selected,$value)))
+		{		
+			$this->addParameter("selected");
+		}
+		
+		$this->controlTag = "OPTION";		
+		$this->controlCloseTag = true;
+	}
+	function render()
+	{
+		$this->controlData = $this->data;
+		$this->addAttribute("value",$this->value);
+
+		return parent::render();	
+	}
+}
+class phpDDL extends formInput
+{	
+	var $listItems = array();
+	var $selected;
+	var $displayOrdinal;
+	var $dataOrdinal;
+	
+	function phpDDL($name)
+	{
+		$this->name = $name;		
+		$this->id = $name;
+		
+		$this->controlTag = "SELECT";
+		$this->controlCloseTag = true;
+	}
+	function insertListItem($listItem, $offset = 0)
+	{
+		if ($offset)
+		{
+			$seg1 = array_splice($this->listItems, 0, $offset-1);
+			$seg1[] = $listItem;
+			
+			$seg2 = array_splice($this->listItems, $offset);
+			
+			$this->listItems = array_merge($seg1, $seg2);
+		}
+		else
+		{
+			array_unshift($this->listItems, $listItem);	
+		}
+	}
+	function &addListItem($listItem='')
+	{		
+		if (!empty($listItem))
+		{				
+			$this->listItems[] = $listItem;		
+		}
+		else
+		{
+			return $this->listItems[] = new listItem();
+			//return $this->listItems[$idx];
+		}		
+	}	
+	function bind($query)
+	{	
+		//if (!get_resource_type($query)) error("Not a valid mySQL resource");
+		if (gettype($query) != 'object') error("Not a valid mySQL resource.");
+		
+		while($entry = mysqli_fetch_assoc($query))
+		{	
+			$this->addListItem(new phpListItem($entry[$this->displayOrdinal], $entry[$this->dataOrdinal], $this->selected));
+		}		
+		
+		//@mysqli_free_result($query);	
+	}
+	function bindByArray($inArr)
+	{
+		foreach($inArr as $key=>$value)
+		{
+			$this->addListItem(new phpListItem($key, $value, $this->selected));	
+		}			
+	}
+	function clearListItems()
+	{
+		unset($this->listItems);
+	}
+	function render()
+	{
+		if (isset($this->label)) $this->preContent = $this->label->render();
+		if (isset($this->desc)) $this->addControl($this->desc);
+		
+		//override the default render
+		$strCombo = $this->getOpenTag()."\n";
+		
+		for($i=0; $i < count($this->listItems); $i++)
+		{
+			if (strlen($this->selected) && (!strcmp($this->listItems[$i]->value,$this->selected) || !strcmp($this->listItems[$i]->data,$this->selected)))
+			{				
+				$this->listItems[$i]->addParameter("selected");	
+			}
+			
+			if (!strlen($this->listItems[$i]->value)) $this->listItems[$i]->value = $this->listItems[$i]->data;
+			if (!strlen($this->listItems[$i]->data)) $this->listItems[$i]->data = $this->listItems[$i]->value;
+			
+			$this->controlData .= $this->listItems[$i]->render()."\n";	
+		}	
+		
+		$strCombo .= parent::render();
+		$strCombo .= $this->getCloseTag();
+		
+		return $this->preContent.$strCombo.$this->postContent.($this->required ? $this->desc->render() : "").($this->breakAfter ? "<br style='clear:both;' />" : "");
+	}
+}
+class phpHyperlink extends webControl
+{
+	//var $format;
+	public $url;
+	public $display;
+	
+	function __construct($url, $display='', $class='', $newWindow=false)
+	{		
+		$url = preg_replace("/(\&)([^\#])/", "&amp;$2", $url);
+		
+		//$this->format = $format;
+		$this->url = $url;
+		$this->display = $display;
+		
+		if (empty($display) && !is_null($display)) $this->display = $url;
+		
+		$this->addAttribute("href", $url);
+		
+		//$this->controlData = $this->display;
+		$this->controlTag = "A";
+		$this->controlCloseTag = true;
+		
+		if ($class) $this->addClass($class);
+				
+		if ($newWindow) $this->addAttribute("target","_blank");
+	}
+	public function render()
+	{
+		$this->controlData = $this->display;
+		
+		return parent::render();
+	}
+}
+class phpEmailLink extends phpHyperlink
+{
+	public function __construct($email, $caption='', $class='', $newWindow=false)
+	{
+		$eLnk = validation::encodeEmail("mailto:$email");
+		$eDisp = $caption ? $caption : validation::encodeEmail($email);
+		
+		parent::__construct($eLnk, $eDisp, $class, $newWindow);
+	}
+}
+class phpAnchor extends webControl
+{
+	function phpAnchor($linkText,$displayText)
+	{
+		$this->controlData = $displayText;
+		$this->name = $this->id = $linkText;
+		$this->controlTag = "a";
+		$this->controlCloseTag = true;
+	}	
+}
+class whatsThis extends webControl
+{
+	var $display;
+	var $url;
+	
+	function whatsThis($key)
+	{
+		global $config;
+		
+		$wImg = new image($config[theme].'/images/whats_this.gif');
+		
+		$this->url = "#";
+		$this->addAttribute('onClick',javaControlUtil::openWindow("whatsthis.php?action=$key", 320, 320, 'whatswin').' return false;');	
+		//$this->display = "[whats this?]";
+		$this->display = '&nbsp;'.$wImg->render();
+		
+		$this->addAttribute("HREF", $this->url);
+		
+		$this->controlData = $this->display;
+		$this->controlTag = "A";
+		$this->controlCloseTag = true;		
+	}	
+}
+class phpHeader extends webControl
+{
+	var $anchorName;
+	
+	function phpHeader($size, $content, $class='')
+	{
+		$this->controlTag = "H".$size;
+		$this->controlData = $content;
+		$this->controlCloseTag = true;
+		
+		if ($class) $this->class = $class;
+	}
+	function render()
+	{
+		if ($this->anchorName)
+		{
+			$this->addControl(new phpAnchor($this->anchorName, $this->controlData));
+			$this->controlData = "";
+		}
+		
+		return parent::render();
+	}
+}
+class phpLabel extends webControl
+{
+	function phpLabel($content, $formField='', $class='')
+	{
+		$this->controlTag = "LABEL";
+		$this->controlData = $content;
+		$this->controlCloseTag = true;
+		if ($formField) $this->for = $formField;
+		
+		$this->class = $class;
+	}	
+}
+class phpText extends webControl
+{
+	function phpText($content)
+	{
+		$this->controlTag = "";
+		$this->controlData = $content;
+		$this->controlCloseTag = false;
+	}
+	function render()
+	{
+		return $this->controlData;	
+	}
+}
+class phpDIV extends webControl
+{
+	function phpDIV($content='', $class='')
+	{
+		$this->controlTag = "DIV";
+		$this->controlData = $content;
+		$this->controlCloseTag = true;
+		
+		$this->class = $class;
+	}	
+	function render()
+	{	
+		$strControl = $this->getOpenTag()."\n";
+		
+		$strControl .= parent::render();
+		
+		if ($this->controlCloseTag == true) $strControl .= $this->getCloseTag()."\n";
+		
+		return $this->preContent.$strControl.$this->postContent.($this->breakAfter ? "<br style='clear:both;' />" : "");			
+	}	
+}
+class phpScript extends webControl
+{	
+	function phpScript($content, $type='text/javascript')
+	{
+		$this->controlTag = "SCRIPT";
+		$this->controlData = $content;
+		$this->controlCloseTag = true;
+		$this->addAttribute('type',$type);
+	}	
+}
+class phpFiller extends webControl
+{
+	function phpFiller()
+	{		
+	}
+	function render()
+	{
+		return '';	
+	}	
+}
+class phpSpan extends webControl
+{
+	function phpSpan($content, $class='')
+	{
+		$this->controlTag = "SPAN";
+		$this->controlData = $content;
+		$this->controlCloseTag = true;
+		$this->class = $class;
+	}		
+}
+class phpHRule extends webControl
+{
+	function phpHRule($width, $align)
+	{
+		$this->addAttribute("width",$width);	
+		$this->addAttribute("align",$align);	
+		
+		$this->controlTag = "HR";		
+	}	
+}
+class phpTextArea extends formInput
+{	
+	var $rows;
+	var $cols;
+	
+	function phpTextArea($name, $value='', $rows='', $cols='', $class='')
+	{		
+		$this->id = $name;
+		
+		if ($class) $this->class = $class;
+		
+		$this->addAttribute("name",$name);		
+		//$this->addAttribute("type",'text');				
+		
+		$this->rows = $rows;
+		$this->cols = $cols;
+		
+		$this->controlData = $value;
+		
+		$this->controlTag = "TEXTAREA";
+		$this->controlCloseTag = true;
+	}	
+	function render()
+	{
+		$this->addAttribute('rows', $this->rows);
+		$this->addAttribute('cols', $this->cols);
+
+		if (isset($this->desc))
+		{
+			if ($this->breakAfter) 
+			{
+				$this->breakAfter = false;
+				$this->desc->breakAfter = true;
+			}
+			
+			$this->postContent = $this->desc->render();		
+		}
+		
+		return parent::render();	
+	}
+}
+class phpParagraph extends webControl
+{
+	var $content;
+	
+	function phpParagraph($content='', $class='', $align='')
+	{		
+		if ($align) $this->addAttribute("ALIGN",$align);
+		if ($class) $this->class = $class;
+		
+		$this->controlTag = "P";
+		$this->controlCloseTag = true;	
+		
+		$this->controlData = $content;
+	}
+}
+class phpPassword extends formInput 
+{
+	function phpPassword($name, $value='', $size='', $maxSize='', $class='')
+	{		
+		$this->name = $this->id = $name; 
+		$this->class = $class;
+		
+		$this->addAttribute("type",'password');
+		$this->addAttribute("value",$value);		
+		$this->addAttribute('size', $size);
+		$this->addAttribute('maxlength', $maxSize);
+		
+		$this->controlTag = "INPUT";		
+	}	
+}
+class phpLiteral
+{
+	var $literal;
+	
+	function phpLiteral($literal='')
+	{
+		$this->literal = $literal;
+	}
+	function render()
+	{
+		return $this->literal;	
+	}
+}
+
+class phpSoap
+{
+	var $serverURL;
+	var $ns;
+	
+	private $client;
+	
+	function phpSoap()
+	{
+		global $config;
+		
+		$this->ns = $config['namespace'];
+		$this->serverURL = $this->ns."/soap_server.php";		
+		
+		$this->client = new SoapClient(null, array('location' => $this->serverURL,
+                                     			   'uri'      => $this->ns,
+												   'connection_timeout' => 3000,
+												   'timeout' => 3000,
+												   'target_timeout' => 3000,
+												   'trace', 1,
+												   'exceptions', 1));                                     			   		
+	}	
+	function call($operation, $params=array())
+	{
+		global $config;
+		
+		try
+		{			
+			//Append this for verification
+			$params["scripturl"] = $config[scripturl];
+			
+			//$val = parent::call($operation, $params, $this->nameSpace); //print_r($val);
+			@$val = $this->client->__soapCall($operation, $params);
+			/*
+			if(PEAR::iserror($val))
+			{
+				$error = "Error ".$val->getCode()." [ ".$val->getMessage()."]";
+				die("Error communicating with master server: ".$error);
+			}		
+			*/
+		}
+		catch(SoapFault $e)
+		{			
+			return false;	
+		}
+		catch(Exception $e)
+		{			
+			return false;	
+		}
+		
+		return $val;
+	}
+}
+class linkNavigation extends phpDIV
+{
+	var $separationString;
+	
+	function linkNavigation($class = '', $separationString="&nbsp;-&gt;&nbsp;")
+	{
+		$this->separationString = $separationString;
+		
+		parent::phpDIV('', $class);
+	}
+	function addLink($hyperlinkCtl)
+	{
+		$this->addControl($hyperlinkCtl);
+		$this->addControl(new phpLiteral($this->separationString));	
+	}
+	function render()
+	{
+		unset($this->webControls[count($this->webControls)-1]);
+		return parent::render();
+	}
+}
+////////// Custom //////////////////
+class pr_footer extends pageContent
+{
+	function pr_footer()
+	{
+		global $config;
+		
+		$fText = "Copyright&copy; ".date("Y")." $config[businessName] and Mainstay Technologies, LLC. All rights reserved.<br />
+					<br /><strong>Powered By: Proteus CMS v3.0</strong> &copy; ".date("Y")." by <a href='http://www.mstech.com/'>Mainstay Technologies</a><br />
+				All Rights Reserved. Website engine code is &copy; copyright by <a href='http://www.mstech.com/'>Mainstay Technologies</a>.";
+				
+		$renderTime = round(pageClass::getMicroTime() - START_TIME, 4);
+		
+		if ($renderTime)
+		{
+			$d = new DAL();		
+			$d->suppressErrors = true;
+			@$hitCount = $d->qryCount("select keyValue from config where keyName = 'hitCount'");
+			
+			$fText .= "<br /><br />".($hitCount ? number_format($hitCount)." total page reads.&nbsp;&nbsp;" : "")."Page rendered in $renderTime(s)";	
+		}
+		
+		$hImg = new image("http://www.mstech.com/images/valid-xhtml.gif");
+		$hImg->setAltTag("Valid XHTML 1.0 Transitional");
+		$hLnk = new phpHyperlink("http://validator.w3.org/check?uri=referer", $hImg->render(), false, true);
+		$hLnk->class = 'validHtml';
+		
+       	$cImg = new image("http://www.mstech.com/images/valid-css.gif");
+		$cImg->setAltTag("Valid CSS!");
+		$cLnk = new phpHyperlink("http://jigsaw.w3.org/css-validator/", $cImg->render(), false, true);
+		$cLnk->class = 'validCss';       
+		
+		//$this->addControl($hLnk);		
+		//$this->addControl($cLnk);
+		$this->addControl(new phpParagraph($fText, "proteus_footer"));
+	}
+}
+class phpMoneyDiv extends phpDIV
+{
+	function phpMoneyDiv($amount, $specialPrice=0,$signClass='moneyDivSign', $amountClass='moneyDivAmount')
+	{
+		parent::phpDIV();
+		
+		$amount = '\$'.number_format($amount, 2);		
+		
+		$amt = new phpSpan($amount, $amountClass);
+		
+		if ($specialPrice > 0)
+		{
+			$amt->addClass('moneyDivStrike moneyDivSmaller');
+		}
+		
+		$this->addControl($amt);
+		
+		if ($specialPrice > 0)
+		{
+			$specialPrice = '\$'.number_format($specialPrice, 2);
+			$specialAmt = new phpSpan($specialPrice, $amountClass);
+		
+			$this->addControl($specialAmt);
+		}
+	}
+}
+class editControl extends jqUI_button 
+{
+	var $origUrl;
+	
+	function __construct($url='', $customGif=false, $format=false, $newWindow=false)
+	{
+		parent::__construct("btnEdit_".md5($url ? $url : pageClass::generateRandomString()),"","actionControl ui-state-highlight","ui-icon-pencil", true);
+		$this->title = 'Edit';
+		
+		$this->origUrl = $url;		
+		
+		if (preg_match("/javascript:(.*)/is", $url, $matches))
+		{
+			$this->onclick = $matches[1];
+		}
+		else
+		{
+			$this->onclick = "window.location='$url';";
+		}
+	}	
+	function getTextLink($display)
+	{
+		return new phpHyperlink($this->origUrl, $display);	
+	}	
+}
+class saveControl extends jqUI_button 
+{
+	public $origUrl;	
+	
+	function __construct($url='', $customGif=false, $format=false, $newWindow=false)
+	{	
+		parent::__construct("btnSave_".md5($url ? $url : pageClass::generateRandomString()),"","actionControl saveControl ui-state-highlight","ui-icon-disk", true);
+		$this->title = 'Save';
+		
+		$this->origUrl = $url;		
+		
+		if (preg_match("/javascript:(.*)/is", $url, $matches))
+		{
+			$this->onclick = $matches[1];
+		}
+		else
+		{
+			$this->onclick = "window.location='$url';";
+		}
+	}	
+	function getTextLink($display)
+	{
+		return new phpHyperlink($this->origUrl, $display);	
+	}	
+}
+class deleteControl extends jqUI_button
+{
+	private $p_verify;
+	
+	function deleteControl($url='', $customGif=false, $format=false, $newWindow=false)
+	{	
+		parent::__construct("btnDel_".md5($url ? $url : pageClass::generateRandomString()),"","actionControl deleteControl ui-state-error","ui-icon-trash", true);
+		$this->title = 'Delete';		
+		
+		if (preg_match("/javascript:(.*)/is", $url, $matches))
+		{
+			$this->onclick = $matches[1];
+		}
+		else
+		{
+			$this->onclick = "window.location='$url';";
+		}
+	}	
+	function setVerifyMessage($message)
+	{
+		$this->p_verify = $message;
+	}
+	function render()
+	{
+		if ($this->p_verify)
+		{
+			$this->onclick = "if (confirm('$this->p_verify')) { {$this->onclick} }";
+		}
+		
+		return parent::render();
+	}
+}
+class viewControl extends jqUI_button 
+{
+	public $origUrl;	
+	
+	function __construct($url='', $customGif=false, $format=false, $newWindow=false)
+	{	
+		parent::__construct("btnView_".md5($url ? $url : pageClass::generateRandomString()),"","actionControl","ui-icon-search", true);
+		$this->title = 'View';
+		
+		$this->origUrl = $url;		
+		
+		if (!$url) return;
+		
+		if (preg_match("/javascript:(.*)/is", $url, $matches))
+		{
+			$this->onclick = $matches[1];
+		}
+		else
+		{
+			$this->onclick = "window.location='$url';";
+		}
+	}	
+	function getTextLink($display)
+	{
+		return new phpHyperlink($this->origUrl, $display);	
+	}	
+}
+class positionControl
+{
+	var $tableName;
+	var $id;	
+	var $customPage;
+	var $customAction;
+	var $max;
+	var $showUp;
+	var $showDown;
+	var $redirectURL;
+	var $customWhClause;
+	
+	function positionControl($tableName, $id, $redirectURL, $customPage='', $customAction='', $customWhereclause='')
+	{
+		$this->tableName = $tableName;
+		$this->id = $id;
+		$this->redirectURL = $redirectURL;
+		
+		$this->customPage = $customPage;
+		$this->customAction = $customAction;
+		$this->customWhClause = $customWhereclause;
+		
+		$this->showUp = true;
+		$this->showDown = true;
+	}
+	function render()
+	{
+		global $config;
+		
+		$upImg = new image($config[theme].'/images/up.gif');
+		$downImg = new image($config[theme].'/images/down.gif');
+		
+		$page = ($this->customPage ? $this->customPage : 'index.php');
+		$action = ($this->customAction ? $this->customAction : 'modifyPosition');
+		
+		//Use session to redirect afterward -- is this always reliable?
+		$_SESSION[redirect] = $this->redirectURL;
+		
+		$url = "$page?action=$action&id={$this->id}&table={$this->tableName}".($this->customWhClause ? "&{$this->customWhClause}" : "")."&direction=";
+		
+		if ($this->showUp)
+		{
+			$upLink = new phpHyperlink($url."1", $upImg->render());
+			$upLink->postContent = '&nbsp;';
+		}
+		else
+		{
+			//Just so stupid IE will show an empty table...
+			$upLink = new phpLiteral();
+		}
+		
+		if ($this->showDown)
+		{
+			$downLink = new phpHyperlink($url."2", $downImg->render());			
+		}
+		else
+		{
+			$downLink = new phpFiller();	
+		}
+		
+		//Add a non breaking space for stupid IE
+		return '&nbsp;'.$upLink->render().$downLink->render();
+	}
+}
+class phpButton extends webControl
+{
+	public function __construct($id="", $label="", $class="")
+	{
+		if ($id) $this->id = $id;
+		if ($class) $this->class = $class;
+		
+		$this->controlTag = "button";
+		$this->controlCloseTag = true;
+		$this->controlData = $label;
+		$this->type = "button";
+	}
+}
+class customButton extends formInput 
+{
+	function customButton($name, $type, $value='')
+	{	
+		$this->name = $this->id = $name; 
+		$this->class = 'button';
+			
+		$this->addAttribute("type",$type);
+		$this->addAttribute("value",$value);
+		
+		$this->addAttribute("onmouseover","$(this).addClass('buttonOver')");
+		$this->addAttribute("onmouseout","$(this).removeClass('buttonOver')");		
+		
+		$this->controlTag = "input";		
+	}	
+}
+class customText extends formInput 
+{
+	function customText($name, $value='', $size='', $maxSize='', $class='')
+	{		
+		$this->name = $this->id = $name; 
+		$this->class = $class;
+		
+		$this->addAttribute("type",'text');
+		$this->addAttribute("value",$value);
+		
+		$this->addAttribute('size', $size);
+		$this->addAttribute('maxlength', $maxSize);
+		
+		$this->controlTag = "INPUT";		
+	}	
+}
+
+class moreButton extends formInput 
+{
+	function moreButton($name, $type, $value='', $width='')
+	{		
+		$this->addAttribute("name",$name);
+		$this->addAttribute("id",$name);
+		$this->addAttribute("type",$type);
+		$this->addAttribute("value",$value);
+		
+		if ($width) $this->addAttribute('style','width: '.$width.'px;');
+		
+		$this->addAttribute("class","mButton");
+		$this->addAttribute("onmouseover","this.className='mButtonOver'");
+		$this->addAttribute("onmouseout","this.className='mButton'");		
+		
+		$this->controlTag = "INPUT";		
+	}	
+}
+
+class backBlock extends pageContent
+{
+	function backBlock($url, $width='200px')
+	{
+		$cont = new panelBlock(null, null, $width);
+		$cont->id = 'backBlock';
+		
+		$cmdBack = new jqUI_button('backButton','Go Back', "", "ui-icon-seek-prev");		
+		$cmdBack->onclick = "window.location='$url';";		
+		
+		$cont->addControl($cmdBack);			
+		
+		$this->addControl($cont);
+	}	
+}
+class phpDivHeaderBlock extends phpDIV 
+{
+	var $p_title;
+	var $heading;
+	var $subheading;
+	
+	var $head_link;
+	var $sub_link;	
+	
+	var $imgUrl;	
+	
+	var $postNote;
+	
+	var $showImage;	
+	
+	var $image;
+	
+	function phpDivHeaderBlock($title, $heading, $subheading, $width='550px')
+	{
+		global $config;
+		
+		parent::phpDIV('','headerBlock');
+		
+		if ($title)
+		{
+			$this->p_title = new phpHeader(2, $title);
+		}
+		else
+		{
+			$this->p_title = new phpFiller();	
+		}
+		
+		if ($heading)
+		{
+			$this->heading = new phpHeader(3, $heading);
+		}
+		else 
+		{
+			$this->heading = new phpFiller();	
+		}
+		
+		if ($subheading)
+		{
+			$this->subheading = new phpHeader(4, $subheading);
+		}
+		else 
+		{
+			$this->subheading = new phpFiller();	
+		}
+		
+		if ($width)
+		{			
+			if (strlen($width))
+			{
+				if (!eregi("px|\%$", $width)) $width .= "px";
+			}
+			
+			//Nasty hack. =(
+			if ($width == '100%') $width = '98%';
+			$this->addAttribute('style', "width: {$width};");			
+		}
+				
+		$this->showImage = true;
+		
+		$this->imgUrl = $config[theme]."/images/logo_small.png";
+		$this->showImage = true;
+		
+		$this->image = new image($this->imgUrl);
+		$this->image->id = "headerImage";
+		$this->image->setAltTag($title);
+	}
+	function render()
+	{	
+		if ($this->sub_link)
+		{
+			$subDisp = new phpHyperlink($this->sub_link, $this->subheading->render());
+		}
+		else
+		{
+			$subDisp = $this->subheading;
+		}			
+		
+		if ($this->head_link)
+		{
+			$headDisp = new phpHyperlink($this->head_link, $this->heading->render());
+		}
+		else
+		{
+			$headDisp = $this->heading;
+		}
+		
+		$titleDisp = $this->p_title;
+		
+		if ($this->image && $this->showImage)
+		{		
+			$this->addControl($this->image);
+		}		
+		
+		$dvText = new phpDIV('','headerTextContainer');
+		$dvText->breakAfter = true;
+		
+		$dvText->addControl($titleDisp);
+		$dvText->addControl($headDisp);
+		$dvText->addControl($subDisp);
+		
+		$this->addControl($dvText);
+		
+		if ($this->postNote)
+		{
+			$pNote = new phpDIV($this->postNote, 'headerNote');
+			$pNote->breakAfter = true;
+			$this->addControl($pNote);
+		}		
+		
+		return parent::render();
+	}
+}
+class phpHeaderBlock extends pageContent 
+{
+	var $p_title;
+	var $heading;
+	var $subheading;
+	
+	var $head_link;
+	var $sub_link;	
+	
+	var $imgUrl;	
+	
+	var $postNote;
+	
+	var $showImage;	
+	
+	var $image;
+	
+	var $panel;
+	
+	function phpHeaderBlock($title, $heading='', $subheading='', $width='550px')
+	{
+		global $config;
+		
+		if ($title)
+		{
+			$this->p_title = new phpSpan($title,'headerTitle');
+		}
+		else
+		{
+			$this->p_title = new phpFiller();	
+		}
+		
+		if ($heading)
+		{
+			$this->heading = new phpSpan($heading, 'headerHeading');
+		}
+		else 
+		{
+			$this->heading = new phpFiller();	
+		}
+		
+		if ($subheading)
+		{
+			$this->subheading = new phpSpan($subheading, 'headerSubHeading');
+		}
+		else 
+		{
+			$this->subheading = new phpFiller();	
+		}
+		
+		$this->panel = new panelBlock(null, null, $width);		
+		$this->panel->ID = 'headerBlock';		
+		
+		$this->imgUrl = $config[theme]."/images/logo_small.png";
+		$this->showImage = true;		
+		
+		$this->image = new image($this->imgUrl);
+		$this->image->id = "headerImage";
+	}
+	function render()
+	{	
+		if ($this->sub_link)
+		{
+			$subDisp = new phpHyperlink($this->sub_link, $this->subheading->render());
+		}
+		else
+		{
+			$subDisp = $this->subheading;
+		}			
+		
+		if ($this->head_link)
+		{
+			$headDisp = new phpHyperlink($this->head_link, $this->heading->render());
+		}
+		else
+		{
+			$headDisp = $this->heading;
+		}
+		
+		$titleDisp = $this->p_title;
+		
+		if ($this->image && $this->showImage)
+		{		
+			$this->panel->addControl($this->image);
+		}		
+		
+		$dvText = new phpDIV('','headerTextContainer');
+		$dvText->breakAfter = true;
+		
+		$dvText->addControl($titleDisp);
+		$dvText->addControl($headDisp);
+		$dvText->addControl($subDisp);
+		
+		$this->panel->addControl($dvText);
+		
+		if ($this->panel->postNote)
+		{
+			$pNote = new phpParagraph($this->postNote);
+			$pNote->id = "headerNote";
+			
+			$this->addControl($pNote);
+		}		
+		
+		return $this->panel->render();
+	}
+}
+class errorHeader extends phpHeaderBlock 
+{
+	function errorHeader($desc, $width=550)
+	{
+		global $config;		
+		
+		$this->p_title = new phpDIV("Error processing request!", 'errorTitle');
+		$this->heading = new phpDIV($desc, 'errorDescription');
+		$this->heading->breakAfter = true;
+		
+		$this->panel = new panelBlock(null, null, $width);		
+		$this->panel->id = 'errorBlock';	
+		
+		$this->imgUrl = $config[theme].'/images/error.gif';
+		$this->showImage = true;		
+		
+		$this->image = new image($this->imgUrl);
+		$this->image->id = "errorImage";
+	}		
+}
+class updatedHeader extends phpHeaderBlock 
+{
+	function updatedHeader($desc, $width=550)
+	{
+		//parent::__construct($desc, 5, "updatedWin", true, 2, true, "Success!");
+		
+		global $config;
+		
+		$hLink = new phpHyperlink("#",'[hide]');		
+		$hLink->addAttribute('onClick', "document.getElementById('updatedBlock').style.display='none'; return false;");
+		$hLink->id = "hideLink";		
+		
+		$this->p_title = new phpDIV($desc, 'updatedTitle');
+		
+		$this->panel = new panelBlock(null, null, "797px");		
+		$this->panel->id = 'updatedBlock';
+		
+		$this->imgUrl = $config[theme].'/images/updated.gif';
+		$this->showImage = true;
+		
+		$this->image = new image($this->imgUrl);
+		$this->image->id = "updatedImage";
+		
+		$this->panel->addControl(new javaControl("$(document).ready(function() {
+			setTimeout('$(\'#updatedBlock\').slideUp(\'slow\')', 3000);
+		});"));
+	}		
+}
+class datePicker_old
+{
+	var $defaultDate;
+	var $disableDates;
+	var $name;
+	var $format;
+	var $imgID;
+	
+	function datePicker($name, $defaultDate, $disableDates=0)
+	{
+		$this->defaultDate = $defaultDate;
+		$this->disableDates = $disableDates;
+		$this->name = $name;
+	}	
+	function render()
+	{
+		global $config;
+		
+		if (!$this->disableDates) $this->disableDates = 0;
+				
+		$txt = new fnText($this->name, $this->defaultDate, 10, 10);
+		$txt->id = $this->name;
+		$txt->addParameter('READONLY');
+		
+		//Turn the m-d-y into y-m-d for Javascript
+		$dTemp = explode("-", $this->defaultDate);
+		$dateStr = $dTemp[2]."/".$dTemp[0]."/".$dTemp[1];		
+		
+		if (!$this->imgID)
+		{
+			$imgID = time();
+		}
+		else
+		{
+			$imgID = $this->imgID;	
+		}
+		
+		$img = new image($config[theme]."/images/calendar_control.gif");
+		$img->addAttribute('alt','Pick a Date');
+		//$img->addAttribute('onClick',"showCalendar('".$this->name."','$dateStr',".$this->disableDates.");");
+		$img->addAttribute('style','cursor: pointer;');
+		$img->id = $imgID;
+		
+		if ($this->disableDates)
+		{
+			$jdDate = gregoriantojd(date("m"), date("d"), date("Y"));
+			$jdDate += 3;
+			
+			$bDate = jdtogregorian($jdDate);			
+			$dFunc = "t_getDateStatus";
+		}
+		else
+		{
+			$bDate = date("m/d/Y");
+			$dFunc = "u_getDateStatus";
+		}
+		
+		$range = "new Array(".date("Y").','.(date("Y")+1).")";
+		
+		if (!$this->format) $this->format = '%m-%d-%Y';
+		
+		$cal = "Calendar.setup(
+				{
+					inputField : '".$this->name."',
+					ifFormat : '".$this->format."',
+					align : 'BR',
+					singleClick : true,
+					showOthers: true,
+					button: '".$imgID."',
+					date: '".$bDate."',					
+					electric: false,
+					range: $range,
+					weekNumbers: false
+				});";
+		//disableFunc: ".$dFunc.",
+		$script = new phpScript($cal);
+
+		$t = new tblBuilder('',0,0);
+		$r = $t->addRow();
+		
+		$r->addCell(new tblCell($txt->render()));
+		
+		$c = new tblCell($img->render().$script->render());
+		$c->addAttribute('valign','center');
+		
+		$r->addCell($c);
+		
+		return $t->render();
+	}
+}
+class jqDatePicker extends customText
+{
+	public function __construct($id, $value='', $label='')
+	{
+		parent::customText($id, $value, 12, 10);
+		
+		$this->addClass('datePicker');
+		if ($label) $this->setLabel($label);
+		$this->addParameter('readonly');
+		$this->id = $id;
+	}
+}
+class datePicker extends phpDIV
+{
+	public $textControl;
+	public $chooseControl;
+	public $clearControl;
+	public $showClear = true;
+	
+	public function __construct($controlName, $label='', $textData='', $customContainerClass='')
+	{
+		$this->textControl = new customText($controlName, $textData, 10, 10);		
+		$this->textControl->setLabel($label);
+		$this->textControl->addParameter('readonly');
+		
+		$this->chooseControl = new phpHyperlink("javascript:displayDatePicker('$controlName', null, 'EEMMMdy');","&nbsp;");
+		$this->chooseControl->id = "pickdate_".time();
+		$this->chooseControl->alt = "Pick Date";
+		$this->chooseControl->class = 'date_pick';
+		
+		$this->clearControl = new phpHyperlink("#", "&nbsp;");
+		$this->clearControl->onclick = "document.getElementById('$controlName').value = ''; return false;";
+		$this->clearControl->id = "cleardate_".time();
+		$this->clearControl->alt = "Clear";		
+		$this->clearControl->class = 'date_clear';
+		
+		if (!$customContainerClass) $customContainerClass = 'datePickerContainer';
+		
+		parent::phpDIV('', $customContainerClass);
+	}
+	public function render()
+	{
+		$this->addControl($this->textControl);	
+		$this->addControl($this->chooseControl);
+		if ($this->showClear) $this->addControl($this->clearControl);
+		
+		return parent::render();
+	}
+}
+/* class javaControl extends webControl 
+{
+	function javaControl($script="", $src="")
+	{
+		$this->controlTag = "script";
+		$this->addAttribute("type","text/javascript");	
+		$this->controlCloseTag = true;
+		$this->controlData = $script;
+				
+		if ($src)
+		{
+			global $config;
+			if ($config[jsRev] && !preg_match("/^http/i", $src)) $src .= "?rev=$config[jsRev]";
+			$this->addAttribute('src', $src);
+		}
+	}	
+} */
+class diggControl extends pageContent
+{
+	var $title;
+	var $body;
+	var $url;
+	var $bgColor;
+	var $topic;
+	var $displayType;
+	
+	function diggControl($type="compact")
+	{	
+		//Digg options for type: compact, normal, icon			
+		$this->displayType = $type;		
+	}	
+	function render()
+	{
+		$tmp = "digg_skin = '$this->displayType';";
+		$tmp .= $this->url ? "digg_url = '$this->url';" : "";
+		$tmp .= $this->title ? "digg_title = '$this->title';" : "";
+		$tmp .= $this->body ? "digg_bodytext = '$this->body';" : "";
+		$tmp .= $this->topic ? "digg_topic = '$this->topic';" : "";
+		$tmp .= $this->bgColor ? "digg_bgcolor = '$this->bgColor';" : "";
+		
+		$this->addControl(new javaControl($tmp));
+		
+		$digg = new javaControl();
+		$digg->addAttribute("src", "http://digg.com/tools/diggthis.js");
+		
+		$this->addControl($digg);
+		return parent::render();	
+	}
+}class deliciousControl extends phpHyperlink  
+{
+	function deliciousControl()
+	{
+		global $config;
+		
+		//$dImg = new image($config[theme].'/images/delicious.small.gif');
+		//$dImg->setAltTag("Post to Delicious Network");
+		
+		parent::__construct("http://del.icio.us/post", "Delicious", false, true);
+		$this->class = "deliciousLink";
+		
+		$this->addAttribute('onclick', "window.open('http://del.icio.us/post?v=4&amp;noui&amp;jump=close&amp;url='+encodeURIComponent(location.href)+'&amp;title='+encodeURIComponent(document.title), 'delicious','toolbar=no,width=700,height=400'); return false;");			
+	}	
+}
+class addThisControl extends phpHyperlink 
+{
+	public function __construct()
+	{		
+		parent::__construct("http://addthis.com/bookmark.php?v=250&amp;username=xa-4c34a0321dbcf157",'<img src="http://s7.addthis.com/static/btn/v2/lg-share-en.gif" width="125" height="16" alt="Bookmark and Share" style="border:0"/>', 'addthis_button');
+		
+		$this->addControl(new javaControl('',"http://s7.addthis.com/js/250/addthis_widget.js#username=xa-4c34a0321dbcf157"));		
+	}
+}
+class yahooRSS extends phpHyperlink 
+{
+	function yahooRSS($targetURL)
+	{
+		parent::__construct("http://add.my.yahoo.com/rss?url=$targetURL", "Yahoo RSS Feed", false, true);
+		$this->class = 'yahooRSSLink';	
+	}
+}
+class googleRSS extends phpHyperlink 
+{
+	function googleRSS($targetURL)
+	{
+		parent::__construct("http://fusion.google.com/add?feedurl=$targetURL", "Google RSS Feed", false, true);
+		$this->class = 'googleRSSLink';	
+	}
+}
+class phpAcronym extends webControl
+{
+	function phpAcronym($acronym, $definition)
+	{
+		$this->controlTag = "acronym";
+		$this->controlCloseTag = true;
+		
+		$this->addAttribute("title", $definition);
+		$this->controlData = $acronym;
+	}	
+}
+class phpAbbr extends webControl
+{
+	function phpAbbr($abbreviation, $definition)
+	{
+		$this->controlTag = "abbr";
+		$this->controlCloseTag = true;
+		
+		$this->addAttribute("title", $definition);
+		$this->controlData = $abbreviation;
+	}	
+}
+////////// JQUERY /////////////
+class jqUI_dialog extends phpDIV
+{
+	public $icon;
+	private $jsonData;
+	private $jsonButtons = array();
+	public $caption = '';
+	public $removeOnClose = false;
+	
+	public function __construct($id, $removeOnClose=false, $width="", $height="", $title="")
+	{
+		parent::phpDIV();
+		
+		$this->id = $id;
+		$this->name = $id;
+		
+		$this->jsonData = new json();
+		$this->jsonData->autoQuote = false;
+		$this->jsonData->renderMode = 1;
+		
+		$this->setOption("autoOpen", "false");
+		$this->setOption("bgiframe", "true");
+		$this->setOption("modal", "true");
+		$this->setOption("draggable", "false");
+		$this->setOption("resizable", "false");
+		
+		if ($width) $this->setOption("width", $width);
+		if ($height) $this->setOption("height", $height);
+		if ($title) $this->setOption("title","'$title'");
+		
+		//Default open shows hidden paragraph
+		$this->setOption("open", "function() 
+		{		
+			$('p', this).css('display','block');
+		}");		
+		
+		/*$this->jsonButtons = new json_a();
+		$this->jsonButtons->autoQuote = false;*/		
+		
+		$this->removeOnClose = $removeOnClose;
+	}
+	public function setOption($option, $value)
+	{
+		$this->jsonData->addObject($option, $value);	
+	}
+	public function addButton($caption, $function, $class='')
+	{
+		/*$obj = new json_a();
+		$obj->autoQuote = false;
+		$obj->text = "'$caption'";
+		$obj->click = $function;
+		
+		$this->jsonButtons[] = $obj;*/
+
+		$jsObj["text"] = "'$caption'";
+		$jsObj["click"] = $function;		
+		
+		if ($class) $jsObj["class"] = "'$class'";
+		
+		//Got tired of dealing with json_encode and quotes (quotes everything with no option, wtf!)
+		$this->jsonButtons[] = json::getUnformattedJSONFromArray($jsObj);
+	}
+	public function chooseIcon($index)
+	{
+		//0 = none
+		//1 = warn
+		//2 = confirm
+
+		switch($index)
+		{
+			case 0:
+				$this->icon = null;
+				break;
+			case 1:	
+				$this->icon = "ui-icon-alert";
+				break;
+			case 2:
+				$this->icon = "ui-icon-circle-check";
+				break;
+		}
+	}
+	public function render()
+	{
+		if ($this->removeOnClose)
+		{
+			$this->setOption("close", "function() { $(this).remove(); }");	
+		}
+		
+		if ($this->caption)
+		{
+			$par = new phpParagraph();
+			
+			if ($this->icon)
+			{
+				$par->addControl(new phpLiteral('<span class="ui-icon '.$this->icon.'" style="float:left; margin:0px 7px 20px 0px;"></span>'));	
+			}
+	
+			$par->addControl(new phpLiteral($this->caption));
+			
+			$this->addControl($par);		
+		}
+		
+		//$this->setOption("buttons", json::renderArray($this->jsonButtons));
+		
+		//$this->jsonButtons = array_reverse($this->jsonButtons);
+		$buttons = "[".implode(",",(array)$this->jsonButtons)."]";
+		
+		//Hide internal paragraphs until shown
+		$this->addControl(new javaControl("$('#".$this->id." p').css('display','none');		
+		$(function() 
+		{
+			var tID;
+			var i=0;
+			
+			$('#".$this->id."').dialog(".$this->jsonData->render().").dialog('option', 'buttons', $buttons);
+			$('.ui-tooltip').hide();
+		});"));
+		
+		return parent::render();		
+	}
+}
+class jqUI_confirm extends jqUI_dialog
+{	
+	public function __construct($id, $caption, $show_warn=false, $defaultCancel=true)
+	{		
+		$this->caption = $caption;
+		$this->chooseIcon($show_warn ? 1 : 2);
+		
+		parent::__construct($id);		
+		
+		if ($defaultCancel)
+		{
+			$this->addButton("Cancel", "function() { $(this).dialog('close'); }");			
+		}
+		
+		$this->setOption("autoOpen", "false");
+		//$this->setOption("height", 140);
+		$this->setOption("title", "'Confirm'");		
+	}
+}
+class jqUI_errorNotify extends jqUI_notify
+{
+	public function __construct(Exception $ex)
+	{
+		//TODO: Log this user error!		
+		parent::__construct($ex->getMessage(), 0, "eWin", true, 1, true, "An error has occurred!");
+	}
+}
+class jqUI_notify extends jqUI_dialog
+{		
+	public function __construct($message='', $timeout = 2, $id='', $autoOpen=true, $iconIdx=2, $removeOnClose=true, $title='')
+	{
+		// SWB - 2/13 Not sure why this was ever here, but new jQuery > 1.9 doesn't like it
+		//if ($title) $title .= "<br />";
+		
+		$this->caption = $message;
+		
+		parent::__construct($id ? $id : 'jqui_notifyWindow');
+		
+		$this->chooseIcon($iconIdx);		
+		
+		$this->setOption("width", 425);
+		
+		$this->setOption("autoOpen", $autoOpen ? 'true' : 'false');
+		
+		if ($timeout)
+		{
+			$this->setOption("title", "'{$title} - Closing in $timeout seconds'");
+			$this->setOption("open", "function() 
+			{		
+				$('p', this).css('display','block');
+				
+				tID = setInterval(function()
+				{ 				
+					i++;				
+					if (i >= $timeout)
+					{					
+						$('#{$this->id}').dialog('close');
+						clearTimeout(tID);
+					}
+					$('#{$this->id}').dialog('option', 'title','{$title} Closing in ' + ($timeout-i) + ' seconds');
+				},1000);
+			}");
+		}
+		else
+		{
+			$this->setOption("title", "'$title'");	
+		}
+		
+		$this->removeOnClose = $removeOnClose;
+		
+		$this->addButton("Ok", "function() { $(this).dialog('close'); }");		
+	}
+}
+class jqUI_datepicker extends customText
+{
+	private $jsonData;
+	public $allowClear;
+	public $container;
+	
+	public function __construct($id, $date='', $caption='', $allowClear=true, $minDate = "new Date()", $dateFormat = "mm-dd-yy")
+	{
+		parent::customText($id, $date, 10, 10);
+		
+		global $config;
+		$this->id = $id;
+		$this->class = 'text';
+		
+		$this->jsonData = new json_a();		
+		$this->jsonData->autoQuote = false;		
+
+		if ($caption) $this->setLabel($caption);
+		
+		$this->addParameter('readonly');
+		$this->allowClear = $allowClear;
+		
+		$this->setOption("showOn", "'both'");
+		$this->setOption("buttonImage", "'$config[scripturl]includes/js/jquery/themes/smoothness/images/calendar.gif'");
+		$this->setOption("buttonImageOnly", "true");
+		$this->setOption("dateFormat", "'$dateFormat'");
+		$this->setOption("constrainInput", "true");
+		$this->setOption("minDate",$minDate);	
+		$this->setOption("showButtonPanel", "true");	
+		
+		$dvContainer = new phpDIV();
+		$dvContainer->class = 'datePickerContainer';
+		$dvContainer->id = $this->id."_container";
+		
+		$this->container = $dvContainer;		
+	}
+	public function setOption($option, $value)
+	{
+		if (!$value) $value = "''";
+		$this->jsonData->addObject($option, $value);	
+	}
+	public function render()
+	{
+		global $config;
+		
+		if ($this->breakAfter)
+		{
+			$this->container->breakAfter = true;
+			$this->breakAfter = false;	
+		}
+		
+		if ($this->allowClear)
+		{
+			$cImg = new image("$config[scripturl]includes/js/jquery/themes/smoothness/images/clear_date.gif");
+			$cImg->setAltTag("Clear Date");			
+			$cImg->style = "display: none; width: 16px; height: 15px;";
+			$cImg->class = 'ui-datepicker-clear';
+			$cImg->onclick = "$(this).prevAll('input:eq(0)').val(''); $(this).fadeOut();";
+		}
+		else
+		{
+			$cImg = new phpFiller();				
+		}		
+		
+		$scrpt = new javaControl("$(function() 
+		{ 
+			var ctl = $('[name=\\\"{$this->id}\\\"]').datepicker(".$this->jsonData->render().").focus(function() { $(this).attr('readonly','readonly'); });
+			var clr = ctl.nextAll('.ui-datepicker-clear');
+
+			ctl.datepicker('option', 'onSelect', function() { ctl.val() ? clr.fadeIn() : clr.fadeOut() });
+			
+			if (ctl.val()) clr.fadeIn();			
+		});");			
+		
+		$this->container->addControl(new phpLiteral(parent::render()));
+		$this->container->addControl($cImg);
+		$this->container->addControl($scrpt);
+		
+		return $this->container->render();
+	}
+}
+class jqUI_button extends phpButton 
+{	
+	private $iconClass = '';
+	private $intialize = false;
+	private $p_title;
+	
+	public function __construct($name, $label, $class='', $iconClass='', $renderInitializer = false)
+	{	
+		parent::__construct($name, $label);
+		$this->class = "jqui_button ".($class ? $class : "");
+		
+		$this->p_title = $label;
+		
+		if ($iconClass) $this->setIconClass($iconClass);
+		$this->intialize = $renderInitializer;
+	}
+	public function setIconClass($class)
+	{
+		$this->addAttribute("data-iconclass", $class);
+		$this->iconClass = $class;	
+	}
+	public function render()
+	{
+		if (!$this->title) $this->title = $this->p_title;
+		
+		if ($this->intialize)
+		{
+			if (!$this->controlData) $txt = ",text: false";
+			//$js = new javaControl("$(function() { $('#{$this->id}').button({icons: {primary: '{$this->iconClass}'}$txt}); })");
+			$js = new jqLoader("initJQButtons()");		
+			$this->postContent = $js->render();
+		}
+		
+		return parent::render();
+	}
+}
+class jqUI_icon extends phpSpan 
+{
+	public function __construct($iconClass, $class='')
+	{
+		parent::phpSpan('', "ui-icon $iconClass");
+		if ($class) $this->addClass($class);		
+	}
+}
+class jqUI_label extends phpSpan
+{
+	public $icon;
+	
+	public function __construct($label, $iconClass='', $class='')
+	{	
+		if ($iconClass)
+		{
+			$this->icon = new jqUI_icon($iconClass);
+			$this->icon->style = "display: inline-block !important; margin-right: 4px;";
+			
+			$this->addControl($this->icon);	
+		}
+		
+		parent::phpSpan($label, $class);
+		$this->renderOrder = 1;
+	}
+}
+class jqUI_hyperlink extends phpHyperlink 
+{	
+	public $iconClass;
+	
+	public function __construct($url, $display, $class='', $iconClass='', $newWindow='')
+	{
+		parent::__construct($url, $display, $class, $newWindow);	
+		
+		$this->iconClass = $iconClass;
+	}
+	public function render()
+	{
+		if (!$this->rendered)
+		{
+			$this->addClass('jqLink');
+			
+			$icon = new jqUI_icon($this->iconClass);
+			$this->display = $icon->render().$this->display;
+		}
+
+		return parent::render();
+	}
+}
+class jqUI_uploader extends phpDIV
+{
+	public $uploadButton;
+	public $formInput;
+	
+	public function __construct($elementID, $caption, $buttonID, $buttonCaption = 'Upload', $renderInitializer = false)
+	{
+		$this->uploadButton = new jqUI_button($buttonID, $buttonCaption, "", "ui-icon-link", true);
+		$this->uploadButton->style = "display: none;";
+					
+		$this->formInput = new formInput($elementID,'file');	
+		$this->formInput->onchange = "$('#$buttonID').show();";
+		$this->formInput->setLabel($caption);
+		
+		parent::phpDIV("", "uploadDiv");
+		
+		$this->addControl($this->formInput);
+		$this->addControl($this->uploadButton);
+		if ($renderInitializer) $this->addControl(new javaControl("$(function() { $('#$elementID').fileinput(); })"));
+	}
+}
+/**
+ * jqLoader 
+ * Meant to simplify using a new javaControl with the $(function() { }) JQuery syntax for running something after page finishes loading
+ */
+class jqLoader extends javascriptControl   
+{
+	public function __construct($stmnt)
+	{
+		parent::__construct("$(function() { $stmnt })");		
+	}
+}
+class jqCarouselSlide extends phpDIV
+{	
+	public $caption;
+	
+	public function __construct($link, $caption, $image, $background, $desc)
+	{
+		parent::phpDIV();
+		
+		$this->class = 'slide';
+		//$this->display = 'none';
+		//$this->id = "slide_$ct";
+		
+		$this->caption = $caption;
+		
+		$this->style = "background-image: url(includes/js/jquery/themes/carousel/slides/$background);";	
+		
+		$img = new image($image);
+		$img->setAltTag($caption);
+		
+		$hdr = new phpHeader(1, $caption);
+		
+		$lnk = new phpHyperlink($link, $img->render().$hdr->render());
+		
+		$dvFoot = new phpDIV('','slideFooter');
+		$dvFoot->addControl($lnk);
+		$dvFoot->addControl(new phpParagraph($desc));
+		
+		$this->addControl($dvFoot);
+	}
+}
+class jqCarousel extends phpDIV
+{	
+	public $slides;
+	public $innerDiv;
+	public $slideCount;
+	public $shuffle;
+	private $jsonData;
+	            
+	public function __construct($id, $shuffle = false)
+	{
+		parent::phpDIV();
+		$this->id = $id;
+		
+		$this->innerDiv = new phpDIV();
+		$this->innerDiv->id = 'slide_holder_inner';
+		
+		$lImg = new image("includes/js/jquery/themes/carousel/images/ajax_loader.gif");
+		$lImg->class = 'loading';
+	
+		$this->addControl($lImg);
+		
+		$this->slides = new phpDIV();
+		$this->slides->id = 'row_of_slides';
+		
+		$this->slideCount = 0;
+		$this->shuffle = $shuffle;
+		
+		$this->jsonData = new json();	
+		$this->jsonData->renderMode = 1;
+		$this->jsonData->autoQuote = false;	
+
+		$this->setOption("first_last_buttons","'no'");
+		$this->setOption("hover_next_prev_buttons","'yes'");
+		$this->setOption("next_prev_buttons","'yes'");
+		$this->setOption("pause_button","'yes'");
+		$this->setOption("slide_buttons","'yes'");
+		$this->setOption("slide_number_display","'no'");
+		$this->setOption("timer_length","7500");
+		$this->setOption("transition_duration","700");
+		$this->setOption("transition_easing","'easeInBack'");
+		$this->setOption("transition_type","'carousel'");
+		$this->setOption("water_mark","'yes'");
+	}
+	public function addSlide($ctl)
+	{
+		//Don't like this, but also don't want to re-write the carousel to use proper indexing!
+		$this->slideCount++;
+		$ctl->id = 'slide_'.$this->slideCount;
+		
+		$this->slides->addControl($ctl);	
+	}
+	public function setOption($option, $value)
+	{
+		$this->jsonData->addObject($option, $value);	
+	}
+	public function render()
+	{		
+		if ($this->shuffle) shuffle($this->slides->webControls);
+		
+		foreach($this->slides->webControls as $slide)
+		{
+			$captions[] = $slide->caption;				
+		}
+		
+		$captions = implode("|", $captions);
+		$this->setOption("slide_captions", "'$captions'");
+		
+		$this->innerDiv->addControl($this->slides);
+		
+		$cDiv = new phpDIV();
+		$cDiv->id = 'carousel_controls';
+		
+		$this->innerDiv->addControl($cDiv);
+		
+		$this->addControl($this->innerDiv);
+		
+		$this->addControl(new javaControl('$(function() {
+			$("#slide_holder").agile_carousel('.$this->jsonData->render().');
+		})'));
+		
+		return parent::render();	
+	}
+}
+class phpMeta extends webControl 
+{
+	public function __construct($name, $content)
+	{
+		$this->controlTag = "meta";		
+		$this->content = $content;
+		$this->name = $name;
+	}
+}
+class shareBlock extends phpDIV
+{
+	public function __construct($url)
+	{
+		global $config;
+
+		$controls[twitter] = "<a href=\"https://twitter.com/share\" class=\"twitter-share-button\" data-count=\"horizontal\">Tweet</a>
+		<script type=\"text/javascript\" src=\"//platform.twitter.com/widgets.js\"></script>";
+			
+		$controls[googleplus] = "<g:plusone size=\"medium\" href=\"$config[scripturl]$url\"></g:plusone>
+		<script type=\"text/javascript\">
+		(function() {
+		var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+		po.src = 'https://apis.google.com/js/plusone.js';
+		var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+		})();
+		</script>";
+	
+		$controls[facebook] = "<div class=\"fb-like\" data-href=\"$config[scripturl]$url\" data-send=\"false\" data-layout=\"button_count\" data-width=\"90\" data-show-faces=\"true\"></div>";
+				
+		parent::phpDIV("","shareBlock");
+			
+		foreach($controls as $ctl)
+		{
+			$this->addControl(new phpLiteral($ctl));
+		}
+	
+		$this->addControl(new addThisControl());
+	}
+}
+class facebookSDK extends phpDIV
+{
+	function __construct()
+	{
+		global $config;
+		
+		parent::phpDIV();
+		
+		$this->id = "fb-root";
+		$this->addControl(new javaControl("","http://connect.facebook.net/en_US/all.js"));
+		$this->addControl(new javaControl("FB.init({
+				appId:'$config[facebook_id]',
+				status:true,
+				xfbml:true,
+				oauth: true
+		});"));
+	}
+}
+class phpNavigation extends phpDIV
+{	
+	var $startPos;
+	var $totalCount;
+	var $linkTemplate;
+	var $perPage;
+	var $backForwardNav;
+	
+	function phpNavigation($startPos, $totalCount, $perPage, $linkTemplate, $bfNav=true)
+	{
+		$this->startPos = $startPos;
+		$this->totalCount = $totalCount;
+		$this->perPage = $perPage;
+		$this->linkTemplate = $linkTemplate;
+		$this->backForwardNav = $bfNav;
+		
+		parent::phpDIV('','ajaxNav');
+		
+		$nav = array();
+		
+		$currentPage = ($this->startPos ? ($this->startPos / $this->perPage)+1 : 1);		
+		$totalPages = ($this->totalCount / $this->perPage);
+		
+		//Add a page if it doesn't divide evenly...
+		if ($this->totalCount % $this->perPage) $totalPages++;		
+		$this->totalCount++;
+		
+		$delim = 0;
+		for($i=0; $i <= $totalPages-1; $i++)
+		{			
+			$pageVal = $i + 1;
+			$sVal = $i * $this->perPage;
+			
+			if ($pageVal != $currentPage)
+			{
+				$link = str_replace("{position}", $sVal, $this->linkTemplate);
+				$nLink = new phpHyperlink($link, number_format($pageVal), "ui-state-default navButton");
+				$nLink->addAttribute('data-startpos', $sVal);								
+			}
+			else
+			{
+				$nLink = new phpSpan(number_format($currentPage), 'navCurrent');					
+			}
+			
+			$nav[] = $nLink;			
+		}	
+		$this->addControl($nav[0]);
+		
+		if ($currentPage < 5)
+		{			
+			$start = 1;								
+		}		
+		else
+		{
+			$start = $currentPage - 4;										
+		}	
+		
+		$end = $currentPage + 2;
+		
+		if ($start > 1) $this->addControl(new phpSpan("...",'middleSpan'));
+		
+		//Don't include the last element - it's popped off at the end.
+		if ($end > ($totalPages-2)) $end = ($totalPages-2);		
+		
+		for($j = $start; $j <= $end; $j++)
+		{
+			$this->addControl($nav[$j]);	
+		}
+		
+		if ($end < ($totalPages-3)) $this->addControl(new phpSpan("...",'middleSpan'));
+		
+		$last = array_pop($nav);
+		$this->addControl($last);		
+		
+		if ($this->backForwardNav)
+		{		
+			if ($currentPage < $totalPages-1)
+			{
+				$sPos = ($currentPage) * $this->perPage;
+				
+				$link = str_replace("{position}", $sPos, $this->linkTemplate);
+				
+				$nIco = new jqUI_icon('ui-icon-seek-next');
+
+				$nLink = new phpHyperlink($link, $nIco->render(), "bfNav");
+				
+				$nLink->addAttribute('data-startpos', $sPos);
+				
+				$this->addControl($nLink);				
+			}			
+			
+			if ($currentPage != 1)
+			{
+				$sPos = ($currentPage-2)*$this->perPage;
+				
+				if ($sPos < 0) $sPos=0;
+				
+				$link = str_replace("{position}", $sPos, $this->linkTemplate);
+				//$nLink = new phpHyperlink($link, "&lt;", "navButton");
+				
+				$nIco = new jqUI_icon('ui-icon-seek-prev');			
+					
+				$nLink = new phpHyperlink($link, $nIco->render(), "bfNav");
+				$nLink->addAttribute('data-startpos', $sPos);
+				
+				$this->insertControl($nLink);				
+			}						
+		}
+		
+		$this->insertControl(new phpSpan("Go to:", "navLead"));
+	}	
+}
+class tableFilter extends phpDIV
+{
+	const filter_text = 1;
+	const filter_date = 2;
+	const filter_dropdown = 3;
+	const filter_date_range = 4;
+	const filter_text_having = 5;
+	
+	public $customFilters = array();
+	public $sortFilters = array();
+	public $columnFilters = array();
+	public $params = array();
+	public $sortData = array();
+	public $pagingData = array();
+	public $jsMethod;
+	public $tableSelector;
+	public $showPager = true;
+	public $header;
+	public $filterButton;
+	
+	public $autoRun = 1;
+	public $autoHide = 1;
+	public $showFilteredColumns = 1;
+	
+	public $loaderDeferred = false;
+	
+	public function __construct($id, $tableSelector, $jsMethod="getData", $headerCaption="Filter Results", $showPager = true)
+	{
+		$this->tableSelector = $tableSelector;
+		$this->params = $params;
+		$this->jsMethod = $jsMethod;
+		$this->id = $id;
+		
+		$this->filterButton = new jqUI_button("btnFilter_$id", "Filter Results", "filterButton", "ui-icon-search", true);
+		$this->filterButton->onclick = "$('#{$this->id}').filterHelper()";
+		
+		$this->showPager = $showPager;
+		
+		$lnk = new phpHyperlink("#", $headerCaption);
+		$lnk->addControl(new phpSpan("&nbsp;"));
+		
+		$this->header = new phpHeader(3, $lnk->render());		
+		
+		parent::phpDIV("", "tableFilterDiv");
+	}
+	public function setPaging($perPage = 50, $showFirstLast = true)
+	{
+		$this->pagingData[perPage] = $perPage;
+		$this->pagingData[showFirstLast] = $showFirstLast;
+		$this->pagingData[totalCount] = 0;
+		$this->pagingData[startPos] = 0;		
+	}
+	public function addSortFilter($dbColumn, $domObject='', $defaultSort = "")
+	{
+		// domObject can be empty - hidden sort
+		// defaultSort can be "asc" or "desc" to set the initial sort
+		
+		$arr = array("selector" => $domObject, "dbColumn"=>$dbColumn);
+		if ($defaultSort) $arr[direction] = $defaultSort;
+		
+		$this->sortFilters[] = $arr;
+		
+	}
+	public function addColumnFilter($dbColumn, $filterType, $selector, $default='', $filterQuery='', $mask='')
+	{
+		$ctlColumn = "filters[$dbColumn]";
+		$this->columnFilters[] = array("dbColumn" => $dbColumn, "filterType" => $filterType, "default" => $default, "value" => "", "selector" => $selector, "mask" => $mask);
+		
+		switch($filterType)
+		{
+			case tableFilter::filter_text_having:
+			case tableFilter::filter_text:
+				$ctl = new customText($ctlColumn, $default, 25, 50,"filter");
+				break;
+			case tableFilter::filter_date:
+				$ctl = new phpFiller();				
+				break;
+			case tableFilter::filter_dropdown:
+				$d = new DAL(true);
+				
+				$ctl = new phpDDL($ctlColumn);
+				$ctl->class = 'filter';
+				$ctl->selected = $default;				
+				
+				if (is_array($filterQuery))
+				{
+					$ctl->bindByArray($filterQuery);	
+				}
+				else
+				{
+					$ctl->dataOrdinal = "id";
+					$ctl->displayOrdinal = "value";
+					$ctl->bind($filterQuery);
+				}
+				
+				break;
+		}
+		
+		$ctl->style = "display: none;";
+		$this->addControl($ctl);
+		
+		return $ctl;
+	}
+	public function addCustomFilter($key, $filterType, $label, $filterQuery='')
+	{
+		$ctlColumn = "custom[$key]";
+		$this->customFilters[] = array("key" => $key, "filterType" => $filterType, "label" => $label, "value" => "");
+		
+		switch($filterType)
+		{
+			case tableFilter::filter_text_having:
+			case tableFilter::filter_text:
+				$ctl = new customText($ctlColumn, "", 25, 50,"filter");
+				if ($label) $ctl->setLabel($label);
+				break;
+			case tableFilter::filter_date:
+				$ctl = new phpFiller();				
+				break;
+			case tableFilter::filter_date_range:
+				$ctl = new pageContent();
+				
+				$dCtl1 = new jqUI_datepicker("dates[{$key}_1]", "", $label);
+				$dCtl1->setOption("minDate", "");
+					
+				$dCtl2 = new jqUI_datepicker("dates[{$key}_2]", "", "and");
+				$dCtl2->setOption("minDate", "");
+				$dCtl2->label->addClass('range');				
+				
+				$ctl->addControl($dCtl1);
+				$ctl->addControl($dCtl2);
+				
+				break;
+			case tableFilter::filter_dropdown:				
+				$ctl = new phpDDL($ctlColumn);
+				$ctl->class = 'filter';
+				
+				if ($label) $ctl->setLabel($label);
+				
+				if (is_array($filterQuery))
+				{
+					$ctl->bindByArray($filterQuery);	
+				}
+				else
+				{
+					$ctl->dataOrdinal = "id";
+					$ctl->displayOrdinal = "value";
+					$ctl->bind($filterQuery);
+				}
+				
+				break;
+		}		
+		
+		$this->addControl($ctl);
+		
+		return $ctl;
+	}		
+	public function render()
+	{
+		$dvRight = new phpDIV();
+		$dvRight->class = 'filterRight';
+		
+		$dvRight->addControl($this->filterButton);
+		
+		if ($this->showPager)
+		{
+			$ddlPager = new phpDDL("pager_{$this->id}");
+			$ddlPager->class = "pager";
+			$ddlPager->setLabel("Per Page:");
+			$ddlPager->selected = $this->pagingData[perPage];
+			$ddlPager->addListItem(new phpListItem(25, 25));
+			$ddlPager->addListItem(new phpListItem(50, 50));
+			$ddlPager->addListItem(new phpListItem(75, 75));
+			$ddlPager->addListItem(new phpListItem(100, 100));
+			$ddlPager->addListItem(new phpListItem(200, 200));			
+			
+			$dvRight->addControl($ddlPager);
+		}
+				
+		$this->insertControl($dvRight);
+		
+		$dvFilters = new phpDIV();
+		$dvFilters->webControls = $this->webControls;
+		
+		$this->webControls = array();
+		
+		if (!count($this->customFilters) && !$this->showPager) $this->style .= "display: none;";
+		
+		$this->addControl($this->header);
+		$this->addControl($dvFilters);			
+		
+		if (!$this->loaderDeferred)
+		{
+			$loader = new jqLoader($this->getLoader());		
+			$this->postContent = $loader->render();
+		}
+		
+		return parent::render();	
+	}
+	public function getLoader()
+	{
+		$params = json_encode($this->params);
+		$sortCols = json_encode($this->sortFilters);
+		$filterCols = json_encode($this->columnFilters);
+		$customCols = json_encode($this->customFilters);
+		$paging = json_encode($this->pagingData);
+		
+		$this->autoRun = (bool)$this->autoRun ? 1 : 0;
+		
+		return "$('#{$this->id}').filterHelper({
+			tableSelector: '$this->tableSelector',
+			sortColumns: $sortCols,
+			jsMethodParams: $params,
+			filterColumns: $filterCols,
+			customColumns: $customCols,
+			jsMethod: $this->jsMethod,
+			paging: $paging,
+			autoRun: $this->autoRun,
+			autoHide: $this->autoHide,
+			showFilteredColumns: $this->showFilteredColumns			
+		});";
+	}
+	public static function getWhereArray($filterColumns, &$wh = array(), &$having = array())
+	{
+		foreach((array)$filterColumns as $filter)
+		{			
+			if (!$filter[value]) continue;
+			
+			if ($filter[filterType] == tableFilter::filter_text_having) 
+			{
+				$valArr =& $having;
+			}
+			else
+			{
+				$valArr =& $wh;	
+			}
+			
+			//$val = (is_numeric($filter[value]) ? $filter[value] : "'%$filter[value]%'");
+			$val = "'%$filter[value]%'";
+			
+			$valArr[] = "$filter[dbColumn] like $val";	
+		}
+		
+		return $wh;
+	}
+	public static function getWhereClause($whArr, $andPrefix = true)
+	{
+		return is_array($whArr) && count($whArr) ? ($andPrefix ? " and " : "").implode(" and ", $whArr) : "";
+	}
+	public static function getHavingClause($havingArr)
+	{
+		return is_array($havingArr) && count($havingArr) ? "\nHAVING ".implode(" and ", $havingArr) : "";
+	}
+	public static function getOrderClause($sortData, $default="id asc")
+	{
+		if ($sortData[dbColumn])
+		{
+			$orderCl = "$sortData[dbColumn] $sortData[direction]";			
+		}
+		else
+		{
+			$orderCl = $default;	
+		}	
+		
+		return $orderCl;
+	}
+	public static function getLimitClause($pagingData)
+	{
+		validation::ensureInt($pagingData[startPos], 0);
+		validation::ensureInt($pagingData[perPage], 0);
+		
+		if (!$pagingData[startPos] && !$pagingData[perPage]) return;
+
+		return "\nlimit $pagingData[startPos], $pagingData[perPage]";
+	}
+}
+class jqPopupMenu extends phpDIV 
+{
+	public $button;
+	public $ul;
+	
+	public function __construct($iconClass="ui-icon-gear")
+	{
+		$this->button = new jqUI_button("", "", "jqPopupButton", $iconClass, true);
+		$this->ul = new phpUnOrderedList();
+		
+		parent::phpDIV("", "jqPopupMenu");			
+	}
+	public function addMenuItem($url, $caption, $class="", $iconClass="")
+	{
+		if (!$url) $url = "javascript:void(0)";
+		
+		$lnk = new jqUI_hyperlink($url, $caption, $class, $iconClass);
+
+		$li = new htmlListItem();
+		$li->addControl($lnk);
+		
+		$this->ul->addListItem($li);
+		
+		return $lnk;
+	}
+	public function render()
+	{
+		$this->addControl($this->button);
+		$this->addControl($this->ul);
+		
+		return parent::render();	
+	}
+}
+?>
