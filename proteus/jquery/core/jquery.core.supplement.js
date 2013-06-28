@@ -9,37 +9,14 @@ function initJQButtons()
 	});	
 }
 $(document).ready(function()
-{
-	var elem = document.createElement("a");	
-	elem.href = '#';
-	elem.innerHTML = "&nbsp;";
-	
-	$(elem).addClass('minMax').click(function(event) 
-	 { 		
-		 var col = $(this).data('collapsed');			 
-		 if (col == null) col = false;
-		 
-		 if (!col) 
-		 {			 
-			 $(this).addClass("max").parent().children("span.toggle").show();			 
-		 }
-		 else
-		 {			 
-			 $(this).removeClass("max").parent().children("span.toggle").hide();
-		 } 
-		 
-		 $(this).data('collapsed', !col);
-		 
-		 $(this).parent().siblings().slideToggle('normal');		 
-		 
-		 return false;		 
-	 }).prependTo("h1.minimize");
-	
+{	
 	//Put a non-breaking space in every empty TD (there you go, Internet Exporer - happy now?)
 	$("td:empty").html("&nbsp;");
 	
 	//Disable auto-submit via enter key on forms inside dialog windows
 	//$(document).one("keypress", ".ui-dialog form input", function(event) { if (event.which == 13) event.preventDefault(); });
+	
+	initJQButtons();
 });
 // Limit scope pollution from any deprecated API
 (function() 

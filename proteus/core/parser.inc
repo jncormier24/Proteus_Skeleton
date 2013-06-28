@@ -88,7 +88,7 @@ class fileParser extends contentParser
 			//$filename = $config[baseAppDir].($config[adminTheme] ? "admin/" : "").$config[theme]."/".$this->pFile;
 			$filename = $config["baseAppDir"]."themes/".$config["theme"]."/".$this->pFile;						
 		}
-				
+		
 		$this->templateContent = @file_get_contents($filename);
 		
 		return parent::render();

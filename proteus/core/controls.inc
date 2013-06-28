@@ -1074,33 +1074,13 @@ class phpText extends webControl
 }
 class phpDIV extends webControl
 {
-	function phpDIV($content='', $class='')
+	function __construct($content='', $class='')
 	{
 		$this->controlTag = "DIV";
 		$this->controlData = $content;
 		$this->controlCloseTag = true;
 		
 		$this->class = $class;
-	}	
-	function render()
-	{	
-		$strControl = $this->getOpenTag()."\n";
-		
-		$strControl .= parent::render();
-		
-		if ($this->controlCloseTag == true) $strControl .= $this->getCloseTag()."\n";
-		
-		return $this->preContent.$strControl.$this->postContent.($this->breakAfter ? "<br style='clear:both;' />" : "");			
-	}	
-}
-class phpScript extends webControl
-{	
-	function phpScript($content, $type='text/javascript')
-	{
-		$this->controlTag = "SCRIPT";
-		$this->controlData = $content;
-		$this->controlCloseTag = true;
-		$this->addAttribute('type',$type);
 	}	
 }
 class phpFiller extends webControl
@@ -1271,27 +1251,6 @@ class phpSoap
 		return $val;
 	}
 }
-class linkNavigation extends phpDIV
-{
-	var $separationString;
-	
-	function linkNavigation($class = '', $separationString="&nbsp;-&gt;&nbsp;")
-	{
-		$this->separationString = $separationString;
-		
-		parent::phpDIV('', $class);
-	}
-	function addLink($hyperlinkCtl)
-	{
-		$this->addControl($hyperlinkCtl);
-		$this->addControl(new phpLiteral($this->separationString));	
-	}
-	function render()
-	{
-		unset($this->webControls[count($this->webControls)-1]);
-		return parent::render();
-	}
-}
 ////////// Custom //////////////////
 class pr_footer extends pageContent
 {
@@ -1327,32 +1286,6 @@ class pr_footer extends pageContent
 		//$this->addControl($hLnk);		
 		//$this->addControl($cLnk);
 		$this->addControl(new phpParagraph($fText, "proteus_footer"));
-	}
-}
-class phpMoneyDiv extends phpDIV
-{
-	function phpMoneyDiv($amount, $specialPrice=0,$signClass='moneyDivSign', $amountClass='moneyDivAmount')
-	{
-		parent::phpDIV();
-		
-		$amount = '\$'.number_format($amount, 2);		
-		
-		$amt = new phpSpan($amount, $amountClass);
-		
-		if ($specialPrice > 0)
-		{
-			$amt->addClass('moneyDivStrike moneyDivSmaller');
-		}
-		
-		$this->addControl($amt);
-		
-		if ($specialPrice > 0)
-		{
-			$specialPrice = '\$'.number_format($specialPrice, 2);
-			$specialAmt = new phpSpan($specialPrice, $amountClass);
-		
-			$this->addControl($specialAmt);
-		}
 	}
 }
 class editControl extends jqUI_button 
@@ -1629,7 +1562,7 @@ class phpDivHeaderBlock extends phpDIV
 	{
 		global $config;
 		
-		parent::phpDIV('','headerBlock');
+		parent::__construct('','headerBlock');
 		
 		if ($title)
 		{
@@ -1879,96 +1812,6 @@ class updatedHeader extends phpHeaderBlock
 		});"));
 	}		
 }
-class datePicker_old
-{
-	var $defaultDate;
-	var $disableDates;
-	var $name;
-	var $format;
-	var $imgID;
-	
-	function datePicker($name, $defaultDate, $disableDates=0)
-	{
-		$this->defaultDate = $defaultDate;
-		$this->disableDates = $disableDates;
-		$this->name = $name;
-	}	
-	function render()
-	{
-		global $config;
-		
-		if (!$this->disableDates) $this->disableDates = 0;
-				
-		$txt = new fnText($this->name, $this->defaultDate, 10, 10);
-		$txt->id = $this->name;
-		$txt->addParameter('READONLY');
-		
-		//Turn the m-d-y into y-m-d for Javascript
-		$dTemp = explode("-", $this->defaultDate);
-		$dateStr = $dTemp[2]."/".$dTemp[0]."/".$dTemp[1];		
-		
-		if (!$this->imgID)
-		{
-			$imgID = time();
-		}
-		else
-		{
-			$imgID = $this->imgID;	
-		}
-		
-		$img = new image($config[theme]."/images/calendar_control.gif");
-		$img->addAttribute('alt','Pick a Date');
-		//$img->addAttribute('onClick',"showCalendar('".$this->name."','$dateStr',".$this->disableDates.");");
-		$img->addAttribute('style','cursor: pointer;');
-		$img->id = $imgID;
-		
-		if ($this->disableDates)
-		{
-			$jdDate = gregoriantojd(date("m"), date("d"), date("Y"));
-			$jdDate += 3;
-			
-			$bDate = jdtogregorian($jdDate);			
-			$dFunc = "t_getDateStatus";
-		}
-		else
-		{
-			$bDate = date("m/d/Y");
-			$dFunc = "u_getDateStatus";
-		}
-		
-		$range = "new Array(".date("Y").','.(date("Y")+1).")";
-		
-		if (!$this->format) $this->format = '%m-%d-%Y';
-		
-		$cal = "Calendar.setup(
-				{
-					inputField : '".$this->name."',
-					ifFormat : '".$this->format."',
-					align : 'BR',
-					singleClick : true,
-					showOthers: true,
-					button: '".$imgID."',
-					date: '".$bDate."',					
-					electric: false,
-					range: $range,
-					weekNumbers: false
-				});";
-		//disableFunc: ".$dFunc.",
-		$script = new phpScript($cal);
-
-		$t = new tblBuilder('',0,0);
-		$r = $t->addRow();
-		
-		$r->addCell(new tblCell($txt->render()));
-		
-		$c = new tblCell($img->render().$script->render());
-		$c->addAttribute('valign','center');
-		
-		$r->addCell($c);
-		
-		return $t->render();
-	}
-}
 class jqDatePicker extends customText
 {
 	public function __construct($id, $value='', $label='')
@@ -2007,7 +1850,7 @@ class datePicker extends phpDIV
 		
 		if (!$customContainerClass) $customContainerClass = 'datePickerContainer';
 		
-		parent::phpDIV('', $customContainerClass);
+		parent::__construct('', $customContainerClass);
 	}
 	public function render()
 	{
@@ -2131,7 +1974,7 @@ class phpAbbr extends webControl
 ////////// JQUERY /////////////
 class jqUI_dialog extends phpDIV
 {
-	public $icon;
+	public $iconClass;	
 	private $jsonData;
 	private $jsonButtons = array();
 	public $caption = '';
@@ -2139,7 +1982,7 @@ class jqUI_dialog extends phpDIV
 	
 	public function __construct($id, $removeOnClose=false, $width="", $height="", $title="")
 	{
-		parent::phpDIV();
+		parent::__construct();
 		
 		$this->id = $id;
 		$this->name = $id;
@@ -2156,16 +1999,7 @@ class jqUI_dialog extends phpDIV
 		
 		if ($width) $this->setOption("width", $width);
 		if ($height) $this->setOption("height", $height);
-		if ($title) $this->setOption("title","'$title'");
-		
-		//Default open shows hidden paragraph
-		$this->setOption("open", "function() 
-		{		
-			$('p', this).css('display','block');
-		}");		
-		
-		/*$this->jsonButtons = new json_a();
-		$this->jsonButtons->autoQuote = false;*/		
+		if ($title) $this->setOption("title","'$title'");		
 		
 		$this->removeOnClose = $removeOnClose;
 	}
@@ -2174,14 +2008,7 @@ class jqUI_dialog extends phpDIV
 		$this->jsonData->addObject($option, $value);	
 	}
 	public function addButton($caption, $function, $class='')
-	{
-		/*$obj = new json_a();
-		$obj->autoQuote = false;
-		$obj->text = "'$caption'";
-		$obj->click = $function;
-		
-		$this->jsonButtons[] = $obj;*/
-
+	{		
 		$jsObj["text"] = "'$caption'";
 		$jsObj["click"] = $function;		
 		
@@ -2199,13 +2026,13 @@ class jqUI_dialog extends phpDIV
 		switch($index)
 		{
 			case 0:
-				$this->icon = null;
+				$this->iconClass = null;
 				break;
 			case 1:	
-				$this->icon = "ui-icon-alert";
+				$this->iconClass = "ui-icon-alert";
 				break;
 			case 2:
-				$this->icon = "ui-icon-circle-check";
+				$this->iconClass = "ui-icon-circle-check";
 				break;
 		}
 	}
@@ -2220,31 +2047,26 @@ class jqUI_dialog extends phpDIV
 		{
 			$par = new phpParagraph();
 			
-			if ($this->icon)
+			if ($this->iconClass)
 			{
-				$par->addControl(new phpLiteral('<span class="ui-icon '.$this->icon.'" style="float:left; margin:0px 7px 20px 0px;"></span>'));	
+				$par->addControl(new jqUI_label($this->caption, $this->iconClass));					
 			}
-	
-			$par->addControl(new phpLiteral($this->caption));
+			else
+			{	
+				$par->addControl(new phpLiteral($this->caption));
+			}
 			
 			$this->addControl($par);		
 		}
 		
-		//$this->setOption("buttons", json::renderArray($this->jsonButtons));
+		$buttons = "[".implode(",",(array)$this->jsonButtons)."]";		
 		
-		//$this->jsonButtons = array_reverse($this->jsonButtons);
-		$buttons = "[".implode(",",(array)$this->jsonButtons)."]";
-		
-		//Hide internal paragraphs until shown
-		$this->addControl(new javaControl("$('#".$this->id." p').css('display','none');		
-		$(function() 
-		{
+		$this->addControl(new jqLoader("
 			var tID;
 			var i=0;
 			
 			$('#".$this->id."').dialog(".$this->jsonData->render().").dialog('option', 'buttons', $buttons);
-			$('.ui-tooltip').hide();
-		});"));
+			$('.ui-tooltip').hide();"));
 		
 		return parent::render();		
 	}
@@ -2502,7 +2324,7 @@ class jqUI_uploader extends phpDIV
 		$this->formInput->onchange = "$('#$buttonID').show();";
 		$this->formInput->setLabel($caption);
 		
-		parent::phpDIV("", "uploadDiv");
+		parent::__construct("", "uploadDiv");
 		
 		$this->addControl($this->formInput);
 		$this->addControl($this->uploadButton);
@@ -2526,7 +2348,7 @@ class jqCarouselSlide extends phpDIV
 	
 	public function __construct($link, $caption, $image, $background, $desc)
 	{
-		parent::phpDIV();
+		parent::__construct();
 		
 		$this->class = 'slide';
 		//$this->display = 'none';
@@ -2560,7 +2382,7 @@ class jqCarousel extends phpDIV
 	            
 	public function __construct($id, $shuffle = false)
 	{
-		parent::phpDIV();
+		parent::__construct();
 		$this->id = $id;
 		
 		$this->innerDiv = new phpDIV();
@@ -2662,7 +2484,7 @@ class shareBlock extends phpDIV
 	
 		$controls[facebook] = "<div class=\"fb-like\" data-href=\"$config[scripturl]$url\" data-send=\"false\" data-layout=\"button_count\" data-width=\"90\" data-show-faces=\"true\"></div>";
 				
-		parent::phpDIV("","shareBlock");
+		parent::__construct("","shareBlock");
 			
 		foreach($controls as $ctl)
 		{
@@ -2678,7 +2500,7 @@ class facebookSDK extends phpDIV
 	{
 		global $config;
 		
-		parent::phpDIV();
+		parent::__construct();
 		
 		$this->id = "fb-root";
 		$this->addControl(new javaControl("","http://connect.facebook.net/en_US/all.js"));
@@ -2706,7 +2528,7 @@ class phpNavigation extends phpDIV
 		$this->linkTemplate = $linkTemplate;
 		$this->backForwardNav = $bfNav;
 		
-		parent::phpDIV('','ajaxNav');
+		parent::__construct('','ajaxNav');
 		
 		$nav = array();
 		
@@ -2845,7 +2667,7 @@ class tableFilter extends phpDIV
 		
 		$this->header = new phpHeader(3, $lnk->render());		
 		
-		parent::phpDIV("", "tableFilterDiv");
+		parent::__construct("", "tableFilterDiv");
 	}
 	public function setPaging($perPage = 50, $showFirstLast = true)
 	{
@@ -3087,7 +2909,7 @@ class jqPopupMenu extends phpDIV
 		$this->button = new jqUI_button("", "", "jqPopupButton", $iconClass, true);
 		$this->ul = new phpUnOrderedList();
 		
-		parent::phpDIV("", "jqPopupMenu");			
+		parent::__construct("", "jqPopupMenu");			
 	}
 	public function addMenuItem($url, $caption, $class="", $iconClass="")
 	{

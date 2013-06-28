@@ -10,20 +10,42 @@ class pageClass extends pageContent
 	public $script_objects;
 	public $post_script_objects;
 	
+	public $headers = array();
+	
 	private $pageModules = array();
 	private $renderedModules = array();
+	
+	public $authUser;
 		
-	public function __construct($title="Default Title", $template="layout.tpl")
+	public function __construct($title="Default Title", $templateFile="")
 	{
 		global $config;
 		
-		$this->parser = new fileParser($template);
+		if (!strlen($templateFile))
+		{
+			$templateFile = "themes/".$config["theme"]."/layout.tpl";			
+		}
+		
+		$this->parser = new fileParser($templateFile, true);
 		$this->title = $title;		
 		
 		$this->head_objects = new pageContent();
 		$this->stylesheet_objects = new pageContent();
 		$this->script_objects = new pageContent();
 		$this->post_script_objects = new pageContent();
+		
+		// Attempt to load any logged-in user information
+		$this->authUser = permissions::getAuthorizedUser();
+	}
+	public function setCustomView($templateFile="view.tpl")
+	{
+		// Use this shortcut function to automatically include the specified template file within the page directory structure as the main
+		// view template.		
+		global $config;		
+		
+		$fileLoc = ($config[adminAppDir] ? "admin/$pageIndex/" : "pages/$pageIndex/").$templateFile;
+		
+		$this->parser = new fileParser($fileLoc, true);
 	}	
 	public function addStylesheetObject($ctl)
 	{
@@ -33,16 +55,34 @@ class pageClass extends pageContent
 	{
 		$this->script_objects->addControl($ctl);
 	}
+	public function addHeadObject($webControl, $insert=false)
+	{
+		$webControl->postContent .= "\n";
+	
+		if ($insert)
+		{
+			$this->headObjects->insertControl($webControl);
+		}
+		else
+		{
+			$this->headObjects->addControl($webControl);
+		}
+	}
+	public function addPageHeader($header)
+	{
+		$tArr = array(count($this->headers)=>$header);
+		$this->headers = array_merge($this->headers, $tArr);
+	}
 	public function render()
 	{			
 		global $config; 
 		
-		$this->parser->pushParam("TITLE", $this->title);
-		
-		foreach($this->controls as $control)
+		foreach($this->headers as $hdr)
 		{
-			$content .= $control->render();			
+			header($hdr);
 		}
+		
+		$this->parser->pushParam("TITLE", $this->title);		
 		
 		// Render the pageModules and all requisites before including the autoInclude items
 		$this->renderPageModules();
@@ -50,12 +90,13 @@ class pageClass extends pageContent
 		foreach($config["autoIncludeFolders"] as $folder=>$exts)
 		{
 			foreach($exts as $ext)
-			{
-				foreach(glob(getcwd()."/pages/".$config[pageIndex]."/$folder/*.$ext") as $file)
+			{				
+				//echo getcwd()."/".$config["pageDir"]."/".$config["pageIndex"]."/$folder<br />";
+				foreach(glob($config["baseAppDir"].$config["pageDir"]."/".$config["pageIndex"]."/$folder/*.$ext") as $file)
 				{
 					$baseFile = basename($file);
 		
-					$fLoc = "pages/$config[pageIndex]/$folder/$baseFile";
+					$fLoc = $config["pageDir"]."/".$config["pageIndex"]."/$folder/$baseFile";
 		
 					switch($ext)
 					{
@@ -71,13 +112,14 @@ class pageClass extends pageContent
 			}
 		}
 		
-		$this->parser->pushParam("PAGE_CONTENT", $content);
+		$this->parser->pushParam("PAGE_CONTENT", parent::render());
 		$this->parser->pushParam("HEAD_OBJECTS", $this->head_objects->render());
 		$this->parser->pushParam("STYLESHEET_OBJECTS", $this->stylesheet_objects->render());
 		$this->parser->pushParam("SCRIPT_OBJECTS", $this->script_objects->render());
 		$this->parser->pushParam("POST_SCRIPT_OBJECTS", $this->post_script_objects->render());		
 		
 		echo $this->parser->render();
+		ob_end_flush();
 	}	
 	public function addPageModule($module)
 	{
@@ -122,13 +164,11 @@ class pageClass extends pageContent
 		$this->renderedModules[] = get_class($module);
 	}
 	public function redirect($redirect="index.php")
-	{
-		session_write_close();
-			
+	{			
 		//Instantly expire all pages with a notification entry...
-		$this->setHeader("Pragma: no-cache");
-		$this->setHeader("Cache-Control: no-cache, must-revalidate");
-		$this->setHeader("Location: $redirect");
+		$this->addPageHeader("Pragma: no-cache");
+		$this->addPageHeader("Cache-Control: no-cache, must-revalidate");
+		$this->addPageHeader("Location: $redirect");
 		
 		$this->render();
 	}
@@ -151,6 +191,74 @@ class pageClass extends pageContent
 		unset($_SESSION['updated_title']);
 	
 		return $arr;
+	}	
+	public function secure($loginPageIndex="login")
+	{
+		global $config;
+		
+		if (!$this->authUser) $this->authUser = permissions::getAuthorizedUser();
+		
+		if (!$this->authUser)
+		{			
+			
+			$ref = implode("/", $config["params"]);
+			$ref="test/this/post";					
+			$this->redirect($loginPageIndex."?ref=$ref");	
+		}		
+	}
+}
+class panelBlock extends phpDIV
+{		
+	public $wrapperControls = array();
+	public $footerControls = array();
+	
+	public $header;
+	public $content;
+	
+	public $overrideClass = "";
+
+	public function __construct($content='', $title='', $width='',$height='')
+	{
+		$this->header = new phpHeader(1, $title);
+		
+		$this->content = new phpDIV($content, "actual");
+		
+		$this->width = $width;
+		$this->height = $height;
+
+		parent::__construct($content, "panelBlockContainer");
+	}
+	public function addControl($ctl)
+	{
+		$this->content->addControl($ctl);
+	}
+	public function addWrapperControl($ctl)
+	{
+		array_push($this->wrapperControls, $ctl);
+	}
+	public function addFooterControl($ctl)
+	{
+		array_push($this->footerControls, $ctl);
+	}
+	public function render()
+	{			
+		if ($this->header) parent::addControl($this->header);
+		
+		//Add any wrapper controls
+		foreach($this->wrapperControls as $ctl)
+		{
+			parent::addControl($ctl);
+		}
+
+		if ($this->overrideClass) $this->content->addClass($this->overrideClass);
+		parent::addControl($this->content);		
+		
+		foreach($this->footerControls as $ctl)
+		{
+			parent::addControl($ctl);
+		}
+
+		return parent::render();		
 	}
 }
 ?>

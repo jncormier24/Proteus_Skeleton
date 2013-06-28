@@ -9,7 +9,7 @@
  	
  	{HEAD_OBJECTS}
  	
- 	<link rel="stylesheet" type="text/css" href="themes/default/style.css" />
+ 	<link rel="stylesheet" type="text/css" href="proteus/themes/default/style.css" />
  	
  	{STYLESHEET_OBJECTS}
  	 	

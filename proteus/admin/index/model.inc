@@ -5,7 +5,7 @@
  *
 */
 
-class indexPage extends proteusPage
+/* class indexPage extends proteusPage
 {
 	public $pageIndex = "index";
 	
@@ -21,5 +21,5 @@ class indexPage extends proteusPage
 		
 		parent::__construct($title);
 	}	
-}
+} */
 ?>

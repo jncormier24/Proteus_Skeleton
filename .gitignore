@@ -1,0 +1,6 @@
+ # Zend Studio files #
+#####################
+.buildpath
+.project
+.settings*
+deployment*

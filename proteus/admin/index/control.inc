@@ -7,7 +7,7 @@
 
 function show()
 {	
-	$a = new indexPage("Sample Index Page");
+	$a = new adminPage("Proteus Admin Console");
 	//$a->secure();
 	
 	$hdr = new phpHeader(2, "It worked!");

@@ -1,7 +1,43 @@
+Options All -Indexes FollowSymLinks
+IndexIgnore *
+DirectoryIndex index.php
+
+order Allow,Deny
+Allow from All
+
+php_value arg_separator.output "&amp;"
+php_flag session.use_trans_sid off
+php_flag expose_php off
+php_flag magic_quotes_gpc off
+
+<FilesMatch "\.(inc|.*sql|.*~|tpl|eml)$">
+	Order allow,deny
+	Deny from all
+</FilesMatch>
+
 RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} -s [OR]
 RewriteCond %{REQUEST_FILENAME} -l [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteBase /Proteus_Skeleton
 RewriteRule ^.*$ - [NC,L]
+
+RewriteRule admin proteus/index.php [NC,L]
 RewriteRule ^.*$ index.php [NC,L]
+
+ErrorDocument 404 404.php
+
+## If the request is for a valid directory
+#RewriteCond %{REQUEST_FILENAME} -d [OR]
+## If the request is for a valid file
+#RewriteCond %{REQUEST_FILENAME} -f [OR]
+## If the request is for a valid link
+#RewriteCond %{REQUEST_FILENAME} -l
+## don't do anything
+#RewriteRule ^ - [L]
+
+#RewriteRule ^(.*)$ index.php [L,NC,QSA]
+
+<Files "*.ajax">
+	ForceType application/x-httpd-php
+</Files>

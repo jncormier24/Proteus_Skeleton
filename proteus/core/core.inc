@@ -64,6 +64,11 @@ class proteus_core
 		 
 		return $var_array;
 	}
+	public static function getMicrotime()
+	{
+		list($usec, $sec) = explode(" ",microtime());
+		return ((float)$usec + (float)$sec);
+	}
 }
 class proteus_user_core
 {
@@ -706,8 +711,9 @@ class validation
 
 		return $strVal;
 	}
-	public static function prepForDisplay($strVal, $bbCodes=true)
+/* 	public static function prepForDisplay($strVal, $bbCodes=true)
 	{
+		// SWB - 6/13: Deprecated, in favor of strict WYSIWYG implementation
 		global $gBB;
 
 		$retVal = htmlspecialchars($strVal,ENT_QUOTES);
@@ -730,7 +736,7 @@ class validation
 		}
 
 		return $retVal;
-	}
+	} */
 	public static function parseCallback($matches)
 	{
 		switch(count($matches))
@@ -927,6 +933,93 @@ class validation
 	public static function sanitizeWYSIWYG(&$content)
 	{
 		$content = preg_replace("/\<\!--\[if.*?\].*?\<\!\[endif\]--\>/is", "", $content);	
+	}
+}
+class json
+{
+	private $vars = array();
+
+	//Set to 1 to disable the "var="
+	public $renderMode = 0;
+	public $autoQuote = true;
+
+	public function __construct($renderMode=0)
+	{
+		$this->renderMode = $renderMode;
+	}
+	public function clear()
+	{
+		$this->vars = array();
+	}
+	public function __set($key, $value)
+	{
+		$this->addObject($key, $value);
+	}
+	public function __get($key)
+	{
+		return $this->vars[$key];
+	}
+	public function reverse()
+	{
+		$this->vars = array_reverse($this->vars, true);
+	}
+	public function getUnformattedJSON()
+	{
+		return json::getUnformattedJSONFromArray($this->vars);
+	}
+	public static function getUnformattedJSONFromArray(array $arr)
+	{
+		//Use this function to get around the ridiculous auto-quote feature of json_encode
+		foreach($arr as $key=>$val)
+		{
+			$content[] = "$key: $val";
+		}
+		return "{".implode(",", $content)."}";
+	}
+	public function addObject($key, $value, $stripFormat=true)
+	{
+		if ($stripFormat)
+		{
+			$value = str_replace("\n", "", $value);
+			$value = str_replace("\r", "", $value);
+			$value = str_replace("\t", "", $value);
+				
+			////// NOTE: This may be needed again, commented due to not being able to use || for inline javascript on JSON buttons (JQuery controls) ///////////
+			// $value = str_replace("|", "&#124;", $value);
+			////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+			//$value = str_replace("'","\\'", $value);
+		}
+
+		//$this->vars[$key] = utf8_encode($value);
+		$this->vars[$key] = $value;
+	}
+	public static function renderArray(array $jsonArray)
+	{
+		foreach($jsonArray as $jsObj)
+		{
+			$content[] = $jsObj->render();
+		}
+
+		return "[".implode(",", (array)$content)."]";
+	}
+	public function render($evalVar="jsonData")
+	{
+		$enc = json_encode($this->vars);
+
+		if (!$this->autoQuote) $enc = str_replace('"','', $enc);
+
+		$jTxt = ($this->renderMode ? $enc : "var $evalVar = ".$enc);
+
+		return $jTxt;
+	}
+}
+class json_a extends json
+{
+	public function __construct($argArray=array())
+	{
+		parent::__construct($argArray);
+		$this->renderMode = 1;
 	}
 }
 ?>

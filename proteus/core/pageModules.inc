@@ -32,10 +32,12 @@ class pageModule
 }
 class baseHRefModule extends pageModule
 {
-	public function __construct()
+	public function __construct($location="")
 	{
 		global $config;
-		$this->addScriptObject(new phpLiteral("<base href='{$config[scripturl]}' />\n"));
+		if (!$location) $location = $config[scripturl];
+		
+		$this->addScriptObject(new phpLiteral("<base href='$location' />\n"));
 	}
 }
 class jQueryModule extends pageModule

@@ -350,7 +350,7 @@ class DAL
 			if ($sqldbg) $sv = getMicroTime();
 			
 			$retVal = mysqli_query($config[dbLink], $qry);
-		}		
+		}
 		
 		if (mysqli_errno($config[dbLink]))
 		{
