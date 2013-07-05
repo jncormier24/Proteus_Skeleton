@@ -1,0 +1,29 @@
+<?php
+	switch($action)
+	{
+		default:
+			checkLogin($login, $password);
+			break;			
+	}
+	
+function checkLogin($login, $pass)
+{
+	$js = new json_a();
+	
+	try
+	{
+		$sec = permissions::getAuthorizedUser($login, $pass);
+		if (!$sec->id) throw new Exception("Invalid login specified. Please try again.");
+
+		pageClass::setNotify("Successfully logged in.");
+	}	
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+?>

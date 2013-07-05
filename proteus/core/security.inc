@@ -1,15 +1,13 @@
 <?php
-class blank_security extends security 
-{		
-	public function __construct() {}
-}
 abstract class permission_base
 {
 	//Setup bitwise constants
 	const read = 1;
 	const write = 2;
 	const insert = 4;
-	const delete = 8;	
+	const delete = 8;
+
+	const permission_generic = 0;
 	
 	public static function getPermissionArray($class)
 	{
@@ -90,7 +88,7 @@ class permissions extends permission_base
 	//Using constants instead of Database to make for an easy centralized location to modify permission entries without having to use a webservice (SOAP, et al).
 	
 	// -- Top-level group assignments: Set "isPermissionGroup" on any permission entry that should be assigned as a top-level group assignment (no R/W/I/D, just group assignment)
-	public static $site_admin = array("key"=>"site_admin", "standalone"=>false, "isPermissionGroup"=>true);
+	public static $site_admin = array("key"=>"site_admin", "standalone"=>true, "description"=>"Grants full R/W/I/D permissions to all site functionality. Assign with Caution!", "isPermissionGroup"=>true);
 	
 	// -- Standalone permissions (not assigned to any particular data ID)
 	public static $manage_category_items = array("key"=>"manage_category_items", "max_perms"=>15, "description"=>"Manage all Category Items","standalone"=>true,"siteType"=>proteus_core::module_categoryItems);
@@ -120,13 +118,15 @@ class permissions extends permission_base
 
 	public static function getPermissionArray()
 	{
-		return permission_base::getPermissionArray('permissions');	
+		global $config;
+		return permission_base::getPermissionArray($config["permission_class"]);	
 	}
 	public static function getPermissionByKey($key)
 	{
-		return permission_base::getPermissionByKey($key, 'permissions');	
+		global $config;
+		return permission_base::getPermissionByKey($key, $config["permission_class"]);	
 	}	
-	public static function getAuthorizedUser($login="", $pass="")
+	public static function getAuthorizedUser($login="", $pass="", $setLastLogin=true)
 	{
 		global $config;
 	
@@ -135,25 +135,28 @@ class permissions extends permission_base
 		// pageClass by default will initialize and attempt to get available login information.
 		// If login information is never SET, this will always return false
 		
-		if ($_SESSION[username] && (!$login && !$pass))
+		if ($_SESSION["username"] && (!$login && !$pass))
 		{
-			$login = $_SESSION[username];
-			$pass = $_SESSION[password];
+			$login = $_SESSION["username"];
+			$pass = $_SESSION["password"];
 		}
 		else
 		{
+			if (!$pass) return false;
 			$pass = crypt($pass, 'pr');
+			
+			$force = true;
 		}
 		
 		// No information found, nobody has logged in yet
 		if (!$login || !$pass) return false;
-	
+		
 		//Once validated, don't re-validate for another 20 minutes
 		$sCache = new session_cache("login");
-		$sCache->loadObject($secObj);
+		$secObj = $sCache->loadObject($secObj);
 	
-		if ($sCache->isExpired(20) || !$secObj)
-		{
+		if ($sCache->isExpired(20) || !$secObj->id || $force)
+		{			
 			//Check local users database for authentication if configured
 			$qry = "select * from users where login='$login' and password='$pass'";
 			$obj = $d->qryArray($qry);
@@ -161,93 +164,79 @@ class permissions extends permission_base
 			//Set a new security object here if the local DB authenticated - otherwise it'll be a blank security object
 			if ($obj[id])
 			{ 
-				$secObj = new security($obj[id], true, $config[partialSecurityClass]);
+				$secObj = new security($obj["id"]);
 	
-				$_SESSION[username] = $login;
-				$_SESSION[password] = $pass;
+				$_SESSION["username"] = $login;
+				$_SESSION["password"] = $pass;
 	
 				$sCache->storeObject($secObj);
 				
 				return $secObj;
-			}
+			}			
 		}	
 		
+		if ($secObj->id && $setLastLogin)
+		{
+			$secObj->lastLogin = "now()";
+		}
+		
 		return $secObj ? $secObj : false;
+	}
+}
+class security_a extends security
+{
+	public function __construct($userID)
+	{		
+		parent::__construct($userID);
+		
+		if (!$this->id) throw new Exception("Error, that user could not be found ($userID).");
 	}
 }
 class security
 {
 	public $userID;
-	private $sMatrix;
-	private $dal;
-	public $errMsg;
-	private $account_details;
+	private $account_data;
 	
 	//Permission key-based assignment
 	public $key_access = array();
 	private $perm_array = array();
 	
-	//Additional information to be sent in the join email for each group
-	private $additionalJoinInfo;	
-
-	private $partialSecClass;	
+	public $global_admin = false;
 	
-	function __construct($userID='', $populateSec=true, $partialSecurityClass='')
+	public function __construct($userID, $populate=true)
 	{
-		global $config;
-
-		$this->dal = new DAL(true);		
-		
-		if (!$partialSecurityClass && $config[partialSecurityClass]) $partialSecurityClass = $config[partialSecurityClass];
-		
-		//An instance of an extending security class (for custom security configs)
-		if ($partialSecurityClass) $this->partialSecClass = $partialSecurityClass;
+		global $config;		
 		
 		validation::ensureInt($userID);
 		
-		if (!$userID) 
-		{
-			// No user ID specified
-			return false;
-		}
-		else
-		{
-			$this->userID = $userID;
-			$this->account_details = $this->getAccountFromID($this->userID, true);
-			
-			if ($populateSec && $userID) 
-			{				
-				$this->populateSecurity();				
-			}
-			
-			return true;	
-		}		
+		if (!$userID) return false; 
+		
+		$this->userID = $userID;
+		$this->account_data = security::getAccountFromID($this->userID, false);
+
+		// Shorctut since this is tested in so many places
+		if ($populate) $this->global_admin = $this->is(permissions::$site_admin);
 	}	
-	public function __call($method, $args)
-	{
-		if (is_array($args))
-		{
-			array_push($args, $this);	
-		}
-		else
-		{
-			$args = array($this);
-		}
-		
-		$method = "{$this->partialSecClass}::{$method}";
-		
-		if (is_callable($method)) return call_user_func_array($method, $args);
-	}
 	public function __get($key)
 	{		
 		switch($key)
 		{
 			case "fullName":
-				return $this->account_details[firstName] && $this->account_details[lastName] ? $this->account_details[lastName].", ".$this->account_details[firstName] : $this->account_details[login];
+				return $this->account_data[firstName] && $this->account_details[data] ? $this->account_data[lastName].", ".$this->account_data[firstName] : $this->account_data[login];
 
 			default:
-				return $this->account_details[$key];
+				return $this->account_data[$key];
 		}		
+	}
+	public function __set($key, $value)
+	{
+		if (!$this->id) throw new Exception("No user specified.");
+		
+		$d = new DAL(true);
+		
+		$cv[$key] = $value;
+		
+		return $d->qryUpdateByArray("users", $cv, array("id"=>$this->id));
 	}
 	public function is($permission, $dataID='', $explicit=false)
 	{
@@ -255,7 +244,7 @@ class security
 	}
 	public function hasAccess($permission, $accessLevels, $dataID = '', $explicit=false)
 	{			
-		if (!$explicit && ($this->is(permissions::$site_admin) || $this->proteusUser)) return true;
+		if (!$explicit && $this->global_admin) return true;
 		if (!$this->userID) return false;
 		
 		//Stored array of access keys with Bitwise comparison. Stops multiple DB lookups for the same key.
@@ -316,229 +305,45 @@ class security
 			return $d->qryInsertByArray("permissionsAssignment", $cv);
 		}
 	}	
-	public function populateSecurity()
+	public static function getAccountFromID($userID, $verbose=true)
 	{	
-		global $login;
-		
-		if (!$this->userID) return false;
-		
-		$qry = "select rightsMatrix.name, rightsAssignment.matrixValue
-				from rightsAssignment inner join rightsMatrix on rightsMatrix.id = rightsAssignment.matrixID
-				where rightsAssignment.userID=".$this->userID;	
-		$rQry = $this->dal->qry($qry);
-		
-		while($entry = $rQry->fetch_assoc())
-		{			
-			if (empty($this->sMatrix[$entry[name]]))
-			{
-				$this->sMatrix[$entry[name]] = new securityEntry($entry[matrixValue]);	
-			}
-			else
-			{
-				$this->sMatrix[$entry[name]]->addEntry($entry[matrixValue]);
-			}
-		}			
-		
-		$strkey = "global_admin";	
-		$this->global_admin = ((!empty($this->sMatrix[$strkey]) && !($this->sMatrix[$strkey]->keyExists($value)===false)) ? 1 : 0);						
-	}
-	public function check_strkey($strkey='', $value='', $verbose=false, $explicit=false)
-	{	
-		if (!$this->userID) return false;
-		if ($this->global_admin && !$explicit) return true;
-		
-		if ($this->sMatrix[$strkey] && (!$value || $this->sMatrix[$strkey]->keyExists($value)))
-		{
-			$retVal = true;	
-		}
-		else
-		{	
-			$retVal = false;
-		}
-		
-		if (!$retVal && $verbose) error("Error, this account (ID:".$this->userID.") does not have security access to this function!");
-		
-		return $retVal;		
-	}
-	public function check_key($key, $value, $verbose=false)
-	{	
-		if (!$this->userID) return false;
-		if ($this->global_admin) return true;
-		
-		$qry = "select name from rightsMatrix where id=$key";
-		$key = $this->dal->qryCount($qry);		
-		
-		return $this->check_strkey($key, $value, $verbose);
-	}
-	public function check_menuAccess($baseName, $verbose=true)
-	{
-		//Global Admins and Proteus (remote) users have full access
-		if ($this->global_admin || $this->proteusUser) return true;
-		
-		return $this->check_strkey('menu_access', $baseName, $verbose);	
-	}
-	public function key_exists($strkey)
-	{
-		//This is used for assignments that don't require a specific value to check, or just looking for 1 instance that's not specific
-		return (empty($this->sMatrix[$strKey]) ? false : true);	
-	}
-	public function getMatrix($groupID='')
-	{
-		if ($groupID) $wClause = " where groupID = $groupID";
-		
-		$qry = "select id, name, description, groupID, displayName
-				from rightsMatrix".$wClause;	
-		
-		return $this->dal->qry($qry);
-	}
-	public function getMatrixByName($strKey)
-	{
-		$qry = "select id, description, displayName
-				from rightsMatrix
-				where name='$strKey'";	
-		
-		return $this->dal->qryArray($qry, true,"Error, that matrix doesn't seem to exist. Please ensure proper database installation!");
-	}
-	public function getMatrixByID($id)
-	{
-		validation::ensureInt($id);
-		
-		$qry = "select id, description, displayName, groupID, name
-				from rightsMatrix
-				where id=$id";	
-		
-		return $this->dal->qryArray($qry, true,"Error, that matrix doesn't seem to exist. Please ensure proper database installation!");
-	}
-	public function getAccountsByKeyValue($strKey, $value='', $countOnly=false)
-	{
-		if ($value) $vWhere = "and rightsAssignment.matrixValue = '$value'";
-		
-		$qry = "select users.id, users.firstName, users.lastName, matrixValue, rightsAssignment.id 'rightsID', users.email
-				from users inner join rightsAssignment on rightsAssignment.userID = users.id
-							 inner join rightsMatrix on rightsMatrix.id = rightsAssignment.matrixID
-				where rightsMatrix.name = '$strKey' $vWhere";
-		
-		if ($countOnly)
-		{
-			return $this->dal->qryRow($qry);
-		}
-		else
-		{
-			return $this->dal->qry($qry, false);
-		}
-	}	
-	public function addEntry($strKey, $strVal, $userID, $emailNotify=false)
-	{
-		$matrix = $this->getMatrixByName($strKey);
-		
-		$qry = "select id from rightsAssignment where matrixID=$matrix[id] and userID=$userID and matrixValue='$strVal'";
-		
-		if (!$this->dal->qryCount($qry))
-		{
-			$cList[0] = "matrixID";
-			$cList[1] = "matrixValue";
-			$cList[2] = "userID";
+		validation::ensureInt($userID);
 			
-			$vList[0] = $matrix[id];
-			$vList[1] = "'$strVal'";	
-			$vList[2] = $userID;
-			
-			$id = $this->dal->qryInsert("rightsAssignment", $cList, $vList);
-			
-			if (!$id)
-			{
-				$this->errMsg = "Error adding admin. Please try again or contact support if problem persists!";
-			}
-			else
-			{
-				//if ($emailNotify) $this->sendGroupJoinEmail($userID, $strKey);	
-			}
-			
-			return $id;
-		}
-		else
-		{
-			$this->errMsg = "This user is already setup with these rights!";
-			return 0;
-		}
-	}
-	public function removeEntry($entryID)
-	{	
-		global $config;
-		
-		$qry = "delete from rightsAssignment where id=$entryID";
-		
-		$this->dal->qry($qry);
-		
-		$retVal = mysqli_affected_rows($config[dbLink]);
-		
-		if (!$retVal) $this->errMsg = "Error removing admin entry. Possible cause: This user was not setup with the access you are trying to remove.";
-		
-		return $retVal;
-	}	
-	public function removeByAccountKey($userID, $strKey, $strVal)
-	{	
-		global $config;
-		
-		//use this to remove an entry if you don't have a specific entry ID.
-		$matrix = $this->getMatrixByName($strKey);
-		
-		$qry = "delete from rightsAssignment where matrixID=$matrix[id] and matrixValue='$strVal' and userID=$userID";
-		
-		$this->dal->qry($qry);
-		
-		$retVal = mysqli_affected_rows($config[dbLink]);
-		
-		if (!$retVal) $this->errMsg = "Error removing admin entry. Possible cause: This user was not setup with the access you are trying to remove.";
-		
-		return $retVal;
-	}
-	public function getAccountFromID($userID='', $verbose=true)
-	{		
 		if (!$userID)
 		{
-			$this->errMsg = "Error getting account details: No account ID was specified!";
-			if ($verbose) error($this->errMsg);
-			
+			if ($verbose) error("Error getting account details: No account ID was specified!");			
 			return false;
 		}
-		else
-		{			
-			if ($userID == -1)
-			{
-				$acct[login] = "System Administrator";				
-				$acct[id] = -1;
-			}
-			else
-			{
-				$acct = $this->dal->qryArray("SELECT * FROM users WHERE id=$userID");	
-				
-				if (!$acct[id])
-				{
-					$this->errMsg = "Error, this user does not seem to exist! ID:$userID";
-					if ($verbose) error($this->errMsg);
-					
-					return false;
-				}
-			}
-			
-			return $acct;			
-		}	
 		
+		if ($userID == -1)
+		{
+			$acct[login] = "System Administrator";				
+			$acct[id] = -1;
+		}
+		else
+		{
+			$d = new DAL();
+			$acct = $d->qryArray("SELECT * FROM users WHERE id=$userID");	
+			
+			if (!$acct[id])
+			{					
+				if ($verbose) error("Error, that user does not seem to exist! ID: $userID");					
+				return false;
+			}
+		}
+		
+		return $acct;		
 	}
-	public function populateAccountDetails()
-	{
-		if ($this->userID) $this->account_details = $this->getAccountFromID($this->userID,false);
-	}	
 	public function security_error_a($msg='')
 	{
+		// Just a wrapper for ajax requests to make the generic error throw an exception instead
 		$this->security_error($msg, true);
 	}
 	public function security_error($msg = '', $throwException = false)
 	{
 		if (!$msg) $msg = "Error, you do not have access to this area! This error has been logged for review.";
 		
-		$acct = $this->getAccountFromID($this->userID, false);
+		$acct = security::getAccountFromID($this->userID, false);
 		
 		if (!$acct[id])
 		{
@@ -551,7 +356,7 @@ class security
 		}		
 		
 		$iAddr = getenv("REMOTE_ADDR");			
-		$details = $acct[name]." user attempted access to restricted area.\nIP Address: $iAddr \nCalling file: {$_SERVER[PHP_SELF]} \n".$eInfo;		
+		$details = $acct[name]." user attempted access to restricted area.\nIP Address: $iAddr \nCalling file: {$_SERVER["PHP_SELF"]} \n".$eInfo;		
 		
 		error_log($details);		
 		

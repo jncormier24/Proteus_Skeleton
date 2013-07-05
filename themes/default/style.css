@@ -12,6 +12,103 @@ body
 	font-family: Verdana, Helvetica, sans-serif;
 	font-size: 12px;
 }
+body > #container
+{
+	position: relative;
+	
+	margin: 0px auto;
+	width: 980px;
+	
+	overflow: hidden;
+}
+#container > #headerContent
+{
+	border: 1px solid #999999;
+	border-radius: 5px 5px 0px 0px;
+		
+	background-color: #ffffff;
+	
+	height: 150px;
+}
+#container > #navContent
+{
+	border-style: solid;
+	border-color: #999999;
+	border-width: 0px 1px;
+	
+	background-image: url(images/row_shine_solid.png);
+	background-repeat: repeat-x;
+	background-position: 0px -2px;
+	
+	background-color: #d0d0d0;
+		
+	overflow: hidden;
+}
+#container > #navContent li .ui-icon
+{	
+	display: inline-block;
+	
+	position: relative;
+	
+	top: 2px;
+	margin-right: 5px;
+}
+#container > #navContent li
+{
+	float: left;	
+			
+	padding: 10px 15px 10px 5px;
+	
+	border-style: solid;
+	border-color: #999999;
+	border-width: 0px 1px 0px 0px;
+}
+#container > #navContent li a
+{
+	color: #4b4b4b;	
+	font-size: 15px;
+}
+#container > #navContent li:hover
+{
+	background-color: #dd6900;
+	
+	background-image: url(images/row_shine_solid.png);
+	background-repeat: repeat-x;
+	background-position: 0px -2px;
+}
+#container > #navContent li:hover a
+{
+	color: #ffffff;
+}
+#container > #mainContent
+{
+	min-height: 400px;
+	
+	border: 1px solid #999999;	
+	
+	background-color: #ffffff;
+	
+	padding: 10px;
+}
+#footerContent
+{
+	border-radius: 0px 0px 5px 5px;
+	
+	background-color: #333333;
+	
+	padding: 10px 5px;
+}
+ul
+{
+	padding: 0px;
+	margin: 0px;
+	
+	list-style: none;
+}
+a
+{
+	text-decoration: none;
+}
 input[type=text], input[type=password]
 {
 	background-color: #ffffff;

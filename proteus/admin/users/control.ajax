@@ -1,0 +1,963 @@
+<?php
+
+	$g_sec = permissions::getAuthorizedUser();
+	
+	switch($action)
+	{
+		case "removeUser":
+			removeUser($userID);
+			break;
+			
+		case "search":
+			searchUsers($term);
+			break;
+			
+		case "addPermissionEntry":
+			addPermissionEntry($userID, $permissionKey, $dataID);
+			break;
+			
+		case "getLinkedOptions":
+			getLinkedOptions($permKey);
+			break;
+			
+		case "deleteSecurityAssn":
+			deleteSecurityAssn($keyID);
+			break;
+			
+		case "addSecurityAssn":
+			addSecurityAssn($userID, $matrixID, $value);
+			break;
+			
+		case "savePermissions":
+			savePermissions($userID, $perms, $assnID);
+			break;
+			
+		case "getPermissions":
+			getPermissions($userID);
+			break;
+			
+		case "updateUser":
+			updateUser($userID, $details);
+			break;
+			
+		case "showEditUser":
+			showEditUser($userID);
+			break;
+			
+		case "getUsers":
+			getUsers($paging, $sortData, $filterColumns, $customColumns);
+			break;
+			
+		default:
+			die("Unauthorized");				
+	}
+	
+function getUsers($paging, $sortData, $filterColumns, $customColumns)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::read) && !$g_sec->is(permissions::$school_rep)) $g_sec->security_error();
+		
+		$t = new tblBuilder('center',0,0,4,'100%');
+		$t->class = 'listTable hoverTable';
+		$t->id = 'usersTable';
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("Name", "name", "", "", 175));
+		$r->addHeader(new tblHeader("Login", "login", "", "", 125));				
+		$r->addHeader(new tblHeader("Last Login", ""));
+		$r->addHeader(new tblHeader("Actions"));
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader());
+		$r->addHeader(new tblHeader());				
+		$r->addHeader(new tblHeader());
+		$r->addHeader(new tblHeader());
+		
+		foreach((array)$customColumns as $cFilter)
+		{
+			if (!strlen($cFilter["value"])) continue;
+				
+			switch($cFilter["key"])
+			{					
+				case "status":
+					$wh[] = "users.inactive = {$cFilter["value"]}";
+					
+					break;
+					
+				case "email":
+					$wh[] = "users.email like '%{$cFilter["value"]}%'";
+					
+					break;
+			}
+		}		
+		
+		tableFilter::getWhereArray($filterColumns, $wh, $hvArr);
+		$whClause = tableFilter::getWhereClause($wh);
+		
+		$qry = "select users.*, concat(lastName, ', ', firstName) as 'fullName'
+				from users left outer join permissionsAssignment on permissionsAssignment.userID = users.id
+						   $join
+				where 1 $whClause
+				group by users.id".
+				tableFilter::getHavingClause($hvArr)."
+				order by ".tableFilter::getOrderClause($sortData, "fullName asc");
+		
+		$totalCt = $d->qryRow($qry);
+		$uQry = $d->qry($qry.tableFilter::getLimitClause($paging));
+		
+		while($user = $uQry->fetch_assoc())
+		{			
+			$uObj = new security($user["id"]);
+			
+			$mnu = new jqPopupMenu();
+			
+			$ctl = $mnu->addMenuItem("javascript:void(0)", "Edit Account", "", "ui-icon-pencil");
+			$ctl->onclick = "showEditUser({$user["id"]})";			
+			
+			$mnu->addMenuItem("mailto:{$user["email"]}", "Email Account", "", "ui-icon-mail-closed");
+			
+			if ($g_sec->hasAccess(permissions::$manage_users, permissions::delete))
+			{
+				$ctl = $mnu->addMenuItem("javascript:void(0)", "Delete Account", "ui-state-error", "ui-icon-trash");
+				$ctl->onclick = "removeUser({$user["id"]})";
+			}
+			
+			if (!$user["firstName"] && !$user["lastName"]) $user["fullName"] = "<em>n/a</em>";
+			
+			$r = $t->addRow();
+			$r->addCell(new tblCell($user["fullName"], "", "left"));
+			$r->addCell(new tblCell($user["login"], "","left"));						
+			$r->addCell(new tblCell(validation::parseMySqlDate($uObj->lastLogin, "m-d-Y \a\\t H:i"), "","center"));
+			$r->addCell(new tblCell($mnu, "", "center"));
+		}	
+		
+		$js->count = $totalCt;
+		$js->content = $t->render();		
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function showEditUser($userID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		$globRead = $g_sec->hasAccess(permissions::$manage_users, permissions::read);
+		$globWrite = $g_sec->hasAccess(permissions::$manage_users, permissions::write);
+		$globInsert = $g_sec->hasAccess(permissions::$manage_users, permissions::insert);
+		
+		if (!$globRead || (!$sec->id && !$globInsert)) $g_sec->security_error_a();
+		
+		$sec = new security($userID);
+		
+		if ($sec->id && !$globWrite) $js->disableEdit = 1;		
+		
+		$tabs = new jqUI_tabControl("userTabs", 0, "admin/users");
+		
+		$uWin = new jqUI_dialog("userWin", true, 875, "", $sec->id ? "Modify existing user" : "Add a new user");
+		$uWin->addClass("configWin");
+		$uWin->setOption("autoOpen", 1);		
+		$uWin->setOption("autoResize", 1);
+		
+		$uWin->addCloseButton($sec->id ? "Close" : "Cancel");
+		if (!$sec->id && $globInsert) $uWin->addButton("Add New User", "function() { updateUser(); }");
+		
+		$txtFirst = new customText("details[firstName]", $sec->firstName, 25, 50);
+		$txtFirst->setLabel("First Name:");		
+		
+		$txtLast = new customText("details[lastName]", $sec->lastName, 25, 50);
+		$txtLast->setLabel("Last Name:");
+		
+		$txtLogin = new customText("details[login]", $sec->login, 25, 50);
+		$txtLogin->setLabel("Login:");
+		
+		$txtMiddle = new customText("details[middleInitial]", $sec->middleInitial, 1, 1);
+		$txtMiddle->setLabel("Middle Initial:");
+		
+		$txtTitle = new customText("details[title]", $sec->title, 25, 50);
+		$txtTitle->setLabel("Title:");
+		
+		$txtPass = new customText("details[password]", "", 25, 50);
+		$txtPass->setLabel("Password:");
+		if ($sec->id) $txtPass->setDescription("&nbsp;&nbsp;* Leave blank for no change", "desc");
+		
+		$txtEmail = new customText("details[email]", $sec->email, 25, 255);
+		$txtEmail->setLabel("Email Address:");
+		
+		$chk = new phpCheckbox("details[test]");
+		$chk->setLabel("Test Checkbox");
+		
+		$dob = $sec->dob ? validation::parseMySqlDate($sec->dob, "m-d-Y") : ($sec->id ? "" : date("m-d-Y", strtotime("-25 YEARS")));		
+		
+		$dtDOB = new jqUI_datepicker("details[dob]", $dob, "Date of Birth:", true, null);		
+		
+		$uForm = new phpForm("post", "userForm");
+		$uForm->addControl($txtFirst);
+		$uForm->addControl($txtMiddle);
+		$uForm->addControl($txtLast);
+		$uForm->addControl($dtDOB);
+		$uForm->addControl($txtTitle);
+		$uForm->addControl($txtLogin);
+		$uForm->addControl($txtPass);
+		$uForm->addControl($txtEmail);
+		$uForm->addControl($chk);
+		$uForm->addControl(new hiddenInput("action", "updateUser"));		
+		$uForm->addControl(new hiddenInput("userID", $sec->id));
+	
+		$tp = new jqUI_tabPage("user_detail", "Account Detail", "ui-icon-person");
+		$tp->addControl($uForm);		
+		
+		$tabs->addTabPage($tp);
+		
+		if ($sec->id)
+		{
+			$tp = new jqUI_tabPage("permissions", "Permissions", "ui-icon-key");
+			$tp->addControl(new phpDIV());
+			$tp->addControl(new jqLoader("getPermissions($userID)"));
+			
+			$tabs->addTabPage($tp);
+			
+			$tpComments = new jqUI_tabPage("account_notes", "Employer Comments");			
+			$tpComments->addControl(new commentContainer($eObj->id, customComments::comment_user, true));
+										
+			$tabs->addTabPage($tpComments);
+		}
+		
+		$uWin->addControl($tabs);
+	
+		$js->content = $uWin->render();
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function updateUser($userID, $details)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::write) && !$g_sec->is(permissions::$school_rep)) throw new Exception("Error, you do not have access to do that!");
+		
+		validation::ensureInt($userID);
+		
+		if (!validation::isValidEmail($details["email"])) throw new Exception("Invalid Email Address specified.");
+		if (strlen($details["firstName"]) < 3) throw new Exception("First Name must be at least 3 characters.");
+		if (strlen($details["lastName"]) < 3) throw new Exception("Last Name must be at least 3 characters.");	
+		if ($details["password"] && strlen($details["password"]) < 3) throw new Exception("Password must be at least 3 characters.");
+		if (strlen($details["login"]) < 3) throw new Exception("Login must be at least 3 characters!");
+		
+		//Check for existing login
+		$qry = "select id from users where login='{$details["login"]}'";
+		$cID = $d->qryCount($qry);
+		
+		if ($cID && $cID != $userID) throw new Exception("A user with that login name already exists. Please enter a different name.");		
+		
+		if ($details["password"])
+		{
+			$details["password"] = crypt($details["password"], 'pr');
+		}
+		else
+		{
+			unset($details["password"]);	
+		}
+		
+		$details["firstName"] = trim($details["firstName"]);
+		$details["lastName"] = trim($details["lastName"]);
+		$details["login"] = trim($details["login"]);
+		
+		$cv = validation::quotedArray($details);
+		
+		if ($userID)
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_users, permissions::write) && !permissions::checkRepStudentAccess($g_sec, new security($userID)))
+			{
+				throw new Exception("Error, you do not have access to modify that user!");
+			}
+			
+			$d->qryUpdateByArray('users', $cv, "id=$userID");
+			pageClass::setNotify("Successfully modified User");
+		}
+		else
+		{
+			$cv["createdDateTime"] = "now()";
+			
+			$userID = $d->qryInsertByArray('users',$cv);
+			pageClass::setNotify("Successfully added User");
+			
+			$js->userID = $userID;
+		}	
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+}
+function getPermissions($userID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	$pc = new pageContent();
+	
+	try
+	{
+		$sec = new security_a($userID);	
+		
+		$nameDisp = validation::prepForDisplay("$sec->lastName, $sec->firstName ($sec->login)");		
+			
+		$tG = new tblBuilder('center',0,0,8,'100%');
+		$tG->class = 'listTable hoverTable';		
+		
+		$r = $tG->addRow();
+		$r->addHeader(new tblHeader("Global Permissions", "", "", 6));
+		
+		$r = $tG->addRow();
+		$r->addHeader(new tblHeader('Permission','cHead', '','','200px'));
+		$r->addHeader(new tblHeader('Description','cHead'));
+		$r->addHeader(new tblHeader('Read','cHead'));
+		$r->addHeader(new tblHeader('Write','cHead'));
+		$r->addHeader(new tblHeader('Insert','cHead'));
+		$r->addHeader(new tblHeader('Delete','cHead'));	
+		
+		$conf = new siteConfig();
+		$permArr = permissions::getPermissionArray();
+		
+		$idx = 0;
+		
+		foreach($permArr as $permission)
+		{				
+			if (!$permission["standalone"] || $permission["isPermissionGroup"] || ($permission["siteType"] && !$conf->checkSiteType($permission["siteType"]))) continue;
+			
+			$pAssign = $d->qryArray("select * from permissionsAssignment where permissionKey='{$permission["key"]}' and userID=$sec->id and dataID=0 and typeID=".permissions::permission_generic);
+			
+			$chkRead = ($permission["max_perms"] & 1) ? new phpCheckbox("read_$idx", 1, $pAssign["bitValue"] & 1) : new phpFiller();
+			$chkRead->onclick = "savePermissions($userID, this)";
+			
+			$chkWrite = ($permission["max_perms"] & 2) ? new phpCheckbox("write_$idx", 2, $pAssign["bitValue"] & 2) : new phpFiller();
+			$chkWrite->onclick = "savePermissions($userID, this)";
+			
+			$chkInsert = ($permission["max_perms"] & 4) ? new phpCheckbox("insert_$idx", 4, $pAssign["bitValue"] & 4) : new phpFiller();
+			$chkInsert->onclick = "savePermissions($userID, this)";
+			
+			$chkDel = ($permission["max_perms"] & 8) ? new phpCheckbox("delete_$idx", 8, $pAssign["bitValue"] & 8) : new phpFiller();
+			$chkDel->onclick = "savePermissions($userID, this)";
+	
+			$title = ucwords(str_replace("_", " ", $permission["key"]));
+			
+			$r = $tG->addRow();
+			$r->addAttribute("data-permkey", $permission["key"]);
+			
+			$r->addCell(new tblCell("<strong class='ladderColor'>$title</strong>", "listCell", "left"));
+			$r->addCell(new tblCell(validation::prepForDisplay($permission["description"]), "listAltCell", "left"));
+			$r->addCell(new tblCell($chkRead, "listCell", "center"));
+			$r->addCell(new tblCell($chkWrite, "listCell", "center"));
+			$r->addCell(new tblCell($chkInsert, "listCell", "center"));
+			$r->addCell(new tblCell($chkDel, "listCell", "center"));
+			
+			$idx++;
+		}
+		
+		$pc->addControl($tG);
+				
+		$tS = new tblBuilder('center',0,0,8,'100%');
+		$tS->class = 'listTable hoverTable';		
+		
+		$r = $tS->addRow();
+		$r->addHeader(new tblHeader("Data-Specific Permissions", "", "", 6));
+		
+		$r = $tS->addRow();
+		$r->addHeader(new tblHeader('Permission','cHead', '','','200px'));
+		$r->addHeader(new tblHeader('Link Detail','cHead'));
+		$r->addHeader(new tblHeader('Read','cHead'));
+		$r->addHeader(new tblHeader('Write','cHead'));
+		$r->addHeader(new tblHeader('Insert','cHead'));
+		$r->addHeader(new tblHeader('Delete','cHead'));		
+		
+		$qry = "select *
+				from permissionsAssignment
+				where userID = $userID and dataID <> 0
+				order by permissionKey asc";
+		$pQry = $d->qry($qry);
+		
+		$assnCt = 0;
+		
+		while($assn = $pQry->fetch_assoc())			
+		{	
+			$permission = permissions::getPermissionByKey($assn["permissionKey"]);
+			if (!$permission["key"]) continue;
+			
+			if (!$conf->checkSiteType($permission["siteType"])) continue;
+
+			/* switch($permission["siteType"])
+			{
+				case proteus_core::module_categoryItems:
+					$obj = new customCategory($assn["dataID"]);
+					if (!$obj->id) continue;
+
+					$title = $obj->name;
+					
+					break;
+				case proteus_core::module_showcase:
+					try 
+					{
+						$obj = new customShowcase($assn["dataID"]);
+						$title = $obj->name;
+					}
+					catch(Exception $ex)
+					{
+						continue;
+					}
+					
+					break;
+					
+				case proteus_core::module_blogs:
+					try
+					{
+						$obj = new customBlog($assn["dataID"]);
+						$title = $obj->title;
+					}
+					catch(Exception $ex)
+					{
+						continue;	
+					}
+					
+					break;
+				case proteus_core::module_customForms:					
+					$obj = $d->qryArray("select * from formBuilder where id={$assn["dataID"]}");
+					if (!$obj["id"]) continue;
+					
+					$title = $obj["title"];
+					
+					break;
+					
+				case proteus_core::module_calendars:
+					try
+					{
+						$obj = new customCalendar($assn["dataID"], false);
+						$title = $obj->title;
+					}
+					catch(Exception $ex)
+					{
+						continue;
+					}					
+					break;
+					
+				case proteus_core::module_municipal:
+					try 
+					{
+						$obj = new pmm_entity($assn["dataID"]);
+						$title = $obj->title;
+					}
+					catch(Exception $ex)
+					{
+						continue;	
+					}					
+					break;
+					
+				default:
+					continue;
+			} */			
+			
+			$chkRead = ($permission["max_perms"] & 1) ? new phpCheckbox("read_$idx", 1, $assn["bitValue"] & 1) : new phpFiller();
+			$chkRead->onclick = "savePermissions($userID, this)";
+			
+			$chkWrite = ($permission["max_perms"] & 2) ? new phpCheckbox("write_$idx", 2, $assn["bitValue"] & 2) : new phpFiller();
+			$chkWrite->onclick = "savePermissions($userID, this)";
+			
+			$chkInsert = ($permission["max_perms"] & 4) ? new phpCheckbox("insert_$idx", 4, $assn["bitValue"] & 4) : new phpFiller();
+			$chkInsert->onclick = "savePermissions($userID, this)";
+			
+			$chkDel = ($permission["max_perms"] & 8) ? new phpCheckbox("delete_$idx", 8, $assn["bitValue"] & 8) : new phpFiller();
+			$chkDel->onclick = "savePermissions($userID, this)";
+	
+			$pTitle = ucwords(str_replace("_", " ", $permission["key"]));
+			
+			$r = $tS->addRow();
+			$r->addAttribute("data-permkey", $permission["key"]);
+			$r->addAttribute("data-assnid", $assn["id"]);
+			
+			$r->addCell(new tblCell("<strong class='ladderColor'>$pTitle</strong>", "listCell", "left"));
+			$r->addCell(new tblCell($title, "listAltCell", "left"));
+			$r->addCell(new tblCell($chkRead, "listCell", "center"));
+			$r->addCell(new tblCell($chkWrite, "listCell", "center"));
+			$r->addCell(new tblCell($chkInsert, "listCell", "center"));
+			$r->addCell(new tblCell($chkDel, "listCell", "center"));
+			
+			$idx++;
+			$assnCt++;
+		}
+		
+		$kTable = new tblBuilder("center",0,0,8,"100%");
+		$kTable->class = "listTable";		
+		
+		$r = $kTable->addRow();
+		$r->addHeader(new tblHeader("Assigned Group Permissions","","",3));
+		
+		$r = $kTable->addRow();
+		$r->addHeader(new tblHeader("Permission","", "", "", 200));
+		$r->addHeader(new tblHeader("Description"));
+		$r->addHeader(new tblHeader("&nbsp;"));
+		
+		$ddlPerm = new phpDDL("permKey");		
+		$ddlPerm->setLabel("Add new Permission:");
+		$ddlPerm->onchange = "getLinkedOptions()";
+		$ddlPerm->addListItem(new phpListItem("",""));
+		
+		$ddlSec = new phpDDL('accessSec');		
+		$ddlSec->setLabel("Add Access:");
+		
+		foreach($permArr as $perm)
+		{	
+			$title = ucwords(str_replace("_", " ", $perm["key"]));
+			
+			if (!$perm["standalone"] && !$perm["isPermissionGroup"] && $conf->checkSiteType($perm["siteType"]))
+			{				
+				$ddlPerm->addListItem(new phpListItem($title, $perm["key"]));	
+			}
+			elseif ($perm["isPermissionGroup"])
+			{	
+				if ($sec->is($perm))
+				{
+					$dCtl = new deleteControl();
+					$dCtl->onclick = "removePermission('{$perm["key"]}')";
+					
+					$r = $kTable->addRow();
+					$r->addCell(new tblCell($title,"evenCell","left", "", 150));	
+					$r->addCell(new tblCell(validation::prepForDisplay($perm["description"]), "listAltCell", "left"));		
+					$r->addCell(new tblCell($dCtl,"evenCell","center", "", "45"));
+				}
+				else
+				{
+					$ddlSec->addListItem(new phpListItem($title, $perm["key"]));		
+				}
+			}			
+		}
+		
+		if ($assnCt)
+		{	
+			$pc->addControl($tS);
+		}
+		
+		if (count($ddlPerm->listItems))
+		{
+			$frm = new phpForm();
+			
+			$btnAdd = new jqUI_button("btnAddSpec", "Add Permission", "", "ui-icon-key", true);
+			$btnAdd->onclick = "addPermissionEntry($userID)";
+		
+			$dvOpt = new phpDIV();
+			$dvOpt->id = "permOptions";
+			
+			$frm->addControl($ddlPerm);
+			$frm->addControl($dvOpt);
+			$frm->addControl($btnAdd);
+	
+			$pc->addControl($frm);			
+		}
+		
+		$btnAddS = new jqUI_button('btnAddS', 'Add Permission', "floating", "ui-icon-key", true);		
+		$btnAddS->breakAfter = true;		
+		$btnAddS->onclick = "addSecurityAssn($userID);";
+		
+		$pc->addControl($kTable);
+		
+		if (count($ddlSec->listItems))
+		{
+			$pc->addControl($ddlSec);
+			$pc->addControl($btnAddS);
+		}		
+		
+		$js->content = $pc->render();
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();	
+	exit(0);
+}
+function savePermissions($userID, $perms, $assnID='')
+{
+	global $config, $g_sec;	
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{			
+		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::write)) throw new Exception("Error, you do not have access to do that!");
+		
+		$sec = new security($userID);
+		if (!$sec->id) throw new Exception("Error, no user information provided!");		
+		
+		//Need to do a double loop here because of the way JavaScript hashes Objects into arrays.
+		foreach((array)$perms as $obj)
+		{
+			if (!$obj) continue;
+		
+			foreach((array)$obj as $key=>$value)
+			{
+				if ($assnID) $dWh = " and id=$assnID";
+				$permAssn = $d->qryArray("select * from permissionsAssignment where permissionKey='$key' and userID=$userID and typeID = 0 $dWh");	
+				
+				// Intrinsic read permissions
+				if ($value && !($value & permissions::read))
+				{
+					$js->reload = 1;
+					$value++;
+				}
+				
+				$cv[bitValue] = $value;
+				
+				if ($permAssn[id])
+				{
+					if ($value)
+					{
+						$d->qryUpdateByArray("permissionsAssignment", $cv, "id=$permAssn[id]");
+					}
+					else
+					{
+						//Remove the empty entry (cleanup)
+						$d->qry("delete from permissionsAssignment where id=$permAssn[id]");
+						
+						$js->reload = 1;
+					}
+				}
+				else
+				{
+					//This shouldn't ever happen...
+					if ($assnID) throw new Exception("Invalid assignment ID provided.");
+					
+					$cv[userID] = $userID;
+					$cv[permissionKey] = "'$key'";
+					//$cv[dataID] = $dataID;
+									
+					$d->qryInsertByArray("permissionsAssignment", $cv);
+				}
+			}
+		}
+		
+		pageClass::setNotify("Successfully modified permission access.");		
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();				
+}
+function addSecurityAssn($userID, $matrixID, $value)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::write)) $g_sec->security_error_a();
+		
+		validation::ensureInt($matrixID);
+		if (!$matrixID) throw new Exception("Error, no valid security assignment selected. Please try again.");
+		
+		$sec = new security($userID);
+		if (!$sec->id) throw new Exception("Error, that user could not be found!");
+
+		$cv[matrixID] = $matrixID;
+		$cv[matrixValue] = "'$value'";
+		$cv[userID] = $userID;
+	
+		$d->qryInsertByArray('rightsAssignment', validation::quotedArray($cv));		
+		
+		pageClass::setNotify("Successfully added security assignment.");	
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+function deleteSecurityAssn($keyID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::write)) $g_sec->security_error_a();
+		
+		validation::ensureInt($keyID);
+		if (!$keyID) throw new Exception("Error, no valid security assignment selected. Please try again.");
+		
+		$keyData = $d->qryArray("select * from rightsAssignment where id=$keyID");
+		if (!$keyData[id]) throw new Exception("Error, that assignment could not be found!");
+
+		$js->userID = $keyData[userID];
+		
+		$d->qry("delete from rightsAssignment where id = $keyID");
+		
+		pageClass::setNotify("Successfully removed permission assignment.");	
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+function getLinkedOptions($permKey)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::write)) $g_sec->security_error_a();
+		
+		$permObj = permissions::getPermissionByKey($permKey);		
+		$typeID = $permObj[siteType];
+		
+		if (!$typeID)
+		{
+			$js->content = "";
+		}
+		else
+		{
+			$ddlOpt = new phpDDL("linkData");
+		
+			switch($typeID)
+			{
+				case proteus_core::module_categoryItems:
+					$qry = "select id, name
+							from categoryTypes
+							where inactive = 0
+							order by name asc";										
+					break;
+				case proteus_core::module_showcase:
+					$qry = "select id, name
+							from showcase
+							where inactive = 0
+							order by name asc";							
+					break;					
+				case proteus_core::module_blogs:
+					$qry = "select id, title 'name'
+							from blogs
+							where inactive = 0
+							order by title asc";					
+					break;
+				case proteus_core::module_customForms:					
+					$qry = "select id, title 'name'
+							from formBuilder
+							where disabled = 0
+							order by title asc";					
+					break;
+				case proteus_core::module_calendars:
+					$qry = "select id, title 'name'
+							from calendars
+							where inactive = 0
+							order by title asc";
+					break;
+				case proteus_core::module_municipal:
+					$qry = "select id, title 'name'
+							from pmm_entities
+							order by title asc";
+					break;
+				default:
+					throw new Exception("Error, invalid permission type specified!");
+			}
+			
+			$qry = $d->qry($qry);
+			
+			while($entry = $qry->fetch_assoc())
+			{
+				validation::truncateText($entry[name], 30);
+				
+				//Limit entries that already exist
+				switch($typeID)
+				{
+					case proteus_core::module_categoryItems:
+						if ($g_sec->hasAccess(permissions::$modify_category_type, 0, $entry[id])) continue;
+					case proteus_core::module_showcase:
+						if ($g_sec->hasAccess(permissions::$modify_showcase, 0, $entry[id])) continue;
+					case proteus_core::module_blogs:
+						if ($g_sec->hasAccess(permissions::$modify_blog_category, 0, $entry[id])) continue;
+					case proteus_core::module_customForms:
+						if ($g_sec->hasAccess(permissions::$modify_custom_form, 0, $entry[id])) continue;
+					case proteus_core::module_calendars:
+						if ($g_sec->hasAccess(permissions::$modify_calendar, 0, $entry[id])) continue;
+					case proteus_core::module_municipal:
+						if ($g_sec->hasAccess(permissions::$municipal_entity, 0, $entry[id])) continue;
+				}
+				
+				$ddlOpt->addListItem(new phpListItem(validation::prepForDisplay($entry[name], false), $entry[id]));
+			}
+			
+			$js->content = $ddlOpt->render();
+		}		
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+function addPermissionEntry($userID, $permissionKey, $dataID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		validation::ensureInt($dataID);
+		
+		if (!$dataID) throw new Exception("Error, no data specified to link.");
+		if (!$permissionKey) throw new Exception("Error, no permission selected. Please try again.");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::write)) $g_sec->security_error_a();
+		
+		$permObj = permissions::getPermissionByKey($permissionKey);
+		if (!$permObj[key]) throw new Exception("Error, a permission entry matching the one specified does not exist. Please try again.");
+				
+		$sec = new security($userID);
+		
+		$cv[dataID] = $dataID;
+		$cv[permissionKey] = "'$permissionKey'";
+		$cv[userID] = $userID;
+		
+		$d->qryInsertByArray("permissionsAssignment", $cv);
+		
+		pageClass::setNotify("Successfully added permission entry.");
+		
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();	
+}
+function searchUsers($term)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	//$js = new json_a();
+	
+	try
+	{
+		$qry = "select *, concat_ws(', ', lastName, firstName) as 'fullName' 
+				from users
+				where login like '%$term%' or lastName like '%$term%' or firstName like '%$term%' or email like '%$term%'
+				order by login asc";
+		$uQry = $d->qry($qry);
+		
+		$arr = array();
+		
+		while($user = mysqli_fetch_assoc($uQry))
+		{			
+			$jObj = new json_a();
+			
+			if ($user[fullName]{0} != ",")
+			{
+				$jObj->label = $user[fullName];				
+			} 
+			else
+			{
+				$jObj->label = $user[login];	
+			}
+			
+			$jObj->value = $user[id];
+			
+			$arr[] = $jObj->render();
+		}
+		
+		$output = "[".implode(",", $arr)."]";
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $output;
+	exit();		
+}
+function removeUser($userID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		$sec = new security($userID);
+		if (!$sec->id) throw new Exception("Error, that user could not be found.");		
+		
+		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::delete)) $g_sec->security_error_a();
+		
+		$cv[inactive] = 1;
+		$d->qryUpdateByArray("users", $cv, "id=$userID");		
+		
+		pageClass::setNotify("Successfully deactivated system user.");		
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();	
+}
+?>

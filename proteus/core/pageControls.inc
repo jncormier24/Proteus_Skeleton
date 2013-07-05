@@ -35,7 +35,15 @@ class pageClass extends pageContent
 		$this->post_script_objects = new pageContent();
 		
 		// Attempt to load any logged-in user information
-		$this->authUser = permissions::getAuthorizedUser();
+		try
+		{
+			$this->authUser = permissions::getAuthorizedUser();
+		}
+		catch (Exception $ex)
+		{
+			// Catch any DB errors, etc.
+			error($ex->getMessage());
+		}
 	}
 	public function setCustomView($templateFile="view.tpl")
 	{
@@ -43,7 +51,7 @@ class pageClass extends pageContent
 		// view template.		
 		global $config;		
 		
-		$fileLoc = ($config[adminAppDir] ? "admin/$pageIndex/" : "pages/$pageIndex/").$templateFile;
+		$fileLoc = $config[pageDir]."/$pageIndex/".$templateFile;
 		
 		$this->parser = new fileParser($fileLoc, true);
 	}	
@@ -54,6 +62,10 @@ class pageClass extends pageContent
 	public function addScriptObject($ctl)
 	{
 		$this->script_objects->addControl($ctl);
+	}
+	public function addPostScriptObject($ctl)
+	{
+		$this->post_script_objects->addControl($ctl);
 	}
 	public function addHeadObject($webControl, $insert=false)
 	{
@@ -87,13 +99,13 @@ class pageClass extends pageContent
 		// Render the pageModules and all requisites before including the autoInclude items
 		$this->renderPageModules();
 		
-		foreach($config["autoIncludeFolders"] as $folder=>$exts)
+		foreach($config["auto_include_folders"] as $folder=>$exts)
 		{
 			foreach($exts as $ext)
 			{				
 				//echo getcwd()."/".$config["pageDir"]."/".$config["pageIndex"]."/$folder<br />";
 				foreach(glob($config["baseAppDir"].$config["pageDir"]."/".$config["pageIndex"]."/$folder/*.$ext") as $file)
-				{
+				{					
 					$baseFile = basename($file);
 		
 					$fLoc = $config["pageDir"]."/".$config["pageIndex"]."/$folder/$baseFile";
@@ -199,13 +211,14 @@ class pageClass extends pageContent
 		if (!$this->authUser) $this->authUser = permissions::getAuthorizedUser();
 		
 		if (!$this->authUser)
-		{			
-			
-			$ref = implode("/", $config["params"]);
-			$ref="test/this/post";					
-			$this->redirect($loginPageIndex."?ref=$ref");	
+		{
+			//die(print_r($_SERVER, true));			
+			//$ref = implode("/", $config["params"]);
+
+			$ref = $_SERVER["SCRIPT_URL"];
+			$this->redirect($config["scripturl"].$loginPageIndex."?ref=$ref");	
 		}		
-	}
+	}	
 }
 class panelBlock extends phpDIV
 {		

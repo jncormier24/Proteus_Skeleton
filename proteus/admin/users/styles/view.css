@@ -1,0 +1,49 @@
+#users
+{
+	min-height: 375px;
+}
+#userForm
+{
+	padding: 10px;
+}
+#permissions table
+{
+	clear: left;
+	
+	margin: 0px 0px 8px 0px;
+}
+#btnNewUser
+{
+	float: right;
+	margin: 2px 0px 3px 0px;
+}
+button.permissions
+{	
+	margin-top: 2px;		
+}
+button.permissions .ui-button-text
+{
+	line-height: 12px;
+}
+#permissionWin table.listTable
+{
+	margin: 10px 0px 5px 0px;
+}
+#btnAddM, #btnAddS, #btnAddSpec
+{
+	margin-left: 4px;
+}
+#btnAddSpec
+{
+	float: left;
+	margin-top: 2px;
+}
+#permKey
+{
+	margin-bottom: 10px;
+}
+#permOptions
+{
+	float: left;
+	padding: 2px 0px 0px 3px;
+}

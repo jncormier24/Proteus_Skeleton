@@ -1,0 +1,133 @@
+.tableFilterDiv
+{
+	clear: both;
+	position: relative;
+	
+	overflow: hidden;	
+	margin-bottom: -2px;		
+}
+.tableFilterDiv > div
+{
+	display: none;	
+}
+.tableFilterDiv .filterRight
+{
+	float: right;
+	margin: -5px -20px 8px 0px;
+}
+.tableFilterDiv .filterRight button
+{
+	float: right;	
+	
+	border-color: #A33D00 !important;
+	box-shadow: 0px 0px 2px #A33D00;
+	
+	margin-bottom: 5px;
+}
+.tableFilterDiv .filterRight select
+{
+	float: right;
+	
+	font-size: 10px;
+	padding: 1px;
+	
+	margin-top: 3px;	
+	margin-right: 0px;
+}
+.tableFilterDiv .filterRight label
+{
+	float: left;
+	clear: right;
+	
+	width: 85px;
+	
+	font-size: 10px;
+	
+	margin-top: 6px;
+	
+	text-align: right;	
+}
+.tableFilterDiv input, .tableFilterDiv select, .tableFilterDiv textarea, .tableFilterDiv label
+{
+	float: left;
+	
+	margin: 0px 5px 3px 0px;	
+}
+.tableFilterDiv label
+{
+	clear: left;
+	width: 200px;
+	
+	margin-top: 7px;
+	
+	text-align: left;		
+}
+.tableFilterDiv label.range
+{
+	clear: none;
+	
+	width: 50px;
+	
+	text-align: center;	
+}
+.tableFilterDiv .ui-accordion-header
+{
+	background-image: url(images/row_shine_strong.png);
+	background-repeat: repeat-x;
+	background-color: #9AA3B4;
+	
+	border-color: #888888;
+	
+	border-bottom-left-radius: 0px !important;
+	border-bottom-right-radius: 0px !important;
+}
+.tableFilterDiv .ui-accordion-header a
+{
+	font-weight: bold;
+	text-align: left;	
+}
+.tableFilterDiv .ui-accordion-content
+{
+	background: none;
+	background-color: #e2e2e2;	
+}
+.tableFilterDiv span.totalDisplay
+{
+	position: absolute;
+	
+	bottom: 5px;
+	right: 5px;
+	
+	font-size: 11px;	
+}
+.jqFilterIcon
+{
+	display: inline-block;
+	position: relative;
+	
+	top: 2px;
+	
+	cursor: pointer;	
+}
+.emptyFilter
+{
+	background-color: #dfdfdf;
+	color: #b8b8b8 !important;
+	font-style: italic;
+}
+.tableFilterDiv .filterRefresh
+{
+	display: block;
+	position: absolute;
+	
+	border: 1px solid #A33D00;
+	border-radius: 4px;
+	box-shadow: 0px 0px 2px #A33D00;
+	
+	right: 5px;
+	top: 9px;	
+	
+	cursor: pointer;
+	
+	z-index: 50;
+}

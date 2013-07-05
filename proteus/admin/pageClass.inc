@@ -5,15 +5,18 @@ class adminPage extends pageClass
 	public $header;
 	public $footer;
 	
-	public function __construct($title)
+	public function __construct($title, $secure = true)
 	{
 		$this->addPageModule(new jQueryUIModule());
 		
 		parent::__construct($title);
 		
-		$this->navigation = new site_navigation();
-		$this->header = new site_header();
-		$this->footer = new site_footer();		
+		$this->navigation = new admin_navigation($this->authUser);
+		$this->header = new admin_header($this->authUser);
+		$this->footer = new admin_footer();
+
+		// Default to secure all admin pages
+		if ($secure) $this->secure("admin/login");
 	}
 	public function render()
 	{		
@@ -25,22 +28,140 @@ class adminPage extends pageClass
 		$this->parser->pushParam("FOOTER_CONTENT", $this->footer->render());
 		
 		// All pages using MVC architecture need this
-		//$this->addPageModule(new baseHRefModule($config[adminScriptUrl]));
+		//$this->addPageModule(new baseHRefModule($config[adminScriptUrl]));		
+		
+		$this->addPostScriptObject(new javascriptControl("","proteus/admin/common/scripts/view.js"));
 		
 		// Render parent
 		parent::render();
 	}
 }
-class site_navigation extends phpDIV
+class admin_navigation extends phpDIV
 {	
+	public $menu;
 	
+	public function __construct($secObj)
+	{
+		$this->id = "navContent";
+		parent::__construct();
+	
+		$this->menu = new phpUnOrderedList();
+	
+		if ($secObj->id)
+		{
+			$lnk = new jqUI_hyperlink("admin", "Admin Home", "", "ui-icon-home");
+			$this->menu->addListItem(new htmlListItem($lnk->render()));
+		
+		
+			$lnk = new jqUI_hyperlink("javascript:void()", "Management", "", "ui-icon-gear");		
+			$li = new htmlListItem($lnk->render());
+			
+			$ul = new phpUnOrderedList();
+			
+			$lnk = new jqUI_hyperlink("admin/users", "Manage Users", "", "ui-icon-person");
+			$ul->addListItem(new htmlListItem($lnk->render()));
+			
+			$li->addControl($ul);
+			$this->menu->addListItem($li);
+		}
+		
+		$lnk = new jqUI_hyperlink("index", "Back to Site", "", "ui-icon-seek-prev");
+		
+		$li = new htmlListItem($lnk->render());
+		$li->class = "back";
+		
+		$this->menu->addListItem($li);
+	
+		$this->addControl($this->menu);
+	}
 }
-class site_header extends phpDIV
+class admin_header extends phpDIV
 {
+	public function __construct($secObj)
+	{
+		$this->id = "headerContent";
+		parent::__construct();
 	
+		$this->addControl(new phpHeader(1, "Proteus IV Content Management Framework"));
+		
+		if ($secObj)
+		{
+			$dv = new phpDIV("", "authUser");
+			
+			$dv->addControl(new phpSpan("Logged in as: <strong>{$secObj->login}</strong>&nbsp;"));
+			
+			$lLink = new jqUI_hyperlink("javascript:logout('admin')", "&nbsp;", "logout", "ui-icon-power");
+			$lLink->title = "Log out of your account";
+			
+			$dv->addControl($lLink);
+			
+			$this->addControl($dv);
+		}
+	}	
 }
-class site_footer extends phpDIV
+class admin_footer extends phpDIV
 {
+	public function __construct()
+	{
+		$this->id = "footerContent";
+		parent::__construct();
+	}
+}
+function admin_error_handler($errNo, $errStr, $errFile='', $errLine='', $type='')
+{
+	global $config;
+
+	// error_reporting()==0 if the @ sign was used
+	if ($errNo == E_NOTICE || error_reporting()==0) return;
+
+	if($errNo == E_WARNING)
+	{
+		if ($config["debug_mode"])
+		{
+			debug("Error: $errNo <br>File: $errFile <br> Desc: $errStr <br>Line: $errLine<br />StackTrace: ".var_export(debug_backtrace(), true), null, false);
+			return;
+		}
+	}
 	
+	// A different template can easily be used here, or even another extended pageClass to display custom error information / UI
+	$a = new adminPage("Error!!");
+
+	$eCont = new phpDIV();
+	$eCont->class = "errorContainer";
+
+	$eCont->addControl(new phpHeader(1, "An error has occurred processing your request."));
+
+	if ($errNo == 256)
+	{
+		$eCont->addControl(new phpParagraph($errStr));
+	}
+	else
+	{
+		if (!$config["debug_mode"] && $errNo != E_USER_ERROR && $config["debug_email_address"])
+		{
+			error_log("Error: $errNo \nFile: $errFile \n Desc: $errStr \nLine: $errLine \nStack Trace:".var_export(debug_backtrace(), true),1, $config["debug_email_address"]);
+		}
+		else
+		{
+			error_log($errStr);
+		}
+
+		if ($config["debug_mode"] || $errNo == E_USER_ERROR)
+		{
+			$eCont->addControl(new phpParagraph($errStr));
+		}
+		else
+		{
+			$eCont->addControl(new phpParagraph("We apologize for the inconvenience, but an unknown error has occured processing your request. Please try again, or contact the site administrator if the problem persists."));
+		}
+	}
+
+	$cmdBack = new jqUI_button("", "Back to Previous Page", "", "ui-icon-seek-prev");
+	$cmdBack->onclick = "history.back(1)";
+	
+	$eCont->addControl($cmdBack);
+
+	$a->addControl($eCont);
+	$a->render();
 }
 ?>

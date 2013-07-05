@@ -40,6 +40,13 @@ class baseHRefModule extends pageModule
 		$this->addScriptObject(new phpLiteral("<base href='$location' />\n"));
 	}
 }
+class commentsModule extends pageModule 
+{
+	public function __construct()
+	{			
+		$this->addScriptObject(new javascriptControl("", "proteus/modules/comments/scripts/view.js"));			
+	}	
+}
 class jQueryModule extends pageModule
 {
 	public function __construct()
@@ -58,11 +65,49 @@ class jQueryUIModule extends pageModule
 
 		$this->addRequisiteModule(new jQueryModule());
 
-		$this->addStyleSheet(new stylesheetControl("proteus/jquery/ui/smoothness/jquery-ui-1.10.3.custom.min.css"));
+		$this->addStyleSheet(new stylesheetControl("proteus/jquery/ui/$config[jquery_ui_theme]/jquery-ui-1.10.3.custom.min.css"));
 		$this->addScriptObject(new javascriptControl("", "proteus/jquery/ui/jquery-ui-1.10.3.custom.min.js"));
 
 		$this->addStyleSheet(new stylesheetControl("proteus/jquery/jgrowl/jquery.jgrowl.css"));
 		$this->addScriptObject(new javascriptControl("", "proteus/jquery/jgrowl/jquery.jgrowl.js"));
+	}
+}
+class jqFilterHelperModule extends pageModule 
+{
+	public function __construct()
+	{	
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/filterHelper/jquery.filterHelper.js"));
+		$this->addStylesheet(new stylesheetControl("proteus/jquery/filterHelper/jquery.filterHelper.css"));			
+	}
+}
+class jqDatePickerModule extends pageModule
+{
+	// SWB 7/13: This module is deprecated in favor of setting options using the jqUI_datepicker object ::setOption()
+	public function __construct($elements='.datePicker', $suppressInit=false)
+	{
+		/* $init = "$(initProteusDatePickers);
+		
+		function initProteusDatePickers() 
+		{
+			$('$elements').datepicker({showOn: 'button', buttonImage: 'proteus/jquery/ui/supplement/calendar.gif', buttonImageOnly: true}).attr('readonly','readonly');
+		}";		
+		
+		$this->addRequisiteModule(new jQueryUIModule());
+		if (!$suppressInit) $this->addScriptObject(new javascriptControl($init)); */		
+	}	
+}
+class jqPopupMenuModule extends pageModule 
+{
+	public function __construct()
+	{	
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/jquery.popupMenu.js"));			
+	}
+}
+class jqUpdateHelperModule extends pageModule 
+{
+	public function __construct()
+	{	
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/jquery.updateHelper.js"));			
 	}
 }
 ?>

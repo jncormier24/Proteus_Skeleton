@@ -4,33 +4,24 @@
 	$config["version"] = "4.0";
 	 
 	// Get the base application directory	
-	$config["baseAppDir"] = getcwd()."/";	
+	if (!$config["baseAppDir"]) $config["baseAppDir"] = getcwd()."/";	
 	
 	// Get the library installation directory
-	$config["libraryDir"] = dirname(__FILE__)."/";
+	$config["libraryDir"] = $config[baseAppDir]."proteus/"; //dirname(__FILE__)."/";
 	
 	// This will be overidden by the administration panel
-	$config["pageDir"] = "pages";
+	if( (!$config["pageDir"])) $config["pageDir"] = "pages";
+	
+	// Set the bundled UI theme
+	$config["jquery_ui_theme"] = "overcast";
 	
 	if ($config["application_root"])
 	{		
-		// Get the script URL
-		$tmp = explode("/", $_SERVER["SCRIPT_NAME"]);
+		// Get the script URL		
 		$tmp = explode("/", $config["application_root"]);				
 		
 		$shiftCt = count($tmp);		
 	}
-	
-	
-	/* $shiftCt = count($tmp);
-	
-	if ($shiftCt)
-	{
-		array_pop($tmp);
-		
-		// Allows installation within subdirectories
-		$urlBase = implode("/", $tmp);
-	} */
 	
 	$config["scripturl"] = "http".($_SERVER["HTTPS"] == "on" ? "s" : "")."://".$_SERVER["HTTP_HOST"]."/".$config["application_root"];	
 
@@ -46,17 +37,30 @@
 		
 	include($config["libraryDir"]."core/core.inc");
 	include($config["libraryDir"]."core/pageControls.inc");
+		
+	// Find all the required modules (required=true) and include their models
+	// Some modules will still require adding a pageModule to access CSS/JS functionality, this is just to include the object models
+	$mods = proteus_core::getModulesArray();
+	
+	foreach($mods as $mod)
+	{
+		if ($mod["required"]) proteus_core::includeModule($mod);
+	}
 	
 	// Store the URI in array format for processing
 	$config["params"] = proteus_core::processURI($shiftCt);	
 	
-	define("UERR", E_USER_ERROR);
 	define("START_TIME", proteus_core::getMicroTime());
 	
-	//set_error_handler('error_handler');
+	if ($config["custom_error_handler"]) set_error_handler($config["custom_error_handler"]);	
+	if ($config["use_zlib_compression"]) ini_set("zlib.output_compression","1");	
 	
-	ini_set("zlib.output_compression","1");
+	date_default_timezone_set($config["server_timezone"]);	
 	
+	$dateObj = new DateTime(); //"now", new DateTimeZone($config["server_timezone"]));	
+	 
+	//$config["tz_offset"] = $dateObj->getOffset() / 60 / 60;
+		
 	//Create globals
 	//Get VARS must be alpha-numeric only!
 	$cur = current($_GET);
@@ -107,6 +111,8 @@
 			die('Unauthorized');
 		}
 	}
+	
+	session_start();
 
 function walkEreg(&$str)
 {

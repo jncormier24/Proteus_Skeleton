@@ -1,0 +1,46 @@
+<?php 
+	switch($action)
+	{
+		case "logout":
+			logout();
+			break;
+				
+		case "getMessages":
+			getMessages();
+			break;
+				
+		default:
+			die(0);
+	}
+
+function getMessages()
+{
+	$js = new json_a();
+
+	$msgArr = pageClass::getNotify();
+
+	$message = $msgArr[0];
+	$title = $msgArr[1];
+
+	if ($message)
+	{
+		$js->message = ($title ? $title : $message);
+	}
+
+	echo $js->render();
+	exit(0);
+}
+function logout()
+{
+	$js = new json_a();
+
+	$sCache = new session_cache("login");
+	$sCache->clear();
+	
+	$_SESSION["password"] = "";
+	session_write_close();
+
+	echo $js->render();
+	exit(0);
+}
+?>

@@ -1,33 +1,19 @@
 <?php
-function dbError($errMess)
-{
+function error($errMess)
+{	
 	global $config;
 	
-	$msg = "Database Error Occurred: <br>".$errMess;
-	
-	if (!$config[debugMode])
-	{
-		//error_log("Site: {$_SERVER['PHP_SELF']}\n\n".$errMess."\n\n".var_export(debug_backtrace(), true), 1, "scott@mstech.com");
-		error_log("Site: {$_SERVER['PHP_SELF']}\n\n".$errMess, 1, "scott@mstech.com");
-		error("A Database error has occured, and an administrator has been notified. We are sorry for the inconvenience.");
-		//error_reporting(E_ERROR);
-		//trigger_error("A Database error has occured, and an adminstrator has been notified. We are sorry for the inconvenience.", E_ERROR);					
-	}
-	else
-	{
-		error_log($errMess);
-		die($msg); 
-	}
-}
-function error($errMess, $prevPage="history.go(-1)", $showFeedback = true)
-{	
-	if (!$prevPage) $prevPage="history.go(-1)";
-	
 	// This is so any buried "error" calls within ajax calls throw an exception instead of trying to print out an error
-	// Borderline "hack"	
+	// -- Borderline "hack" --	
 	if (preg_match("/\.ajax$/i", $_SERVER['PHP_SELF'])) throw new Exception($errMess);
 	
-	error_handler(E_USER_ERROR, $errMess, '','','',$prevPage);	
+	if (!$config["custom_error_handler"]) die("** No custom error handler defined; rendering raw error message output ** <br />".$errMess);
+	//call_user_func($config["custom_error_handler"], array(0, E_USER_ERROR, $errMess));
+	
+	$func = new ReflectionFunction($config["custom_error_handler"]);
+	$func->invoke(E_USER_ERROR, $errMess);
+	
+	die($errMess);		
 }
 function debug_string_backtrace() 
 {
@@ -38,8 +24,7 @@ function debug_string_backtrace()
         
         ob_end_clean();
 
-        // Remove first item from backtrace as it's this function which
-        // is redundant.
+        // Remove first item from backtrace as it's this function which is redundant.
         $trace = preg_replace ('/^#0\s+' . __FUNCTION__ . "[^\n]*\n/", '', $trace, 1);
 
         // Renumber backtrace items.
@@ -67,71 +52,5 @@ function debug($errMess, $pageClassObj = '', $limitAdmin=true)
 			//echo "Stack Trace:<br />".print_r(debug_backtrace())."<hr></span>";			
 		}
 	}
-}
-function error_handler($errNo, $errStr, $errFile='', $errLine='', $type='',$prevPage="history.go(-1)")
-{	
-	global $config;	
-	
-	//error_reporting()==0 if the @ sign was used
-	if ($errNo == E_NOTICE || error_reporting()==0) return;
-	
-	if($errNo == E_WARNING)
-	{	
-		if ($config[debugMode])
-		{			
-			debug("Error: $errNo <br>File: $errFile <br> Desc: $errStr <br>Line: $errLine<br />StackTrace: ".var_export(debug_backtrace(), true), null, false);
-			return;
-		}
-		/*
-		else
-		{			
-			error_log("Error: $errNo \nFile: $errFile \nDesc: $errStr \nLine: $errLine \nStack Trace:".var_export(debug_backtrace(), true));
-		}
-		
-		return;*/
-	}	
-	
-	$a = new pTemplate("Error!!");
-	$a->renderedError = true;
-	
-	$t = new tblBuilder('center',0,0,10,'100%');	
-	
-	$r = $t->addRow();
-	
-	if ($errNo == 256)
-	{
-		$r->addCell(new tblCell($errStr,'newsCell'));
-	}
-	else
-	{
-		if (!$config[debugMode] && $errNo != E_USER_ERROR)
-		{
-			error_log("Site: $config[scripturl]\n Error: $errNo \nFile: $errFile \n Desc: $errStr \nLine: $errLine \nStack Trace:".var_export(debug_backtrace(), true),1,'scott@mstech.com');			
-		}
-		else
-		{			
-			error_log($errStr);	 
-		}
-		
-		$eContent = ($config[debugMode] || $errNo == E_USER_ERROR ? $errStr : "An error has occurred processing your request. This has been logged and a global admin will look into it shortly.<br>
-												  We apologize for the inconvenience.");	
-	
-		$r->addCell(new tblCell($eContent,'newsCell'));		
-	}	
-	
-	$cmdBack = new customButton('btnBack', 'button', '&lt;&lt; Back');
-	$cmdBack->addAttribute('onClick',$prevPage);
-	
-	$r = $t->addRow();
-	
-	$r->addCell(new tblCell($cmdBack->render(),'','center'));
-	
-	$errBlock = new panelBlock('','An error has occured processing your request:','550px');		
-	$errBlock->addControl($t);	
-
-	@mysqli_rollback($config[dbLink]);	
-	
-	$a->addControl($errBlock);
-	$a->render();	
 }
 ?>

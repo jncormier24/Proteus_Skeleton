@@ -1,5 +1,5 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!DOCTYPE html>
+<html>
 <head>
 	<title>{TITLE}</title>
  	<BASE href="{scripturl}">
@@ -18,14 +18,13 @@
 
  	{SCRIPT_OBJECTS} 	
 </head>
-<body id="mainBody">
+<body>
 	<div id="container">
-		<div id="headerContent">{HEADER_CONTENT}</div>
-		<div id="navContent">{NAV_CONTENT}</div>
-		<div id="mainContent">{PAGE_CONTENT}</div>						
-		<br style='clear:both;' />
-	</div>
-	<div id="footerContent">{FOOTER_CONTENT}</div>	
+		{HEADER_CONTENT}
+		{NAV_CONTENT}
+		<div id="mainContent">{PAGE_CONTENT}</div>
+		{FOOTER_CONTENT}	
+	</div>		
 	{POST_SCRIPT_OBJECTS}
 </body>
 </html>

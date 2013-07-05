@@ -6,9 +6,9 @@
 	ini_set("session.use_trans_sid", false);	
 	
 	include("includes/settings.php");
-	include("proteus/framework.inc");	
-	
 	include("includes/common.inc");
+	
+	include("proteus/framework.inc");	
 	
 	//Define a partial security class to extend the security class
 	//$config[partialSecurityClass] = "partialSec";
@@ -46,38 +46,37 @@ class proteusPage extends pageClass
 }
 class site_navigation extends phpDIV
 {	
+	public $menu;
 	
+	public function __construct()
+	{
+		$this->id = "navContent";
+		parent::__construct();
+		
+		$this->menu = new phpUnOrderedList();
+
+		$lnk = new jqUI_hyperlink("index", "Home", "", "ui-icon-home");
+		$this->menu->addListItem(new htmlListItem($lnk->render()));
+		
+		$this->addControl($this->menu);
+	}
 }
 class site_header extends phpDIV
 {
-	
+	public function __construct()
+	{
+		$this->id = "headerContent";
+		parent::__construct();		
+		
+		$this->addControl(new phpHeader(1, "Proteus IV Content Management Framework"));
+	}
 }
 class site_footer extends phpDIV
 {
-	
-}
-/* class partialSec
-{
-	//Define any custom (static) methods here. Last parameter is always the current security object
-	public static function isCustomAdmin($uSec)
+	public function __construct()
 	{
-		if ($uSec->global_admin) return true;
-
-		$userID = $uSec->id;
-
-		$d = new DAL();
-
-		if ($instanceID)
-		{
-			$qry = "select id from instanceAssignment where userID=$userID and isAdmin=1 and instanceID=$instanceID";
-		}
-		else
-		{
-			//Any instance admin
-			$qry = "select count(*) from instanceAssignment where userID=$userID and isAdmin=1";
-		}
-
-		return $d->qryCount($qry);
+		$this->id = "footerContent";
+		parent::__construct();
 	}
-} */
+}
 ?>

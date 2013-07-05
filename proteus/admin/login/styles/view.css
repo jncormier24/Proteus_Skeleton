@@ -1,0 +1,59 @@
+#loginBlock
+{	
+	margin: 18px auto 0px auto;	
+	
+	width: 575px;
+}
+#loginBlock form
+{
+	padding: 20px 0px 0px 15px;
+}
+#loginBlock form input, #loginBlock form label
+{
+	float: left;	
+	margin: 0px 5px 6px 0px;
+}
+#loginBlock form label
+{
+	clear: left;
+	
+	margin-top: 3px;
+	
+	width: 155px;	
+	
+	font-size: 18px;
+}
+#loginBlock #loginButton
+{
+	float: right;
+	margin: 2px 28px 0px 0px;
+	
+	height: 62px;
+	width: 140px;
+	
+	font-size: 18px;		
+}
+#loginBlock #browserSelect
+{
+	clear: both;
+	
+	padding: 15px;
+	margin: 16px 0px;
+}
+#loginBlock #browserSelect p
+{
+	text-align: justify;
+	font-size: 15px;
+	
+	border-style: solid;
+	border-color: #4b4b4b;
+	border-width: 1px 0px 1px 0px;
+	
+	padding: 8px 0px;
+	margin: 8px 0px;	
+}
+#loginBlock #browserSelect a
+{
+	float: left;
+	margin: 0px 20px 0px 0px;	
+}

@@ -17,7 +17,11 @@ $(document).ready(function()
 	//$(document).one("keypress", ".ui-dialog form input", function(event) { if (event.which == 13) event.preventDefault(); });
 	
 	initJQButtons();
+	getMessages();
+	
+	$(document).tooltip();
 });
+
 // Limit scope pollution from any deprecated API
 (function() 
 {
