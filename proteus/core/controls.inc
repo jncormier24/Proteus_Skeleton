@@ -905,29 +905,6 @@ class phpAnchor extends webControl
 		$this->controlCloseTag = true;
 	}	
 }
-class whatsThis extends webControl
-{
-	var $display;
-	var $url;
-	
-	function whatsThis($key)
-	{
-		global $config;
-		
-		$wImg = new image($config[theme].'/images/whats_this.gif');
-		
-		$this->url = "#";
-		$this->addAttribute('onClick',javaControlUtil::openWindow("whatsthis.php?action=$key", 320, 320, 'whatswin').' return false;');	
-		//$this->display = "[whats this?]";
-		$this->display = '&nbsp;'.$wImg->render();
-		
-		$this->addAttribute("HREF", $this->url);
-		
-		$this->controlData = $this->display;
-		$this->controlTag = "A";
-		$this->controlCloseTag = true;		
-	}	
-}
 class phpHeader extends webControl
 {
 	var $anchorName;
@@ -1649,34 +1626,6 @@ class errorHeader extends phpHeaderBlock
 		$this->image->id = "errorImage";
 	}		
 }
-class updatedHeader extends phpHeaderBlock 
-{
-	function updatedHeader($desc, $width=550)
-	{
-		//parent::__construct($desc, 5, "updatedWin", true, 2, true, "Success!");
-		
-		global $config;
-		
-		$hLink = new phpHyperlink("#",'[hide]');		
-		$hLink->addAttribute('onClick', "document.getElementById('updatedBlock').style.display='none'; return false;");
-		$hLink->id = "hideLink";		
-		
-		$this->p_title = new phpDIV($desc, 'updatedTitle');
-		
-		$this->panel = new panelBlock(null, null, "797px");		
-		$this->panel->id = 'updatedBlock';
-		
-		$this->imgUrl = $config[theme].'/images/updated.gif';
-		$this->showImage = true;
-		
-		$this->image = new image($this->imgUrl);
-		$this->image->id = "updatedImage";
-		
-		$this->panel->addControl(new javaControl("$(document).ready(function() {
-			setTimeout('$(\'#updatedBlock\').slideUp(\'slow\')', 3000);
-		});"));
-	}		
-}
 class jqDatePicker extends customText
 {
 	public function __construct($id, $value='', $label='')
@@ -1724,94 +1673,6 @@ class datePicker extends phpDIV
 		if ($this->showClear) $this->addControl($this->clearControl);
 		
 		return parent::render();
-	}
-}
-/* class javaControl extends webControl 
-{
-	function javaControl($script="", $src="")
-	{
-		$this->controlTag = "script";
-		$this->addAttribute("type","text/javascript");	
-		$this->controlCloseTag = true;
-		$this->controlData = $script;
-				
-		if ($src)
-		{
-			global $config;
-			if ($config[jsRev] && !preg_match("/^http/i", $src)) $src .= "?rev=$config[jsRev]";
-			$this->addAttribute('src', $src);
-		}
-	}	
-} */
-class diggControl extends pageContent
-{
-	var $title;
-	var $body;
-	var $url;
-	var $bgColor;
-	var $topic;
-	var $displayType;
-	
-	function diggControl($type="compact")
-	{	
-		//Digg options for type: compact, normal, icon			
-		$this->displayType = $type;		
-	}	
-	function render()
-	{
-		$tmp = "digg_skin = '$this->displayType';";
-		$tmp .= $this->url ? "digg_url = '$this->url';" : "";
-		$tmp .= $this->title ? "digg_title = '$this->title';" : "";
-		$tmp .= $this->body ? "digg_bodytext = '$this->body';" : "";
-		$tmp .= $this->topic ? "digg_topic = '$this->topic';" : "";
-		$tmp .= $this->bgColor ? "digg_bgcolor = '$this->bgColor';" : "";
-		
-		$this->addControl(new javaControl($tmp));
-		
-		$digg = new javaControl();
-		$digg->addAttribute("src", "http://digg.com/tools/diggthis.js");
-		
-		$this->addControl($digg);
-		return parent::render();	
-	}
-}class deliciousControl extends phpHyperlink  
-{
-	function deliciousControl()
-	{
-		global $config;
-		
-		//$dImg = new image($config[theme].'/images/delicious.small.gif');
-		//$dImg->setAltTag("Post to Delicious Network");
-		
-		parent::__construct("http://del.icio.us/post", "Delicious", false, true);
-		$this->class = "deliciousLink";
-		
-		$this->addAttribute('onclick', "window.open('http://del.icio.us/post?v=4&amp;noui&amp;jump=close&amp;url='+encodeURIComponent(location.href)+'&amp;title='+encodeURIComponent(document.title), 'delicious','toolbar=no,width=700,height=400'); return false;");			
-	}	
-}
-class addThisControl extends phpHyperlink 
-{
-	public function __construct()
-	{		
-		parent::__construct("http://addthis.com/bookmark.php?v=250&amp;username=xa-4c34a0321dbcf157",'<img src="http://s7.addthis.com/static/btn/v2/lg-share-en.gif" width="125" height="16" alt="Bookmark and Share" style="border:0"/>', 'addthis_button');
-		
-		$this->addControl(new javaControl('',"http://s7.addthis.com/js/250/addthis_widget.js#username=xa-4c34a0321dbcf157"));		
-	}
-}
-class yahooRSS extends phpHyperlink 
-{
-	function yahooRSS($targetURL)
-	{
-		parent::__construct("http://add.my.yahoo.com/rss?url=$targetURL", "Yahoo RSS Feed", false, true);
-		$this->class = 'yahooRSSLink';	
-	}
-}
-class googleRSS extends phpHyperlink 
-{
-	function googleRSS($targetURL)
-	{
-		parent::__construct("http://fusion.google.com/add?feedurl=$targetURL", "Google RSS Feed", false, true);
-		$this->class = 'googleRSSLink';	
 	}
 }
 class phpAcronym extends webControl
@@ -2129,7 +1990,7 @@ class jqUI_button extends phpButton
 		if ($this->intialize)
 		{
 			if (!$this->controlData) $txt = ",text: false";
-			//$js = new javaControl("$(function() { $('#{$this->id}').button({icons: {primary: '{$this->iconClass}'}$txt}); })");
+			
 			$js = new jqLoader("initJQButtons()");		
 			$this->postContent = $js->render();
 		}
@@ -2214,7 +2075,7 @@ class jqUI_uploader extends phpDIV
 		
 		$this->addControl($this->formInput);
 		$this->addControl($this->uploadButton);
-		if ($renderInitializer) $this->addControl(new javaControl("$(function() { $('#$elementID').fileinput(); })"));
+		if ($renderInitializer) $this->addControl(new jqLoader("$('#$elementID').fileinput();"));
 	}
 }
 /**
@@ -2334,9 +2195,7 @@ class jqCarousel extends phpDIV
 		
 		$this->addControl($this->innerDiv);
 		
-		$this->addControl(new javaControl('$(function() {
-			$("#slide_holder").agile_carousel('.$this->jsonData->render().');
-		})'));
+		$this->addControl(new jqLoader('$("#slide_holder").agile_carousel('.$this->jsonData->render().');'));
 		
 		return parent::render();	
 	}
@@ -2389,8 +2248,8 @@ class facebookSDK extends phpDIV
 		parent::__construct();
 		
 		$this->id = "fb-root";
-		$this->addControl(new javaControl("","http://connect.facebook.net/en_US/all.js"));
-		$this->addControl(new javaControl("FB.init({
+		$this->addControl(new javascriptControl("","http://connect.facebook.net/en_US/all.js"));
+		$this->addControl(new javascriptControl("FB.init({
 				appId:'$config[facebook_id]',
 				status:true,
 				xfbml:true,

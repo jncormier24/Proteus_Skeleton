@@ -1,7 +1,7 @@
 <?php
 class pmm_core
 {	
-	public $files = array("municipal.php", "municipal.ajax");	
+	public $asset_folders = array("municipal");	
 	public $tables = array("pmm_entities"=>"CREATE TABLE `pmm_entities` (
 											 `id` int(11) NOT NULL AUTO_INCREMENT,
 											 `typeID` tinyint(4) NOT NULL,
@@ -132,7 +132,7 @@ class pmm_core
 			
 		while($file = $fQry->fetch_assoc())
 		{
-			$fileObj = new pmm_entityFile($file[id]);
+			$fileObj = new pmm_entityFile($file["id"]);
 			$arr[] = $fileObj;			
 		}
 		
@@ -148,11 +148,24 @@ class pmm_entity extends phpDataset
 		
 	public function __construct($entityID = 0)
 	{
+		global $config;
+		
 		validation::ensureInt($entityID);		
 		parent::__construct("pmm_entities", $entityID, $entityID ? true : false);
 		
 		//Create a custom config object for the base entity configuration (no associated ID)
-		$this->settings = pmm_core::getConfigObject();		
+		$this->settings = pmm_core::getConfigObject();
+
+		if ($entityID)
+		{
+			$folder = "assets/municipal/{$this->id}/";
+			$absFolder = $config["baseAppDir"].$folder;
+			
+			if (!file_exists($absFolder))
+			{
+				mkdir($absFolder, 0770, true);
+			}
+		}
 	}	
 	public function getIconObject(&$fileLocation='', &$dimensions='')
 	{
@@ -161,22 +174,16 @@ class pmm_entity extends phpDataset
 		//Shouldn't ever be getting an icon object for a non-existent entity.
 		if (!$this->id) return false;
 		
-		$baseLoc = "images/pmm_entities/{$this->id}/";		
-		
-		if (!file_exists($config[baseAppDir].$baseLoc))
-		{			
-			mkdir($config[baseAppDir].$baseLoc, 0770, true);	
-		}
+		$folder = "assets/municipal/{$this->id}/";		
+		$absFolder = $config["baseAppDir"].$folder;		
 			
-		$url = $baseLoc."icon.png";
-		$loc = $config[baseAppDir].$url;
+		$file = "icon.png";		
 
 		$dimensions = explode("x", $this->settings->config("iconDim"));
 		
-		if (file_exists($loc))
-		{
-			$fileLocation = $config[scripturl]."$url?rnd=".rand(0, 100);
-			$iconObject = new image($fileLocation, validation::prepForDisplay($this->title), "entityIcon");
+		if (file_exists($absFolder.$file))
+		{			
+			$iconObject = new image($folder.$file."?rnd=".rand(0, 100), validation::prepForDisplay($this->title), "entityIcon");
 		}
 		else
 		{
@@ -218,7 +225,7 @@ class pmm_entity extends phpDataset
 			
 			while($staff = $sQry->fetch_assoc())
 			{
-				$staffObj = new pmm_entityStaff($staff[id]);
+				$staffObj = new pmm_entityStaff($staff["id"]);
 				$this->p_staff[] = $staffObj;	
 			}
 		}
@@ -235,7 +242,7 @@ class pmm_entity extends phpDataset
 				
 			while($faq = $fQry->fetch_assoc())
 			{
-				$faqObj = new pmm_entityFaq($faq[id]);
+				$faqObj = new pmm_entityFaq($faq["id"]);
 				$this->p_faq[] = $faqObj;			
 			}
 		}
@@ -285,7 +292,7 @@ class pmm_entity extends phpDataset
 			
 		while($post = $pQry->fetch_assoc())
 		{
-			$postObj = new pmm_entityPosting($post[id]);
+			$postObj = new pmm_entityPosting($post["id"]);
 			$this->p_posts[$typeID][] = $postObj;			
 		}		
 			
@@ -307,7 +314,7 @@ class pmm_entity extends phpDataset
 			
 		while($link = $lQry->fetch_assoc())
 		{
-			$linkObj = new pmm_entityLink($link[id]);
+			$linkObj = new pmm_entityLink($link["id"]);
 			$arr[] = $linkObj;			
 		}		
 			
@@ -336,7 +343,7 @@ class pmm_entity extends phpDataset
 			
 		while($agenda = $aQry->fetch_assoc())
 		{
-			$agendaObj = new pmm_entityAgenda($agenda[id]);
+			$agendaObj = new pmm_entityAgenda($agenda["id"]);
 			$arr[] = $agendaObj;			
 		}		
 			
@@ -388,26 +395,22 @@ class pmm_entityStaff extends phpDataset implements entityChild
 		//Shouldn't ever be getting an icon object for a non-existent entity.
 		if (!$this->id) return false;
 		
-		$baseLoc = "images/pmm_entities/{$this->entityID}/";
-			
-		$url = $baseLoc."stafficon_{$this->id}.png";
-		$loc = $config[baseAppDir].$url;
-
+		$folder = "assets/municipal/{$this->entityID}/";
+		$absFolder = $config["baseAppDir"].$folder;
+		
+		$file = "stafficon_{$this->id}.png";
+		
 		$cfg = pmm_core::getConfigObject();
 		$dimensions = explode("x", $cfg->config("staffIconDim"));
 		
-		if (file_exists($loc))
+		if (file_exists($absFolder.$file))
 		{
-			$fileLocation = $config[scripturl]."$url?rnd=".rand(0, 100);
-			$iconObject = new image($fileLocation, validation::prepForDisplay($this->title), "entityIcon");
+			$iconObject = new image($folder.$file."?rnd=".rand(0, 100), validation::prepForDisplay($this->title), "entityIcon");
 		}
 		else
 		{
 			$iconObject = new phpDIV("<p>No Image Available<p>", "entityIcon");
-		}
-		
-		//$iconObject->style = "width: {$dimensions[0]}px; height: {$dimensions[1]}px;";
-		//using CSS for styles instead
+		}		
 
 		return $iconObject;
 	}	
@@ -477,18 +480,17 @@ class pmm_entityPosting extends phpDataset implements entityChild
 		//Shouldn't ever be getting an icon object for a non-existent entity.
 		if (!$this->id) return false;
 		
-		$baseLoc = "images/pmm_entities/{$this->entityID}/";
+		$folder = "assets/municipal/{$this->entityID}/";
+		$absFolder = $config["baseAppDir"].$folder;
 			
-		$url = $baseLoc."posticon_{$this->id}.png";
-		$loc = $config[baseAppDir].$url;
-
+		$file = "posticon_{$this->id}.png";
+		
 		$cfg = pmm_core::getConfigObject();
 		$dimensions = explode("x", $cfg->config("postIconDim"));
 		
-		if (file_exists($loc))
-		{
-			$fileLocation = $config[scripturl]."$url?rnd=".rand(0, 100);
-			$iconObject = new image($fileLocation, validation::prepForDisplay($this->title), "entityIcon");
+		if (file_exists($absFolder.$file))
+		{			
+			$iconObject = new image($folder.$file."?rnd=".rand(0, 100), validation::prepForDisplay($this->title), "entityIcon");
 		}
 		else
 		{
@@ -505,12 +507,14 @@ class pmm_entityPosting extends phpDataset implements entityChild
 		
 		if ($key == "icon")
 		{			
-			$url = "images/pmm_entities/{$this->entityID}/posticon_{$this->id}.png";
-			$loc = $config[baseAppDir].$url;
+			$folder = "assets/municipal/{$this->entityID}/";
+			$absFolder = $config[baseAppDir].$folder;
 			
-			if (!$this->id || !file_exists($loc)) return false;
+			$file = "posticon_{$this->id}.png";
+			
+			if (!$this->id || !file_exists($absFolder.$file)) return false;
 
-			return $config[scripturl]."$url?rnd=".rand(0, 100);
+			return $folder.$file."?rnd=".rand(0, 100);
 		}
 		
 		return parent::__get($key);	
@@ -552,22 +556,22 @@ class pmm_entityFile extends phpDataset implements entityChild
 				if (!$this->id) return false;
 				
 				$url = $this->fileFolder.$this->fileName;
-				$loc = $config[baseAppDir].$url;
+				$loc = $config["baseAppDir"].$url;
 				
 				if (!file_exists($loc)) return false;
 	
-				return ($key == "file" ? $config[scripturl] : $config[baseAppDir]).$url;
+				return ($key == "file" ? "" : $config["baseAppDir"]).$url;
 								
 			case "fileFolder":
 				switch($this->typeID)
 				{
 					case 0:	
-						return "images/pmm_entities/";						
+						return "assets/municipal/";						
 					case 1:
 						$parentObj = $this->getParentEntity();
 						if (!$parentObj->id) return false;
 						
-						return "images/pmm_entities/$parentObj->id/";
+						return "assets/municipal/$parentObj->id/";
 						
 					case 2:
 						$parentObj = $this->getParentEntity();
@@ -575,7 +579,7 @@ class pmm_entityFile extends phpDataset implements entityChild
 						
 						$entityObj = $parentObj->getParentEntity();
 						
-						return "images/pmm_entities/$entityObj->id/minutes/";
+						return "assets/municipal/$entityObj->id/minutes/";
 						
 					default:
 						throw new Exception("Unsupported file location");						

@@ -2,6 +2,9 @@
 
 	$g_sec = permissions::getAuthorizedUser();
 	
+	// Include all supported module files (subscriptions, etc)
+	proteus_core::includeAllModules();
+	
 	switch($action)
 	{
 		case "deleteAgenda":
@@ -145,7 +148,7 @@
 			break;
 			
 		case "getStaff":
-			getStaff($entityID, $filter);
+			getStaff($entityID, $paging, $sortData, $filterColumns, $customColumns);
 			break;
 			
 		case "getStaffWin":
@@ -156,8 +159,8 @@
 			uploadEntityIcon($entityID);
 			break;
 			
-		case "saveEntity":
-			saveEntity($entityID, $entity);
+		case "updateEntity":
+			updateEntity($entityID, $entity);
 			break;
 			
 		case "deactivateEntity":
@@ -319,6 +322,8 @@ function getEntities($typeID)
 		validation::ensureInt($typeID);
 		if (!$typeID) $typeID = 0;
 		
+		$conf = new siteConfig();
+		
 		$ddlFilter = new phpDDL("entityFilter");
 		$ddlFilter->setLabel("Show me: ");
 		$ddlFilter->selected = $typeID;
@@ -354,7 +359,7 @@ function getEntities($typeID)
 				$eObj = new pmm_entity($entity[id]);
 								
 				$eDiv = new phpDIV();
-				$eDiv->class = 'entityContainer';
+				$eDiv->class = 'entityContainer shine_strong';
 				
 				$iconDiv = new phpDIV();
 				$iconDiv->class = "entityLeft";
@@ -407,9 +412,9 @@ function getEntities($typeID)
 				$dDiv->addControl($btnFiles);
 				
 				//SUBSCRIPTION MODULE
-				if (pageClass::checkSiteType(proteus_core::module_subscribers))
+				if ($conf->moduleEnabled(proteus_core::$module_subscribers))
 				{
-					$optData = subscriberOption::getSubscriberOption(proteus_core::module_municipal, $entity[id]);
+					$optData = subscriberOption::getSubscriberOption(proteus_core::$module_municipal, $entity[id]);
 					
 					if ($optData[id])
 					{
@@ -421,7 +426,7 @@ function getEntities($typeID)
 				}
 				
 				//CALENDAR MODULE / EVENTS
-				if (pageClass::checkSiteType(proteus_core::module_calendars))
+				if ($conf->moduleEnabled(proteus_core::$module_calendars))
 				{
 					
 					$btnEvents = new jqUI_button("btnEvents_$entity[id]", "Misc. Events", "", "ui-icon-calendar", true);
@@ -476,22 +481,33 @@ function getEntityEdit($entityID)
 		
 		$eObj = new pmm_entity($entityID);
 		
-		$entityWin = new jqUI_dialog("entityWin", true, 825, "", $entityID ? "Modify Entity" : "Add new Entity");
+		$entityWin = new jqUI_dialog("entityWin", true, 875, "", $entityID ? "Modify Entity" : "Add new Entity");
 		$entityWin->addClass("configWin");
 		$entityWin->setOption("autoOpen", true);
 		$entityWin->setOption("autoResize", true);
 		
-		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
-		{
-			$entityWin->addButton("Save","function() { saveEntity($entityID); }");
+		// Redactor will not function inside a modal window. Use $.fn.block() / unblock() on the main container within view Javascript
+		$entityWin->setOption("modal", 0);
+		
+		$entityWin->addCloseButton($eObj->id ? "Close" : "Cancel");
+		
+		if ($eObj->id)
+		{					
+			if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+				$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
+			{
+				$entityWin->addButton("Save","function() { updateEntity(); }");
+			}
+			
+			if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::delete))
+			{
+				$entityWin->addButton("Delete","function() { deactivateEntity($entityID); }", "delete");
+			}
 		}
-		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::delete) ||
-			$g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $entityID))
+		else
 		{
-			$entityWin->addButton("Delete","function() { deactivateEntity($entityID); }");
+			$entityWin->addButton("Add Entity","function() { updateEntity(); }");
 		}
-		$entityWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
 		
 		$ddlType = new phpDDL("entity[typeID]");
 		$ddlType->class = "floating";
@@ -521,12 +537,13 @@ function getEntityEdit($entityID)
 		$frmEntity->addControl($txtAddr);
 		$frmEntity->addControl($txtBlurb);
 		$frmEntity->addControl($txtDesc);		
+		$frmEntity->addControl(new hiddenInput("action", "updateEntity"));
+		$frmEntity->addControl(new hiddenInput("entityID", $eObj->id));
 		
 		$entityWin->addControl($frmEntity);
 		
+		// use addObject so that the strip format parameter can be set
 		$js->addObject("content", $entityWin->render(), false);
-
-		//error_log($entityWin->render());
 	}
 	catch(Exception $ex)
 	{
@@ -537,7 +554,7 @@ function getEntityEdit($entityID)
 	echo $js->render();
 	exit(0);
 }
-function saveEntity($entityID, $entity)
+function updateEntity($entityID, $entity)
 {
 	global $g_sec;
 
@@ -644,7 +661,7 @@ function uploadEntityIcon($entityID)
 		$u = new upload($_FILES['entityIcon_'.$entityID]);		
 		$u->convertImage("png", $tmp);		
 		
-		if (!$u->uploadFile($config[baseAppDir]."images/pmm_entities/$eObj->id/icon.png")) throw new Exception($u->err);		
+		if (!$u->uploadFile($config["baseAppDir"]."assets/municipal/$eObj->id/icon.png")) throw new Exception($u->err);		
 		
 		pageClass::setNotify("Entity Icon Successfully Uploaded");
 		
@@ -683,20 +700,37 @@ function getStaffWin($entityID)
 		
 		$staffWin->addButton("Close", "function() { $(this).dialog('close'); }");
 		
-		$tabs = new tabControl("staffTabs");
+		$tblFilter = new tableFilter("staffFilter", "#staffTable", "function() { getStaff({$eObj->id}); }");
+		$tblFilter->addSortFilter("title", "th.title");
+		$tblFilter->addSortFilter("assigned", "th.assigned");
+		$tblFilter->setPaging(25);
+		
+		$tblFilter->addColumnFilter("title", tableFilter::filter_text, "th.title");
+		$tblFilter->addColumnFilter("assigned", tableFilter::filter_text, "th.assigned");
+		
+		$tblFilter->addCustomFilter("status", tableFilter::filter_dropdown, "User Status:", array("Active"=>0, "Inactive"=>1));
+		//$tblFilter->addCustomFilter("email", tableFilter::filter_text, "Email:");
+		
+		$dv = new phpDIV();
+		$dv->id = "staff";
+		
+		/* $tabs = new tabControl("staffTabs");
 		$tabs->addClass("tabContainerNoHeader");
 		
 		$tpActive = new tabPage("Active Staff", "#active_staff");
-		$tpActive->addControl(new javaControl("$(function() { getStaff($entityID, 1); });"));
+		//$tpActive->addControl(new jqLoader("$(function() { getStaff($entityID, 1); });"));
 		
 		$tabs->addTabPage($tpActive);
 		
 		$tpInactive = new tabPage("Inactive Staff", "#inactive_staff");
-		$tpInactive->click_event = "function() { getStaff($entityID, 2); }";		
+		//$tpInactive->click_event = "function() { getStaff($entityID, 2); }";		
 		
 		$tabs->addTabPage($tpInactive);
 		
-		$staffWin->addControl($tabs);
+		$staffWin->addControl($tabs); */
+		
+		$staffWin->addControl($tblFilter);
+		$staffWin->addControl($dv);
 		
 		$js->content = $staffWin->render();
 	}
@@ -709,21 +743,12 @@ function getStaffWin($entityID)
 	echo $js->render();
 	exit(0);
 }	
-function getStaff($entityID, $filter)
+function getStaff($entityID, $paging, $sortData, $filterColumns, $customColumns)
 {
 	global $g_sec;
 	
+	$d = new DAL(true);
 	$js = new json_a();
-	
-	$t = new tblBuilder("center", 0, 0, 0, '100%');
-	
-	if ($filter < 2 && ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-						$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)))
-	{
-		$t->addClass('sortable');
-		
-		$t->addAttribute("data-table", "pmm_entityStaff");
-	}
 	
 	try
 	{
@@ -733,73 +758,120 @@ function getStaff($entityID, $filter)
 		$eObj = new pmm_entity($entityID);
 		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
 		
-		$staff = $eObj->getStaff($filter);
+		$t = new tblBuilder("center", 0, 0, 0, '100%');
+		$t->class = "listTable";
+		$t->id = "staffTable";
 		
-		$ct = 0;
-		foreach((array)$staff as $staffObj)
-		{				
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("Title", "title", "", "", 175));
+		$r->addHeader(new tblHeader("Assigned", "assigned", "", "", 125));		
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader());
+		$r->addHeader(new tblHeader());		
+		
+		foreach((array)$customColumns as $cFilter)
+		{
+			if (!strlen($cFilter["value"])) continue;
+		
+			switch($cFilter["key"])
+			{
+				case "status":
+					$wh[] = "pmm_entityStaff.inactive = {$cFilter["value"]}";
+
+					if ($cFilter["value"] == 0 && ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+						$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)))
+					{
+						$t->addClass('sortable');					
+						$t->addAttribute("data-table", "pmm_entityStaff");
+					}
+					
+					break;
+			}
+		}
+		
+		tableFilter::getWhereArray($filterColumns, $wh, $hvArr);
+		$whClause = tableFilter::getWhereClause($wh);
+		
+		$qry = "select id
+				from pmm_entityStaff
+				where 1 $whClause				
+				order by ".tableFilter::getOrderClause($sortData, "position asc");
+		
+		$totalCt = $d->qryRow($qry);
+		$sQry = $d->qry($qry.tableFilter::getLimitClause($paging));
+		
+		while($staff = $sQry->fetch_assoc())
+		{
+			$staffObj = new pmm_entityStaff($staff["id"]);
+			
 			$eDiv = new phpDIV();
 			$eDiv->class = 'entityContainer';
 			$eDiv->addAttribute("data-staffid", $staffObj->id);
-			
+				
 			$iconDiv = new phpDIV();
 			$iconDiv->class = "entityLeft";
 			$iconDiv->addControl($staffObj->getIconObject($iconLoc, $iconDim));
-			
+				
 			if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-				$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $staffObj->entityID))
-			{					
+			    $g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $staffObj->entityID))
+			{
 				$ulDiv = new jqUI_uploader("staffIcon_$staffObj->id", "Upload new Icon ({$iconDim[0]}x{$iconDim[1]}):", "btnStaffIcon_$staffObj->id", "Upload Icon", true);
 				$ulDiv->uploadButton->onclick = "return uploadStaffIcon($staffObj->id);";
 				$ulDiv->uploadButton->setIconClass("ui-icon-image");
 				$ulDiv->formInput->label->breakAfter = true;
-
+			
 				$iconDiv->addControl($ulDiv);
 			}
-			
+				
 			$dDiv = new phpDIV();
 			$dDiv->class = 'functions';
-			$dDiv->addControl(new phpHeader(2, validation::prepForDisplay($staffObj->title, false)));								
+			$dDiv->addControl(new phpHeader(2, validation::prepForDisplay($staffObj->title, false)));
+			
 			if ($staffObj->assigned) $dDiv->addControl(new phpHeader(3, "Currently Assigned: ".validation::prepForDisplay($staffObj->assigned, false)));
 			if ($staffObj->term) $dDiv->addControl(new phpHeader(3, "Term: ".validation::prepForDisplay($staffObj->term, false)));
-			
+				
 			if ($staffObj->updatedUserID)
 			{
 				$sec = new security($staffObj->updatedUserID);
-				$dDiv->addControl(new phpHeader(5, "Last updated by $sec->login on ".validation::parseMySqlDate($staffObj->updatedDateTime, "D, M d Y \a\\t h:ia")));	
-			}				
-			
+				$dDiv->addControl(new phpHeader(5, "Last updated by $sec->login on ".validation::parseMySqlDate($staffObj->updatedDateTime, "D, M d Y \a\\t h:ia")));
+			}
+				
 			$btnEdit = new jqUI_button("btnStaffEdit_$staffObj->id", "Edit", "", "ui-icon-wrench", true);
-			$btnEdit->onclick = "getStaffEdit($staffObj->id)";				
-			
+			$btnEdit->onclick = "getStaffEdit($staffObj->id)";
+				
 			$btnStatus = new jqUI_button("btnStatus_$staffObj->id", ($staffObj->inactive ? "Re-Activate" : "Deactivate"), "", ($staffObj->inactive ? "ui-icon-refresh" : "ui-icon-alert"), true);
 			$btnStatus->onclick = "toggleStaff($staffObj->id)";
-			
+				
 			$dDiv->addControl($btnEdit);
 			$dDiv->addControl($btnStatus);
-			
-			if ($filter == 2 && ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-								 $g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $staffObj->entityID)))
+				
+			if ($staffObj->inactive == 1 && ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+				$g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $staffObj->entityID)))
 			{
 				$btnDelete = new jqUI_button("btnDeleteStaff_$staffObj->id", "Permanently Delete", "ui-state-error", "ui-icon-trash", true);
 				$btnDelete->onclick = "deleteStaff($staffObj->id)";
-
+			
 				$dDiv->addControl($btnDelete);
 			}
-			
+				
 			$eDiv->addControl($iconDiv);
 			$eDiv->addControl($dDiv);
-			
-			$r =& $t->addRow();
+				
+			$r = $t->addRow();
 			$r->addAttribute("data-id", $staffObj->id);
-			
-			$r->addCell(new tblCell($eDiv));				
-			
-			$ct++;				
+				
+			$r->addCell(new tblCell($eDiv, "", "", 2));
+		}		
+		
+		if (!$totalCt)
+		{
+			$t->cellpadding = 10;
+			$r = $t->addRow();
+			$r->addCell(new tblCell("No staff positions found.", "strong", "center", 2));
 		}
 		
-		if (!$ct) $t = new phpParagraph("There are no staff positions in this category.");
-		
+		$js->count = $ct;
 		$js->content = $t->render();
 	}
 	catch(Exception $ex)
@@ -843,8 +915,12 @@ function getStaffEdit($staffID, $entityID)
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();			
 			
-		$staffEditWin = new jqUI_dialog("staffEditWin", true, 700, 450, $staffID ? "Modify Staff Entry" : "Add a new Staff Entry");
-		$staffEditWin->setOption("autoOpen", true);
+		$staffEditWin = new jqUI_dialog("staffEditWin", true, 725, "", $staffID ? "Modify Staff Entry" : "Add a new Staff Entry");
+		$staffEditWin->addClass("configWin");
+		$staffEditWin->setOption("autoOpen", true);		
+		$staffEditWin->setOption("autoResize", true);
+		
+		$staffEditWin->addCloseButton($staffObj->id ? "Close" : "Cancel");
 		
 		if (($staffID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
 			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) ||
@@ -854,8 +930,6 @@ function getStaffEdit($staffID, $entityID)
 			//pseudo: if staffID && hasAccess GlobalWrite/EntityWrite || !staffID && hasAccess GlobalWrite/EntityInsert
 			$staffEditWin->addButton($staffID ? "Save Changes" : "Add Staff", "function() { saveStaff($staffID, $entityID); }");
 		}
-		
-		$staffEditWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
 		
 		if ($staffObj->updatedUserID)
 		{
@@ -1136,7 +1210,6 @@ function getFaqWin($entityID)
 
 		$faqDiv = new phpDIV();
 		$faqDiv->class = 'faqContainer';
-		$faqDiv->addControl(new javaControl("$(function() { getFaqEntries($entityID); });"));
 		
 		$faqWin->addControl($faqDiv);
 		
@@ -1168,7 +1241,7 @@ function getFaqEntries($entityID)
 		$t = new tblBuilder("center", 0, 0, 5, '100%');
 		$t->class = 'listTable hoverTable';
 		
-		$r =& $t->addRow();
+		$r = $t->addRow();
 		$r->addHeader(new tblHeader("Question"));
 		$r->addHeader(new tblHeader("&nbsp;"));
 		
@@ -1198,7 +1271,7 @@ function getFaqEntries($entityID)
 				$ctlArray[] = $btnDelete;
 			}
 			
-			$r =& $t->addRow();
+			$r = $t->addRow();
 			$r->addAttribute("data-id", $faqObj->id);
 			$r->addCell(new tblCell(validation::prepForDisplay($faqObj->question, false), "", "left"));
 			$r->addCell(new tblCell($ctlArray, "", "center", "", 245));		
@@ -1206,7 +1279,7 @@ function getFaqEntries($entityID)
 		
 		if (!count($faqs))
 		{
-			$r =& $t->addRow();
+			$r = $t->addRow();
 			$r->addCell(new tblCell("There are no Faq entries defined for this entity.", "", "center", 2));
 		}
 		
@@ -1476,8 +1549,6 @@ function getPostsWin($entityID)
 		$tpInact->addControl(new phpDiv());		
 		
 		$tabs->addTabPage($tpInact);
-		
-		$tabs->addControl(new javaControl("refreshPostings($entityID)"));
 		
 		$postWin->addControl($tabs);
 		
@@ -1936,14 +2007,12 @@ function getDocumentsWin($entityID)
 		
 		$tpContent = new tabPage("Custom Content", "#custom_content");
 		$tpContent->addControl(new phpDIV());
-		$tpContent->addControl(new javaControl("$(function() { getContentEntries(1,$entityID,'#custom_content > div'); })"));
 		
 		$tabs->addTabPage($tpContent);
 		
 		$tpDocs = new tabPage("Attached Documents", "#entity_docs");		
 		//$tpDocs->addControl(new phpParagraph("Listed below are the documents that are attached to this Entity."));
 		$tpDocs->addControl($fDiv);
-		$tpDocs->addControl(new javaControl("getFiles(1, $entityID)"));		
 		
 		$tabs->addTabPage($tpDocs);
 		
@@ -1953,7 +2022,6 @@ function getDocumentsWin($entityID)
 		$tpLinks = new tabPage("Link Resources", "#entity_links");		
 		//$tpLinks->addControl(new phpParagraph("Listed below are the links that are attached to this Entity."));
 		$tpLinks->addControl($lDiv);		
-		$tpLinks->addControl(new javaControl("getLinks(1, $entityID)"));
 		
 		$tabs->addTabPage($tpLinks);
 		
@@ -2037,7 +2105,7 @@ function getFiles($dataID, $typeID)
 		$t = new tblBuilder("center", 0, 0, 5, '100%');
 		$t->class = 'listTable hoverTable filesTable';
 		
-		$r =& $t->addRow();
+		$r = $t->addRow();
 		$r->addHeader(new tblHeader("File"));		
 		$r->addHeader(new tblHeader("Size"));		
 		$r->addHeader(new tblHeader("&nbsp;"));
@@ -2093,7 +2161,7 @@ function getFiles($dataID, $typeID)
 			$fileLink = new phpHyperlink($fileObj->file, validation::prepForDisplay($fileObj->caption, false), "", true);
 			$spnFName = new phpSpan($fileObj->fileName, "fileName"); 
 			
-			$r =& $t->addRow();
+			$r = $t->addRow();
 			$r->addAttribute("data-id", $fileObj->id);			
 			$r->addCell(new tblCell(array($fileLink, $spnFName), "", "left"));			
 			$r->addCell(new tblCell($sizeDisp, "", "center"));
@@ -2102,7 +2170,7 @@ function getFiles($dataID, $typeID)
 		
 		if (!count($files))
 		{
-			$r =& $t->addRow();
+			$r = $t->addRow();
 			$r->addCell(new tblCell($emptyMessage, "", "center", 4));
 		}
 		
@@ -2311,7 +2379,7 @@ function getLinks($dataID, $typeID)
 		$t = new tblBuilder("center", 0, 0, 5, '100%');
 		$t->class = 'listTable hoverTable';
 		
-		$r =& $t->addRow();
+		$r = $t->addRow();
 		$r->addHeader(new tblHeader("Link Resource"));						
 		$r->addHeader(new tblHeader("&nbsp;"));
 		
@@ -2341,7 +2409,7 @@ function getLinks($dataID, $typeID)
 			$lnk = new phpHyperlink($linkObj->fullUrl, validation::prepForDisplay($linkObj->caption, false), "", true); 
 			$spnLink = new phpSpan($linkObj->url, "fullUrl");
 			
-			$r =& $t->addRow();
+			$r = $t->addRow();
 			$r->addAttribute("data-id", $linkObj->id);	
 			$r->addCell(new tblCell(array($lnk, $spnLink), "", "left"));									
 			$r->addCell(new tblCell($ctlArray, "", "center", "", 245));
@@ -2349,7 +2417,7 @@ function getLinks($dataID, $typeID)
 		
 		if (!count($links))
 		{
-			$r =& $t->addRow();
+			$r = $t->addRow();
 			$r->addCell(new tblCell("There are no links in this category.", "", "center", 4));
 		}
 		
@@ -2592,13 +2660,11 @@ function getAgendaWin($entityID)
 		$tabs = new tabControl("agendaTabs");
 		$tabs->addClass("tabContainerNoHeader");
 		
-		$tpActive = new tabPage("Upcoming Meetings", "#upcoming_meetings");
-		$tpActive->addControl(new javaControl("$(function() { getAgendas($entityID, 0); });"));
+		$tpActive = new tabPage("Upcoming Meetings", "#upcoming_meetings");		
 		
 		$tabs->addTabPage($tpActive);
 		
-		$tpInactive = new tabPage("Past Meetings", "#past_meetings");
-		$tpInactive->click_event = "function() { getAgendas($entityID, 1); }";		
+		$tpInactive = new tabPage("Past Meetings", "#past_meetings");				
 		
 		$tabs->addTabPage($tpInactive);
 		
@@ -2635,7 +2701,7 @@ function getAgendas($entityID, $filter)
 		$t = new tblBuilder("center", 0, 0, 5, '100%');
 		$t->class = 'listTable hoverTable';
 		
-		$r =& $t->addRow();
+		$r = $t->addRow();
 		$r->addHeader(new tblHeader("Title"));
 		$r->addHeader(new tblHeader("Date &amp; Time"));
 		$r->addHeader(new tblHeader("&nbsp;"));		
@@ -2679,7 +2745,7 @@ function getAgendas($entityID, $filter)
 				$ctlArray[] = $btnDelete;
 			}
 			
-			$r =& $t->addRow();
+			$r = $t->addRow();
 			$r->addAttribute("data-id", $agendaObj->id);
 			$r->addCell(new tblCell(validation::prepForDisplay($agendaObj->title, false), "evenCell", "left"));
 			$r->addCell(new tblCell(validation::parseMySqlDate($agendaObj->meetingDateTime, "D, M d \a\\t h:ia"), "oddCell", "left", "", 175));
@@ -2688,7 +2754,7 @@ function getAgendas($entityID, $filter)
 		
 		if (!count($agendas))
 		{
-			$r =& $t->addRow();
+			$r = $t->addRow();
 			$r->addCell(new tblCell("There are no Agenda entries defined for this entity.", "evenCell", "center", 3));
 		}
 		
@@ -2969,8 +3035,7 @@ function getFilesWin($typeID, $dataID)
 		$filesWin->addButton("Close", "function() { $(this).dialog('close'); }");
 
 		$dvFiles = new phpDIV();
-		$dvFiles->id = 'filesContainer';
-		$dvFiles->addControl(new javaControl("getFiles($typeID, $dataID)"));		
+		$dvFiles->id = 'filesContainer';				
 		
 		$filesWin->addControl($dvFiles);
 		
@@ -3044,14 +3109,11 @@ function getEventsWin($entityID)
 			
 		}
 		$eventsWin->addButton("Close", "function() { $(this).dialog('close'); }");
-//		$eventsWin->addControl(new javaControl("$(function() { getCalendars($entityID); });"));
-
 		
 		$dv = new phpDIV();
 		$dv->id = "calendarsContainer";
 	
-		$eventsWin->addControl($dv);
-		$eventsWin->addControl(new jqLoader("getCalendars(1, $entityID)"));	
+		$eventsWin->addControl($dv);			
 		
 		$js->content = $eventsWin->render();
 	}

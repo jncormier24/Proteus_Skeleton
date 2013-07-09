@@ -29,7 +29,7 @@ body > #container
 	position: relative;
 	
 	margin: 0px auto;
-	width: 875px;
+	width: 900px;
 	
 	overflow: hidden;
 }
@@ -308,11 +308,13 @@ table.listTable td.evenCell
 }
 table.listTable th
 {
-	background-color: #909090;
+	background-color: #707070;
 	text-align: left;
 	
 	padding: 8px 5px;
 	font-size: 12px;
+	
+	color: #dddddd;
 }
 table.listTable td.datestamp
 {

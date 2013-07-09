@@ -1,8 +1,11 @@
 <?php
 	$g_sec = permissions::authenticateAjax(false);
 	
+	// Grab all the included modules so we can have model support in utility functions
+	proteus_core::includeAllModules();
+	
 	switch($action)
-	{
+	{		
 		case "logout":
 			logout();
 			break;

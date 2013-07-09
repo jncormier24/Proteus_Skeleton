@@ -73,6 +73,14 @@ class thickboxModule extends pageModule
 		$this->addScriptObject(new javaControl("", "proteus/jquery/jquery.ui.thickbox.js"));
 	}	
 }
+class jqRedactorModule extends pageModule
+{
+	public function __construct()
+	{		
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/redactor/redactor.js"));
+		$this->addStylesheet(new stylesheetControl("proteus/jquery/redactor/redactor.css"));
+	}
+}
 class jqFilterHelperModule extends pageModule 
 {
 	public function __construct()

@@ -15,6 +15,9 @@
 	$config["jsrev"] = 1;
 	$config["auto_include_folders"] = Array("scripts"=>Array("js"), "styles"=>Array("css"));
 	
+	$config["uploaded_image_quality"] = 85;
+	$config["upload_max_size"] = 1024000; 
+	
 	// Define the permission class used for this site. To implement custom security options, use the bundled "permissions" as a template 
 	// and extend from that class.
 	$config["permission_class"] = "permissions";

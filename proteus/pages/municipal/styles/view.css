@@ -1,3 +1,9 @@
+.ui-dialog button.delete
+{
+	position: absolute;
+	
+	left: 10px;	
+}
 #btnSettings, #btnNewEntity
 {
 	float: right;
@@ -45,11 +51,16 @@ div.entityLeft div.uploadDiv label
 }
 div.entityLeft div.uploadDiv button
 {
+	float: left;
 	clear: left;
 	
 	margin-top: 3px !important;
 	
 	width: 222px;	
+}
+div.entityLeft .fileinput-wrapper
+{
+	float: left;
 }
 div.entityLeft div.uploadDiv .ui-button .ui-button-text
 {
@@ -64,13 +75,11 @@ div.entityContainer
 	margin: 0px 2px 2px 2px;
 	
 	border-style: solid;
-	border-color: #DFDFDF;
+	border-color: #808080;
 	border-width: 1px 0px 0px 0px;
-	border-radius: 3px;
+	border-radius: 3px;	
 	
-	background-image: url(images/row_shine_strong.png);
-	background-repeat: repeat-x;
-	background-color: #D8DFE7;
+	/*background-color: #D8DFE7;*/
 	
 	overflow: hidden;	
 }
@@ -130,7 +139,7 @@ div.entityContainer > div.functions button
 	float: right;
 	
 	margin: 2px 0px 3px 5px;
-	width: 180px;
+	width: 200px;
 }
 #entities
 {

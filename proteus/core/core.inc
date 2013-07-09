@@ -15,12 +15,13 @@ class proteus_core
 	const module_subscribers = 12;
 	
 	public static $module_municipal = array("siteType"=>11, "required"=>false, "location"=>"proteus/modules/municipal", "caption"=>"Municipal Framework", "class"=>"pmm_core");
+	public static $module_subscribers = array("siteType"=>12, "required"=>false, "location"=>"proteus/modules/subscribers", "caption"=>"Content Subscriptions", "class"=>"subscriber_core");
+	public static $module_calendars = array("siteType"=>7, "required"=>false, "location"=>"proteus/modules/calendars", "caption"=>"Calendars", "class"=>"customCalendar_core");
 	
 	public static $module_comments = array("siteType"=>0, "required"=>true, "location"=>"proteus/modules/comments", "caption"=>"Comments", "class"=>"customComments_core");
 	public static $module_customContent = array("siteType"=>3, "required"=>true, "location"=>"proteus/modules/customContent", "caption"=>"Custom Content, Inline Editor", "class"=>"customContent_core");
-	public static $module_calendars = array("siteType"=>0, "required"=>true, "location"=>"proteus/modules/calendars", "caption"=>"Calendars", "class"=>"customCalendar_core");
 	public static $module_users = array("siteType"=>0, "required"=>true, "location"=>"", "caption"=>"Users Database", "class"=>"proteus_user_core");
-		
+			
 	public $files = array("sitemap.ajax");	
 	public $tables = array("config"=>"CREATE TABLE `config` (
 									 `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -98,6 +99,16 @@ class proteus_core
 		}
 
 		return $str;
+	}
+	public static function includeAllModules()
+	{
+		$conf = new siteConfig();
+		$mods = proteus_core::getModulesArray();
+		
+		foreach($mods as $mod)
+		{
+			if ($conf->moduleEnabled($mod["siteType"])) proteus_core::includeModule($mod);
+		}		
 	}
 	public static function includeModule(array $module)
 	{
@@ -360,6 +371,8 @@ class siteConfig extends customConfig
 	}	
 	public function moduleEnabled($type)
 	{			
+		if (is_array($type)) $type = $type["siteType"];
+		
 		$tmp = explode("::", $this->siteType);
 			
 		foreach($tmp as $val)
@@ -903,6 +916,291 @@ class json_a extends json
 	{
 		parent::__construct($argArray);
 		$this->renderMode = 1;
+	}
+}
+class upload
+{
+	public $p_Pointer;
+	public $p_Name;
+	public $p_Size;
+	public $p_Type;
+	public $p_TmpName;
+	public $p_image;
+	public $allowedMimeTypes = array();
+
+	public $err;
+	public $uploadComplete = false;
+
+	public function __construct($file='', $image=true)
+	{
+		$this->p_Pointer = $file;
+		$this->p_Name = preg_replace("/[^a-zA-Z0-9\_\-\.]/", "_", $this->p_Pointer[name]); // $this->p_Pointer[name];
+		$this->p_Size = $this->p_Pointer[size];
+		$this->p_Type = $this->p_Pointer[type];
+		$this->p_TmpName = $this->p_Pointer[tmp_name];
+		$this->p_image = $image;
+	}
+	public function uploadFile($location, $allowedExtensions=array(), $resize=false, $width=640, $height=480, $forceResize=false)
+	{		
+		global $config;
+		
+		if (!$this->p_Pointer) throw new Exception("Error, no file specified for upload.");
+
+		if ($this->p_image)
+		{
+			$this->allowedMimeTypes = array("image/jpg", "image/gif", "image/png", "image/jpeg");
+			if ($this->p_Size > $config["upload_max_size"]) throw new Exception("That image is too large to upload! Please resize and try again (try 800x600 resolution)");
+		}
+
+		try
+		{
+			switch($this->p_Pointer[error])
+			{
+				case '':
+					//No error...
+					break;
+						
+				case '1':
+					$error = 'The uploaded file exceeds the upload_max_filesize directive in php.ini';
+					break;
+						
+				case '2':
+					$error = 'The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form';
+					break;
+						
+				case '3':
+					$error = 'The uploaded file was only partially uploaded';
+					break;
+						
+				case '4':
+					$error = 'No file selected for upload!';
+					break;
+
+				case '6':
+					$error = 'Missing a temporary folder';
+					break;
+						
+				case '7':
+					$error = 'Failed to write file to disk';
+					break;
+						
+				case '8':
+					$error = 'File upload stopped by extension';
+					break;
+						
+				case '999':
+				default:
+					$error = 'No error code avaiable';
+			}
+				
+			if ($error) throw new Exception($error);
+				
+			/*== do extra security check to prevent malicious abuse==*/
+			if (!is_uploaded_file($this->p_TmpName))
+			{
+				throw new Exception("Error uploading $location - (possible malicious file)");
+			}
+				
+			$fExt = $this->getFileExtension($this->p_Name);				
+			if (!$fExt) throw new Exception("Sorry, but uploaded files must have a proper extension; i.e., .jpg, .png, gif.");
+				
+			if (count($allowedExtensions) && !in_array($fExt, $allowedExtensions))
+			{
+				$extTypes = implode(", ", $allowedExtensions);
+				throw new Exception("File provided does not have an allowed extension. ($extTypes)");
+			}				
+				
+			$mime = $this->getMimeType();
+							
+			if (count($this->allowedMimeTypes) && !in_array($mime, $this->allowedMimeTypes))
+			{
+				throw new Exception("File provided does not have a correct MIME type for this kind of upload!");
+			}
+
+			if ($resize)
+			{				
+				$iSize = GetImageSize($this->p_TmpName);
+
+				if (($iSize[0] > $width) || ($iSize[1] > $height) || $forceResize)
+				{
+					$dest = imagecreatetruecolor($width,$height);
+						
+					switch($fExt)
+					{
+						case "bmp":
+							//$src = imagecreatefrombmp($this->p_TmpName);
+							throw new Exception("No BitMap support (BMP). Please convert image to a valid format: jpg, gif, png");
+							break;
+						case "jpg":
+						case "jpeg":
+							$src = imagecreatefromjpeg($this->p_TmpName);
+							break;
+						case "gif":
+							$src = imagecreatefromgif($this->p_TmpName);
+							break;
+						case "png":
+							$src = imagecreatefrompng($this->p_TmpName);
+							break;
+						default:
+							throw new Exception("Error, invalid image type uploaded. Please try again.");
+					}
+						
+					if (!$src)
+					{
+						throw new Exception("Could not create base image file from uploaded file. Please try again and be sure the image is not corrupt!");
+					}
+						
+					$retVal = imagecopyresampled($dest,$src,0,0,0,0,$width,$height,ImageSX($src),ImageSY($src));
+						
+					if (!$retVal) throw new Exception("Could not copy resampled image. Please try again and be sure the uploaded image is not corrupt!");
+						
+					switch($fExt)
+					{
+						case "jpg":
+						case "jpeg":
+							$retVal = imagejpeg($dest, $this->p_TmpName, $config["uploaded_image_quality"]);
+							break;
+								
+						case "gif":
+							$retVal = imagegif($dest, $this->p_TmpName);
+							break;
+								
+						case "png":
+							$retVal = imagepng($dest, $this->p_TmpName);
+							break;
+					}
+
+					if (!$retVal) throw new Exception("Could not create resized image. Please try again and ensure that the uploaded image is not corrupt!");
+				}
+			}
+				
+			if (substr($location, -1) == "/")
+			{
+				$loc = $location."/".$this->p_Name;
+			}
+			else
+			{
+				$loc = $location;
+			}
+							
+			if (!move_uploaded_file($this->p_TmpName, $loc))
+			{
+				throw new Exception("Error uploading file ".$this->p_TmpName." to $loc. Please try again.");
+			}
+				
+			$this->uploadComplete = true;
+		}
+		catch (Exception $exc)
+		{
+			if ($this->p_TmpName) @unlink($this->p_TmpName);
+				
+			$this->err = $exc->getMessage();
+			error_log($this->err);
+				
+			return false;
+		}
+
+		return true;
+	}
+	public function getFileExtension($str)
+	{
+		$parts = explode(".", $str);
+		return strtolower($parts[count($parts)-1]);
+	}
+	public function getFileExtensionByMIME($file='')
+	{
+		// This function is designed to get the MIME type of images ONLY
+		$mime = $this->getMimeType($file);
+		
+		switch($mime)
+		{
+			case "image/jpg":
+			case "image/jpeg":
+				return "jpg";
+			case "image/png":
+				return "png";
+			case "image/bmp":
+			case "image/x-windows-bmp":
+			case "image/x-ms-bmp":
+				return "bmp";
+			case "image/gif":
+				return "gif";
+			default:
+				throw new Exception("Unsupported MIME type detected.");
+		}
+	}
+	public function getMimeType($file = '')
+	{
+		if (!$file) $file = $this->p_TmpName;
+		if (!$file) $file = $this->p_TmpName;
+		
+		$finfo = finfo_open(FILEINFO_MIME_TYPE);
+		$mime = finfo_file($finfo, $file);
+		
+		return $mime;
+	}
+	private function getSourceImageObject()
+	{
+		if ($this->uploadComplete) throw new Exception("Error, the upload for this file has already been completed.");
+
+		$fExt = $this->getFileExtensionByMIME($this->p_TmpName);
+
+		switch($fExt)
+		{
+			case "bmp":
+				$srcImg = imagecreatefromwbmp($this->p_TmpName);
+				break;
+
+			case "jpg":
+			case "jpeg":
+				$srcImg = imagecreatefromjpeg($this->p_TmpName);
+				break;
+
+			case "gif":
+				$srcImg = imagecreatefromgif($this->p_TmpName);
+				break;
+
+			case "png":
+				$srcImg = imagecreatefrompng($this->p_TmpName);
+				break;
+		}
+
+		return $srcImg;
+	}
+	public function convertImage($newType, $resizeDimensions)
+	{
+		if ($this->uploadComplete) throw new Exception("Error, the upload for this file has already been completed.");
+
+		$destImg = imagecreatetruecolor($resizeDimensions[0], $resizeDimensions[1]);
+		$srcImg = $this->getSourceImageObject();
+
+		if (!$srcImg) throw new Exception("Error creating source image.");
+
+		imagecopyresampled($destImg,$srcImg,0,0,0,0,$resizeDimensions[0],$resizeDimensions[1],ImageSX($srcImg),ImageSY($srcImg));
+
+		switch($newType)
+		{
+			case "bmp":
+				imagewbmp($destImg, $this->p_TmpName);
+				break;
+
+			case "jpg":
+			case "jpeg":
+				imagejpeg($destImg, $this->p_TmpName, 85);
+				break;
+
+			case "gif":
+				imagegif($destImg, $this->p_TmpName);
+				break;
+
+			case "png":
+				imagepng($destImg, $this->p_TmpName);
+				break;
+		}
+
+		//Destroy the resources
+		imagedestroy($srcImg);
+		imagedestroy($destImg);
 	}
 }
 ?>

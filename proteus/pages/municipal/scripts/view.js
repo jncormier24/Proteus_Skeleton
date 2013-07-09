@@ -2,17 +2,14 @@ function getEntities(typeID)
 {
 	var cont = $("#entities");
 	
-	cont.setWorking("Loading Entities ...");
+	cont.showLoading("Loading Entities ...");
 	
 	$.getJSON("admin/ajax/municipal", {action: "getEntities", typeID: typeID}).then(function(output)
-	{
-		if (output.error)
+	{		
+		if (!$.ajaxError(output, cont))
 		{
-			$(output.error).appendTo("body");
-			return;
+			cont.html(output.content);
 		}
-		
-		cont.html(output.content);
 	});
 }
 function getEntityEdit(entityID)
@@ -22,25 +19,38 @@ function getEntityEdit(entityID)
 	
 	$.getJSON("admin/ajax/municipal", {action: "getEntityEdit", entityID: entityID}).then(function(output)
 	{
-		$.hideLoading();
-		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, $))
+		{		
+			$(output.content).appendTo("body");
+			
+			$("#container").block({message: "", baseZ: 10});
+			
+			var opts = null;
+			
+			if (entityID)
+			{
+				opts = 
+				{
+					imageUpload: "admin/ajax/common/upload.ajax?typeID=2&dataID=" + entityID,
+					fileUpload: "admin/ajax/common/upload.ajax?isFile=1&typeID=2&dataID=" + entityID
+				}
+			}
+			
+			$("#entityWin").dialog("option", "close", function() 
+			{  
+				$("#container").unblock();
+				$(this).remove();
+			}).find("textarea.wysiwyg").redactor(opts);
 		}
-		
-		$(output.content).appendTo("body");
-		initWYSIWYG(".wysiwyg");
 	});
 }
-function saveEntity(entityID)
+function updateEntity()
 {
 	var win = $("#entityWin");
 	
-	win.showLoading(entityID ? "Saving Changes" : "Adding new Entity");	
+	win.showLoading($("#entityID", win).val() ? "Saving Changes" : "Adding new Entity");	
 	
-	$.post("admin/ajax/municipal?action=saveEntity&entityID=" + entityID, $("#entityForm").serialize(), null, "json").then(function(output)
+	$.post("admin/ajax/municipal", $("#entityForm").serialize(), null, "json").then(function(output)
 	{
 		win.hideLoading();
 		
@@ -94,15 +104,17 @@ function uploadEntityIcon(entityID)
 		{
 			$.hideLoading();
 			
-			$("#" + _element).val("").fileinput();
+			$("#" + _element).fileinput();
 			
 			if (data.error)
 			{
-				alert(data.error);
-			}			
-			
-			getMessages();
-			getEntities(data.typeID);
+				$.jqAlert(data.error);
+			}	
+			else
+			{					
+				getMessages();
+				getEntities(data.typeID);	
+			}
 		},
 		error : function(data, status, e)
 		{
@@ -155,32 +167,35 @@ function getStaffWin(entityID)
 	
 	$.getJSON("admin/ajax/municipal", {action: "getStaffWin", entityID: entityID}).then(function(output)
 	{
-		$.hideLoading();
-		
-		if (output.error)
+		if (!$.ajaxError(output, $))
 		{
-			$(output.error).appendTo("body");
-			return;
+			$(output.content).appendTo("body");
+			
+			/*getStaff(entityID, 1);
+			getStaff(entityID, 2);*/
 		}
-		
-		$(output.content).appendTo("body");
 	});	
 }
-function getStaff(entityID, filter)
+function getStaff(entityID)
 {	
-	cont = (filter == 1 ? $("#active_staff") : $("#inactive_staff"));
-	cont.setWorking("Loading Staff Positions");
+	var cont = $("#staff");
+	var filterObj = $("#staffFilter");	
+	var ajaxOpts = { action: "getStaff", entityID: entityID };	
 	
-	$.getJSON("admin/ajax/municipal", {action: "getStaff", entityID: entityID, filter: filter}).then(function(output)
+	cont.showLoading("Loading Staff Positions");
+	
+	$.getJSON("admin/ajax/municipal", filterObj.filterHelper("getFilterData", ajaxOpts)).then(function(output)
 	{	
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, cont))
+		{		
+			cont.html(output.content).tableRowAlternate();
+			
+			initJqPopupMenus();
+			
+			filterObj.filterHelper("setPaging", { totalCount: output.count }).filterHelper("initAll");
+			
+			//initTableSort(true);
 		}
-		
-		cont.html(output.content);
-		initTableSort(true);
 	});	
 }
 function getStaffEdit(staffID, entityID)
@@ -306,15 +321,11 @@ function getFaqWin(entityID)
 	
 	$.getJSON("admin/ajax/municipal", {action: "getFaqWin", entityID: entityID}).then(function(output)
 	{
-		$.hideLoading();
-		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, $))
+		{		
+			$(output.content).appendTo("body");
+			getFaqEntries(entityID);
 		}
-		
-		$(output.content).appendTo("body");
 	});	
 }
 function getFaqEntries(entityID)
@@ -404,15 +415,11 @@ function getPostsWin(entityID)
 	
 	$.getJSON("admin/ajax/municipal", {action: "getPostsWin", entityID: entityID}).then(function(output)
 	{
-		$.hideLoading();
-		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, $))
+		{		
+			$(output.content).appendTo("body");
+			refreshPostings(entityID);
 		}
-		
-		$(output.content).appendTo("body");
 	});	
 }
 function getPostEntries(startPos, entityID, filter)
@@ -591,15 +598,14 @@ function getDocumentsWin(entityID)
 	
 	$.getJSON("admin/ajax/municipal", {action: "getDocumentsWin", entityID: entityID}).then(function(output)
 	{
-		$.hideLoading();
-		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, $))
+		{		
+			$(output.content).appendTo("body");
+			
+			getContentEntries(1, entityID, '#custom_content > div');			
+			getFiles(1, entityID);
+			getLinks(1, entityID);
 		}
-		
-		$(output.content).appendTo("body");
 	});
 }
 function getFilesWin(typeID, dataID, container)
@@ -610,15 +616,12 @@ function getFilesWin(typeID, dataID, container)
 	
 	$.getJSON("admin/ajax/municipal", {action: "getFilesWin", typeID: typeID, dataID: dataID}).then(function(output)
 	{
-		cont.hideLoading();
-		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, cont))
+		{		
+			$(output.content).appendTo("body");
+			
+			getFiles(typeID, dataID);
 		}
-		
-		$(output.content).appendTo("body");
 	});
 }
 function getLinks(typeID, dataID)
@@ -834,15 +837,13 @@ function getAgendas(entityID, filter)
 	
 	$.getJSON("admin/ajax/municipal", {action: "getAgendas", entityID: entityID, filter: filter}).then(function(output)
 	{
-		$.hideLoading();
-		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, cont))
+		{		
+			cont.html(output.content);
+			
+			getAgendas(entityID, 0);
+			getAgendas(entityID, 1);
 		}
-		
-		cont.html(output.content);		
 	});	
 }
 function getAgendaEdit(agendaID, entityID)
@@ -913,18 +914,13 @@ function deleteAgenda(agendaID)
 function getEventsWin(entityID)
 {
 	$.showLoading("Loading Events Interface");
-	//getCalendarWin($calID, $typeID, $dataID)
-	//getCalendars($typeID, $dataID);
+	
 	$.getJSON("admin/ajax/municipal", {action: "getEventsWin", entityID: entityID}).then(function(output)
 	{
-		$.hideLoading();
-		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, $))
+		{				
+			$(output.content).appendTo("body");
+			getCalendars(1, entityID);
 		}
-		
-		$(output.content).appendTo("body");
 	});	
 }

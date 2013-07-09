@@ -15,10 +15,12 @@ function showEntities()
 	$a = new adminPage("Modify Municipal Entities");
 	$a->addPageModule(new calendarModule());
 	$a->addPageModule(new customContentModule());
-	
+	$a->addPageModule(new jqPopupMenuModule());
 	$a->addPageModule(new jqUploadModule());
-	//$a->addPageModule(new jqWysiwygModule());
-	//$a->addPageModule(new redactorModule());
+	$a->addPageModule(new jqRedactorModule());
+	$a->addPageModule(new jqFilterHelperModule());
+	
+	//$a->addPageModule(new jqWysiwygModule());	
 	//$a->addPageModule(new tabPageModule());
 	//$a->addPageModule(new jqTableSortModule());
 	//$a->addPageModule(new jqDatePickerModule());	

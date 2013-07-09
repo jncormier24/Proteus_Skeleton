@@ -107,7 +107,12 @@
 	
 	top: 2px;
 	
-	cursor: pointer;	
+	cursor: pointer;
+
+	/*border: 1px solid #dd6900;
+	border-radius: 5px;
+	
+	background-color: #ffffff;*/
 }
 .emptyFilter
 {

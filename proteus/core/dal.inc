@@ -457,6 +457,13 @@ class dbSync
 						$d->qry($qry);
 					}
 				}
+			}			
+			
+			foreach((array)$core_class->asset_folders as $folder)
+			{
+				$loc = $config["baseAppDir"]."assets/$folder";
+
+				if (!file_exists($loc)) mkdir($loc);
 			}
 		}
 		catch(Exception $ex)
