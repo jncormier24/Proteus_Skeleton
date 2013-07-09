@@ -136,7 +136,7 @@ body > #container
 	
 	background-color: #ffffff;
 	
-	padding: 10px;
+	/*padding: 10px;*/
 }
 #footerContent
 {
@@ -164,7 +164,32 @@ select
 	border: 1px solid #999999;
 	border-radius: 4px;
 }
-input[type=text], input[type=password]
+h1, h2, h3, h4, h5
+{
+	margin: 0px;
+	padding: 0px;
+}
+.shine, .shine_strong, .shine_dark, .shine_solid
+{
+	background-repeat: repeat-x;
+}
+.shine
+{
+	background-image: url(images/row_shine.png);	
+}
+.shine_strong
+{
+	background-image: url(images/row_shine_strong.png);	
+}
+.shine_dark
+{
+	background-image: url(images/row_shine_dark.png);	
+}
+.shine_solid
+{
+	background-image: url(images/row_shine_solid.png);	
+}
+input[type=text], input[type=password], textarea
 {
 	background-color: #ffffff;
 	
@@ -174,11 +199,16 @@ input[type=text], input[type=password]
 	    
 	color: #4b4b4b;
 	
-	padding: 6px 4px 5px 4px;
+	padding: 6px 4px 8px 8px;
 	
-	font-size: 14px;
+	font-size: 15px;
 	
 	border-radius: 3px;
+}
+input.focused, textarea.focused
+{	
+	border-color: #dd6900;	
+	box-shadow: 2px 2px 3px #ffffff;
 }
 div.panelBlockContainer > h1
 {
@@ -186,14 +216,14 @@ div.panelBlockContainer > h1
 	
 	color: #f0f0f0;
 	
-	background-color: #0f0f0f;
+	background-color: #7F4617;
 	background-image: url(images/row_shine_strong.png);
 	background-repeat: repeat-x;
 	
 	border-style: double;
 	border-color: #808080;
 	border-width: 0px 0px 3px 0px;
-	border-radius: 3px;	
+	/*border-radius: 3px;*/	
 	
 	margin: 0px;
 	padding: 6px 0px 6px 6px;	
@@ -206,7 +236,7 @@ div.panelBlockContainer
 	background-image: url(images/layout/panel_back.png);
 	background-repeat: repeat-x;
 		
-	border-radius: 5px;
+	/*border-radius: 5px;*/
 	border-style: solid;
 	border-color: #4b4b4b;
 	border-width: 1px;
@@ -365,6 +395,10 @@ div.configWin div.ui-tabs-panel
 div.configWin.ui-dialog-content
 {
 	padding: 5px;
+}
+div.configWin .ui-tabs
+{
+	min-height: 400px;
 }
 a.ui-tabs-anchor .ui-icon
 {

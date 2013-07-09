@@ -1,0 +1,319 @@
+<?php
+	$g_sec = permissions::getAuthorizedUser();
+	 
+	switch($action)
+	{
+		case "deleteContentEntry":
+			deleteContentEntry($contentID);
+			break;
+			
+		case "updateContentEntry":
+			updateContentEntry($contentID, $typeID, $dataID, $fields);
+			break;
+			
+		case "getContentWin":
+			getContentWin($contentID);
+			break;
+			
+		case "getContentEntries":
+			getContentEntries($typeID, $dataID);
+			break;	
+	}
+function getContentEntries($typeID, $dataID)
+{
+	global $g_sec;
+
+	$d = new DAL(true);
+	
+	$js = new json_a();
+	$pc = new pageContent();
+	
+	try
+	{
+		validation::ensureInt($typeID);
+		validation::ensureInt($dataID);
+		
+		if (!customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::read)) $g_sec->security_error_a();
+		
+		$deleteAccess = customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::delete, permissions::delete);
+		$writeAccess = customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::write);
+		$insertAccess = customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::write, permissions::insert);
+		
+		switch($typeID)
+		{
+			case customContent_core::content_generic:
+				if ($dataID) throw new Exception("Invalid arguments supplied.");
+				$title = "Modify Custom Content";
+				break;
+						
+			case customContent_core::content_municipal_entity:				
+				$title = "Modify Custom Entity Content";
+				break;
+				
+			default:
+				throw new Exception("Error, unsupported custom content type!");
+		}		
+		
+		if ($insertAccess)
+		{
+			$txtPage = new customText('pageName','',25, 255, 'textBox');	
+			$txtPage->setLabel("Add new Content Page: ", 'longLabel');
+			$txtPage->addAttribute('style','margin-right: 10px;');
+		
+			$cmdAdd = new jqUI_button('btnNewContent','Add New', "", "ui-icon-document", true);
+			$cmdAdd->onclick = "updateContentEntry(0, $typeID, $dataID)";
+		
+			$aForm = new phpForm('post', 'contentForm_new');
+			$aForm->addControl($txtPage);
+			$aForm->addControl($cmdAdd);
+			
+			$pc->addControl($aForm);
+		}		
+		
+		$t = new tblBuilder('center',0,0,4,'100%');	
+		$t->class = "listTable hoverTable";	
+		if ($writeAccess) $t->addClass('sortable');
+	
+		$t->breakAfter = true;
+		$t->addAttribute("data-table", "customContent");
+	
+		$r = $t->addRow();
+	
+		$r->addHeader(new tblHeader('Caption'));
+		$r->addHeader(new tblHeader('Content Name'));	
+		$r->addHeader(new tblHeader('&nbsp;'));
+		
+		$qry = "select *
+				from customContent
+				where typeID=$typeID and dataID=$dataID
+				order by position asc";
+		$iQry = $d->qry($qry);	
+	
+		while($content = $iQry->fetch_assoc())
+		{		
+			$eCtl = new editControl();
+			$eCtl->onclick = "getContentWin($content[id])";		
+		
+			if ($deleteAccess)
+			{
+				$dCtl = new deleteControl();
+				$dCtl->onclick = "deleteContentEntry($content[id])";
+				$dCtl->setVerifyMessage("Are you sure you want to delete this Content Page? This cannot be undone!");
+			}
+			else
+			{
+				$dCtl = new phpFiller();	
+			}		
+		
+			$r = $t->addRow();
+			$r->addAttribute("data-id", $content[id]);
+		
+			$r->addCell(new tblCell(validation::prepForDisplay($content[caption], false),'evenCell','left'));
+			$r->addCell(new tblCell(validation::prepForDisplay($content[pageName], false),'evenCell','left'));				
+			$r->addCell(new tblCell(array($eCtl, $dCtl),'evenCell','center', "", 70));
+		}		
+	
+		$pc->addControl($t);
+		
+		$js->content = $pc->render();
+	}	
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+function getContentWin($contentID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{
+		$cpObj = new customContentData($contentID);
+
+		if (!customContent_core::checkPermission($g_sec, $cpObj->typeID, $cpObj->dataID, permissions::read)) $g_sec->security_error_a();
+		
+		switch($cpObj->typeID)
+		{
+			case customContent_core::content_generic:
+				$uploadType = 5;
+				break;
+				
+			case customContent_core::content_municipal_entity:
+				$uploadType = 6;
+				break;	
+		}
+		
+		$writeAccess = customContent_core::checkPermission($g_sec, $cpObj->typeID, $cpObj->dataID, permissions::write);		
+		
+		$cWin = new jqUI_dialog("contentWin", true, 875, 650, "Modify Custom Content");
+		$cWin->setOption("autoOpen", true);	
+		//$cWin->setOption("modal", 0);			
+		
+		if ($writeAccess)
+		{			
+			$cWin->addButton("Save Content", "function() { updateContentEntry($contentID); }");
+		}
+		
+		$cWin->addButton("Cancel", "function() { $(this).dialog('close'); }");		
+		
+		$txtCaption = new customText("caption",validation::prepTextForInput($cpObj->caption),50, 255, 'textBox floating');	
+		$txtCaption->setLabel("Caption: ", 'longLabel floating');					
+	
+		$txtTitle = new customText("pageName",validation::prepTextForInput($cpObj->pageName),25, 255, 'textBox floating');	
+		$txtTitle->setLabel("Content Name: ", 'longLabel floating');			
+	
+		$txtDesc = new phpTextArea("pageData", validation::prepTextForInput($cpObj->pageData), 23, 113, "textBox floating wysiwyg");	
+		$txtDesc->addAttribute("data-upload-dataid", $contentID);
+		$txtDesc->addAttribute("data-upload-typeid", $uploadType);
+	
+		/*$chkMenu = new formInput('content[menuInclude]', 'checkbox', 1);
+		$chkMenu->class = 'floating';
+		if ($content[menuInclude]) $chkMenu->addParameter('checked');
+		$chkMenu->setLabel("Include in menu: ", 'longLabel floating');
+		$chkMenu->breakAfter = true;*/
+	
+		$aForm = new phpForm('post', 'contentForm');	
+		$aForm->addControl($txtCaption);
+		$aForm->addControl($txtTitle);		
+		$aForm->addControl($txtDesc);
+		
+		$cWin->addControl($aForm);
+		
+		if ($cpObj->updatedUserID)
+		{
+			$sec = new security($cpObj->updatedUserID);
+			$cWin->addControl(new phpParagraph("Content last modified by {$sec->login} on ".validation::parseMySqlDate($cpObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "updated"));	
+		}		
+		
+		$js->uploadType = $uploadType;
+		$js->content = $cWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function updateContentEntry($contentID, $typeID, $dataID, $fields)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($typeID);
+		validation::ensureInt($dataID);
+		
+		foreach((array)$fields as $field)
+		{
+			$content[$field[name]] = $field[value];
+		}
+		
+		if ($contentID)
+		{
+			$cpObj = new customContentData($contentID);
+			
+			$typeID = $cpObj->typeID;
+			$dataID = $cpObj->dataID;	
+		}
+	
+		if (strlen($content[pageName]) < 3) throw new Exception("Item title must be at least 3 characters!");
+		
+		$oName = $content[pageName];
+		
+		$content[pageName] = str_replace(" ", "_", $content[pageName]);
+		//Strip out unwanted characters
+		$content[pageName] = strtolower(preg_replace("/[^a-zA-Z0-9_]/", "", $content[pageName]));
+		$content[caption] = preg_replace("/[^a-zA-Z0-9_\-\:\[\]\s\&]/", "", $content[caption]);
+	
+		if ($d->qryCount("select id from customContent where pageName='$content[pageName]' and dataID=$dataID and typeID=$typeID".($contentID ? " and id <> $contentID" : "")))
+		{
+			throw new Exception("Sorry, but there is already a custom content entry with that content name. Please choose another name and try again.");
+		} 
+		
+		if (!$content[menuInclude]) $content[menuInclude] = 0;
+
+		$content[pageData] = validation::prepMultiLineForStorage($content[pageData]);
+		$cvList = validation::quotedArray($content);
+	
+		$cvList[updatedDateTime] = "now()";
+		$cvList[updatedUserID] = $g_sec->id;
+		
+		if ($contentID)
+		{
+			if (!customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::write)) $g_sec->security_error_a();
+		
+			$d->qryUpdateByArray('customContent', $cvList, "id=$contentID");
+		
+			pageClass::setNotify("Content Page successfully updated");		
+		}
+		else
+		{				
+			if (!customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::write, permissions::insert)) $g_sec->security_error_a();
+				
+			$max = $d->qryCount("select max(position) from customContent where dataID=$dataID and typeID=$typeID");					
+			
+			$cvList[dataID] = $dataID;
+			$cvList[typeID] = $typeID;
+			$cvList[caption] = "'$oName'";
+			$cvList[position] = $max + 1;
+		
+			$contentID = $d->qryInsertByArray('customContent', $cvList);
+			pageClass::setNotify("Content Page successfully inserted");
+			
+			$js->contentID = $contentID;
+		}
+		
+		$js->typeID = $typeID;
+		$js->dataID = $dataID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);		
+}
+function deleteContentEntry($contentID)
+{
+	global $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		$cpObj = new customContentData($contentID);
+
+		if (!customContent_core::checkPermission($g_sec, $cpObj->typeID, $cpObj->dataID, permissions::delete, permissions::delete)) $g_sec->security_error_a();
+		
+		$d->qry("delete from customContent where id=$contentID");
+		
+		pageClass::setNotify("Successfully removed custom content");
+		
+		$js->typeID = $cpObj->typeID;
+		$js->dataID = $cpObj->dataID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+?>

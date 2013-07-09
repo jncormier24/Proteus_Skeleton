@@ -1,4 +1,4 @@
-<?php 
+<?php
 class pageModule
 {
 	public $requisiteModules = array();
@@ -30,22 +30,12 @@ class pageModule
 		array_push($this->requisiteModules, $module);
 	}
 }
-class baseHRefModule extends pageModule
-{
-	public function __construct($location="")
-	{
-		global $config;
-		if (!$location) $location = $config[scripturl];
-		
-		$this->addScriptObject(new phpLiteral("<base href='$location' />\n"));
-	}
-}
-class commentsModule extends pageModule 
+class jqAutoGrowModule extends pageModule
 {
 	public function __construct()
-	{			
-		$this->addScriptObject(new javascriptControl("", "proteus/modules/comments/scripts/view.js"));			
-	}	
+	{
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/jquery.autogrow.js"));
+	}
 }
 class jQueryModule extends pageModule
 {
@@ -71,6 +61,17 @@ class jQueryUIModule extends pageModule
 		$this->addStyleSheet(new stylesheetControl("proteus/jquery/jgrowl/jquery.jgrowl.css"));
 		$this->addScriptObject(new javascriptControl("", "proteus/jquery/jgrowl/jquery.jgrowl.js"));
 	}
+}
+class thickboxModule extends pageModule
+{
+	public function __construct()
+	{
+		global $config;		
+		
+		$this->addRequisiteModule(new jqueryUIModule());
+		
+		$this->addScriptObject(new javaControl("", "proteus/jquery/jquery.ui.thickbox.js"));
+	}	
 }
 class jqFilterHelperModule extends pageModule 
 {
@@ -108,6 +109,40 @@ class jqUpdateHelperModule extends pageModule
 	public function __construct()
 	{	
 		$this->addScriptObject(new javascriptControl("", "proteus/jquery/jquery.updateHelper.js"));			
+	}
+}
+class jqMaskedInputModule extends pageModule
+{
+	public function __construct()
+	{		
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/jquery.maskedinput-1.2.2.js"));				
+	}	
+	public static function setMask(&$webControl, $mask)
+	{
+		$loader = new jqLoader("$(\"[name='$webControl->name']\").setMask($mask);");
+		$webControl->postContent .= $loader->render();			
+	}
+}
+class jqUploadModule extends pageModule
+{
+	public function __construct()
+	{						
+		$this->addRequisiteModule(new jqFileInputModule());
+		
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/uploads/ajaxfileupload.js"));				
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/uploads/jquery.form.js"));
+	}	
+}
+class jqFileInputModule extends pageModule 
+{
+	public function __construct()
+	{
+		$this->addRequisiteModule(new jQueryModule());
+		
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/fileinput/jquery.fileinput.min.js"));
+		$this->addStylesheet(new stylesheetControl("proteus/jquery/fileinput/fileinput.css"));
+		
+		$this->addScriptObject(new jqLoader("$('input[type=file]').fileinput();"));
 	}
 }
 ?>

@@ -1,0 +1,3070 @@
+<?php
+
+	$g_sec = permissions::getAuthorizedUser();
+	
+	switch($action)
+	{
+		case "deleteAgenda":
+			deleteAgenda($agendaID);
+			break;
+			
+		case "getFilesWin":
+			getFilesWin($typeID, $dataID);
+			break;
+			
+		case "saveAgenda":
+			saveAgenda($agendaID, $agenda, $entityID);
+			break;
+			
+		case "getAgendaEdit":
+			getAgendaEdit($agendaID, $entityID);
+			break;
+			
+		case "getAgendas":
+			getAgendas($entityID, $filter);
+			break;
+			
+		case "getAgendaWin":
+			getAgendaWin($entityID);
+			break;
+					
+		case "getEvents":
+			getEvents($entityID, $filter);
+			break;
+			
+		case "getEventsWin":
+			getEventsWin($entityID);
+			break;
+				
+		case "deleteLink":
+			deleteLink($linkID);
+			break;
+			
+		case "saveLink":
+			saveLink($linkID, $link, $typeID, $dataID);
+			break;
+			
+		case "getLinkEdit":
+			getLinkEdit($linkID, $typeID, $dataID);
+			break;
+			
+		case "getLinks":
+			getLinks($dataID, $typeID);
+			break;
+		
+		case "saveFile":
+			saveFile($fileID, $file);
+			break;			
+			
+		case "deleteFile":
+			deleteFile($fileID);
+			break;
+			
+		case "uploadFile":
+			uploadFile($typeID, $dataID);
+			break;
+			
+		case "getFileEdit":
+			getFileEdit($fileID);
+			break;
+			
+		case "getFiles":
+			getFiles($dataID, $typeID);
+			break;
+			
+		case "getDocumentsWin":
+			getDocumentsWin($entityID);
+			break;
+			
+		case "uploadPostIcon":
+			uploadPostIcon($postEntryID);
+			break;
+			
+		case "togglePostStatus":
+			togglePostStatus($postEntryID);
+			break;
+			
+		case "deletePostEntry":
+			deletePostEntry($postEntryID);
+			break;
+			
+		case "savePostEntry":
+			savePostEntry($postEntryID, $post, $entityID);
+			break;
+			
+		case "getPostEdit":
+			getPostEdit($postEntryID, $entityID);
+			break;
+			
+		case "getPostEntries":
+			getPostEntries($entityID, $typeID, $filter, $startPos);
+			break;
+			
+		case "getPostsWin":
+			getPostsWin($entityID);
+			break;
+			
+		case "deleteFaqEntry":
+			deleteFaqEntry($faqEntryID);
+			break;
+			
+		case "saveFaqEntry":
+			saveFaqEntry($faqEntryID, $faq, $entityID);
+			break;
+			
+		case "getFaqEdit":
+			getFaqEdit($faqEntryID, $entityID);
+			break;
+			
+		case "getFaqEntries":
+			getFaqEntries($entityID);
+			break;
+			
+		case "getFaqWin":
+			getFaqWin($entityID);
+			break;
+			
+		case "deleteStaff":
+			deleteStaff($staffID);
+			break;
+			
+		case "toggleStaff":
+			toggleStaff($staffID);
+			break;
+			
+		case "uploadStaffIcon":
+			uploadStaffIcon($staffID);
+			break;
+			
+		case "saveStaff":
+			saveStaff($staffID, $staff, $entityID);
+			break;
+			
+		case "getStaffEdit":
+			getStaffEdit($staffID, $entityID);
+			break;
+			
+		case "getStaff":
+			getStaff($entityID, $filter);
+			break;
+			
+		case "getStaffWin":
+			getStaffWin($entityID);
+			break;
+			
+		case "uploadEntityIcon":
+			uploadEntityIcon($entityID);
+			break;
+			
+		case "saveEntity":
+			saveEntity($entityID, $entity);
+			break;
+			
+		case "deactivateEntity":
+			deactivateEntity($entityID);
+			break;
+			
+		case "getEntityEdit":
+			getEntityEdit($entityID);
+			break;
+			
+		case "getEntities":
+			getEntities($typeID);
+			break;
+			
+		case "saveSettings":
+			saveSettings($cfg);
+			break;
+			
+		case "getSettingsEdit":
+			getSettingsEdit();
+			break;	
+	}
+	
+/*function getEntities($typeID)
+{
+	global $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}*/
+function getSettingsEdit()
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write)) $g_sec->security_error_a();
+		
+		$eObj = new pmm_entity();
+		
+		$settingsWin = new jqUI_dialog("settingsWin", true, 600, "", "Modify Town Hall Settings");
+		$settingsWin->addClass("configWin");
+		$settingsWin->setOption("autoOpen", true);
+		$settingsWin->setOption("autoResize", true);
+		$settingsWin->addButton("Save", "function() { saveSettings(); }");
+		$settingsWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
+		
+		$txtISize = new customText("cfg[iconDim]", $eObj->settings->config("iconDim"), 10, 7);
+		$txtISize->setLabel("Entity Icon Dimensions:");		
+		$txtISize->setRequired("&nbsp; Format: 99x99", "desc");
+		
+		$txtISSize = new customText("cfg[staffIconDim]", $eObj->settings->config("staffIconDim"), 10, 7);
+		$txtISSize->setLabel("Staff Icon Dimensions:");		
+		$txtISSize->setRequired("&nbsp; Format: 99x99", "desc");
+		
+		$txtIPSize = new customText("cfg[postIconDim]", $eObj->settings->config("postIconDim"), 10, 7);
+		$txtIPSize->setLabel("Postings Icon Dimensions:");		
+		$txtIPSize->setRequired("&nbsp; Format: 99x99", "desc");
+		
+		$ddlTime = new phpDDL("cfg[defaultMeetingTime]");
+		$ddlTime->setLabel("Default Meeting Time:");			
+		$ddlTime->selected = $eObj->settings->config("defaultMeetingTime");
+		
+		for($i = 0; $i <= 23; $i++)
+		{
+			for($j = 0; $j <= 45; $j+=15)
+			{	
+				$hrVal = ($i > 12 || !$i ? abs($i - 12) : $i);			
+				
+				$periodDisp = " ".($i >= 12 ? "PM" : "AM");
+				
+				$jDisp = sprintf("%02d", $hrVal).":".sprintf("%02d", $j);
+				$jVal = sprintf("%02d", $i).":".sprintf("%02d", $j);
+				
+				$ddlTime->addListItem(new phpListItem($jDisp.$periodDisp, $jVal));
+			}
+		}
+		
+		$frm = new phpForm("post", "settingsForm");
+		$frm->addControl($txtISize);
+		$frm->addControl($txtISSize);
+		$frm->addControl($txtIPSize);
+		$frm->addControl($ddlTime);
+		
+		$settingsWin->addControl($frm);
+		
+		$js->content = $settingsWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}	
+function saveSettings($cfg)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write)) $g_sec->security_error_a();
+		
+		$cfg[iconDim] = preg_replace("/\s/", "", $cfg[iconDim]);		
+		if (!preg_match("/[0-9]{1,3}x[0-9]{1,3}/", $cfg[iconDim])) throw new Exception("Error, dimensions are not in the proper format (99x99). Please correct and try again.");
+		
+		$tmp = explode("x", $cfg[iconDim]);
+		if ($tmp[0] > 280) throw new Exception("Error, width cannot exceed 280px");
+		
+		$eObj = new pmm_entity();
+		
+		foreach((array)$cfg as $key=>$value)
+		{
+			$eObj->settings->config($key, $value);
+		}
+		
+		pageClass::setNotify("Successfully saved Configuration settings.");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}	
+function getEntities($typeID)
+{
+	global $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	$pc = new pageContent();	
+	
+	try
+	{
+		//typeID of 0 = ALL (no filter)
+		validation::ensureInt($typeID);
+		if (!$typeID) $typeID = 0;
+		
+		$ddlFilter = new phpDDL("entityFilter");
+		$ddlFilter->setLabel("Show me: ");
+		$ddlFilter->selected = $typeID;
+		
+		$arr = pmm_core::getEntityTypes(true, true);		
+		
+		$ddlFilter->bindByArray($arr);		
+		$ddlFilter->onchange = "getEntities($(this).val())";		
+		
+		$btnNew = new jqUI_button("btnNewEntity", "Add New Entity", "", "ui-icon-circle-plus", true);
+		$btnNew->onclick = "getEntityEdit(0)";
+		
+		$pc->addControl($ddlFilter);
+		
+		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::insert))
+		{
+			$pc->addControl($btnNew);	
+		}		
+		
+		if ($typeID) $whCl = " and typeID=$typeID";
+		
+		$qry = "select id
+				from pmm_entities
+				where 1 $whCl
+				AND NOT ( inactive = 1 )
+				order by title asc";
+		$eQry = $d->qry($qry);
+		$eCt = 0;
+		while($entity = $eQry->fetch_assoc())
+		{		
+			if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) || $g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entity[id]))
+			{
+				$eObj = new pmm_entity($entity[id]);
+								
+				$eDiv = new phpDIV();
+				$eDiv->class = 'entityContainer';
+				
+				$iconDiv = new phpDIV();
+				$iconDiv->class = "entityLeft";
+				$iconDiv->addControl($eObj->getIconObject($iconLoc, $iconDim));
+				
+				if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+					$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entity[id]))
+				{					
+					$ulDiv = new jqUI_uploader("entityIcon_$entity[id]", "Upload new Icon ({$iconDim[0]}x{$iconDim[1]}):", "btnIcon_$entity[id]", "Upload Icon", true);
+					$ulDiv->uploadButton->onclick = "return uploadEntityIcon($entity[id]);";
+					$ulDiv->uploadButton->setIconClass("ui-icon-image");
+					$ulDiv->formInput->label->breakAfter = true;
+
+					$iconDiv->addControl($ulDiv);
+				}
+				
+				$dDiv = new phpDIV();
+				$dDiv->class = 'functions';
+				$dDiv->addControl(new phpHeader(2, validation::prepForDisplay($eObj->title, false)));				
+				
+				if ($eObj->updatedUserID)
+				{
+					$sec = new security($eObj->updatedUserID);
+					$dDiv->addControl(new phpHeader(5, "Last updated by $sec->login on ".validation::parseMySqlDate($eObj->updatedDateTime, "D, M d Y \a\\t h:ia")));	
+				}
+				
+				$btnEdit = new jqUI_button("btnEdit_$entity[id]", "Configure Entity", "", "ui-icon-wrench", true);
+				$btnEdit->onclick = "getEntityEdit($entity[id])";
+				
+				$btnStaff = new jqUI_button("btnStaff_$entity[id]", "Staff Members", "", "ui-icon-person", true);
+				$btnStaff->onclick = "getStaffWin($entity[id])";
+				
+				$btnAgendas = new jqUI_button("btnMinutes_$entity[id]", "Agendas &amp; Minutes", "", "ui-icon-note", true);
+				$btnAgendas->onclick = "getAgendaWin($entity[id])";
+				
+				$btnNews = new jqUI_button("btnNews_$entity[id]", "News &amp; Notices", "", "ui-icon-signal-diag", true);
+				$btnNews->onclick = "getPostsWin($entity[id])";
+				
+				$btnFaq = new jqUI_button("btnFaq_$entity[id]", "F.A.Q", "", "ui-icon-help", true);
+				$btnFaq->onclick = "getFaqWin($entity[id])";
+				
+				$btnFiles = new jqUI_button("btnFiles_$entity[id]", "Documents &amp; Links", "", "ui-icon-link", true);
+				$btnFiles->onclick = "getDocumentsWin($entity[id])";
+				
+				$dDiv->addControl($btnEdit);
+				$dDiv->addControl($btnStaff);
+				$dDiv->addControl($btnAgendas);
+				$dDiv->addControl($btnNews);
+				$dDiv->addControl($btnFaq);
+				$dDiv->addControl($btnFiles);
+				
+				//SUBSCRIPTION MODULE
+				if (pageClass::checkSiteType(proteus_core::module_subscribers))
+				{
+					$optData = subscriberOption::getSubscriberOption(proteus_core::module_municipal, $entity[id]);
+					
+					if ($optData[id])
+					{
+						$btnEmail = new jqUI_button("btnEmail_$entity[id]", "Email Subscribers", "ui-state-highlight", "ui-icon-mail-closed", true);
+						$btnEmail->onclick = "getSubscriptionSendWin($optData[id], 0, 0, $entity[id])";
+						
+						$dDiv->addControl($btnEmail);
+					}
+				}
+				
+				//CALENDAR MODULE / EVENTS
+				if (pageClass::checkSiteType(proteus_core::module_calendars))
+				{
+					
+					$btnEvents = new jqUI_button("btnEvents_$entity[id]", "Misc. Events", "", "ui-icon-calendar", true);
+					$btnEvents->onclick = "getEventsWin($entity[id])";
+						
+					$dDiv->addControl($btnEvents);
+				}
+				
+				$eDiv->addControl($iconDiv);
+				$eDiv->addControl($dDiv);
+				if (!$typeID) $eDiv->addControl(new phpHeader(4, "Type: <strong>".$eObj->getTypeDisplay()."</strong>"));
+				
+				$pc->addControl($eDiv);
+				
+				$eCt++;
+			}
+		}	
+		
+		if (!$eCt) $pc->addControl(new phpParagraph("No entities found. Please add a new one, or change filter settings."));
+		
+		$js->content = $pc->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();		
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getEntityEdit($entityID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		if (!$entityID) 
+		{
+			$entityID = 0;
+			
+			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::insert)) $g_sec->security_error_a();
+		
+		}
+		else
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();	
+		}
+		
+		$eObj = new pmm_entity($entityID);
+		
+		$entityWin = new jqUI_dialog("entityWin", true, 825, "", $entityID ? "Modify Entity" : "Add new Entity");
+		$entityWin->addClass("configWin");
+		$entityWin->setOption("autoOpen", true);
+		$entityWin->setOption("autoResize", true);
+		
+		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
+		{
+			$entityWin->addButton("Save","function() { saveEntity($entityID); }");
+		}
+		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::delete) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $entityID))
+		{
+			$entityWin->addButton("Delete","function() { deactivateEntity($entityID); }");
+		}
+		$entityWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
+		
+		$ddlType = new phpDDL("entity[typeID]");
+		$ddlType->class = "floating";
+		$ddlType->setLabel("Entity Type:", "longLabel floating");
+		$ddlType->selected = $eObj->typeID;		
+		
+		$arr = pmm_core::getEntityTypes();
+		$ddlType->bindByArray($arr);
+
+		$txtTitle = new customText("entity[title]", validation::prepTextForInput($eObj->title), 70, 75, "text floating");
+		$txtTitle->setLabel("Title:", "longLabel floating");
+		
+		$txtBlurb = new phpTextArea("entity[blurb]", validation::prepTextForInput($eObj->blurb), 3, 70, "text floating");
+		$txtBlurb->setLabel("Blurb (preview):", "longLabel floating");
+		
+		$txtDesc = new phpTextArea("entity[description]", validation::prepTextForInput($eObj->description), 12, 103, "wysiwyg floating");
+		$txtDesc->setLabel("Description:","longLabel floating", true);
+		$txtDesc->addAttribute("data-upload-dataid", $entityID);
+		$txtDesc->addAttribute("data-upload-typeid", 6);
+		
+		$txtAddr = new phpTextArea("entity[address]", validation::prepTextForInput($eObj->address), 3, 70, "text floating");
+		$txtAddr->setLabel("Address (contact):", "longLabel floating");
+
+		$frmEntity = new phpForm("post","entityForm");
+		$frmEntity->addControl($ddlType);		
+		$frmEntity->addControl($txtTitle);
+		$frmEntity->addControl($txtAddr);
+		$frmEntity->addControl($txtBlurb);
+		$frmEntity->addControl($txtDesc);		
+		
+		$entityWin->addControl($frmEntity);
+		
+		$js->addObject("content", $entityWin->render(), false);
+
+		//error_log($entityWin->render());
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function saveEntity($entityID, $entity)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		if (!$entity[title]) throw new Exception("Error, no title specified!");
+				
+		$entity[description] = validation::prepMultiLineForStorage($entity[description]);
+		$entity[address] = validation::prepMultiLineForStorage($entity[address]);
+		$entity[blurb] = validation::prepMultiLineForStorage($entity[blurb]);		
+		
+		$eObj = new pmm_entity($entityID);
+		
+		foreach((array)$entity as $key=>$value)
+		{
+			$eObj->$key = "'$value'";	
+		}
+
+		$eObj->updatedUserID = $g_sec->id;
+		$eObj->updatedDateTime = "now()";
+		
+		if ($entityID)
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) $g_sec->security_error_a();
+
+			$eObj->save();
+		}
+		else
+		{
+			$entityID = $eObj->insert();
+		}
+		
+		$js->typeID = $entity[typeID];
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+
+function deactivateEntity($entityID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{			
+		
+		$eObj = new pmm_entity($entityID);
+		$js->typeID = $eObj->typeID;
+
+		if ($eObj)
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::delete) &&
+				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $entityID)) $g_sec->security_error_a();
+				
+			$eObj->inactive = 1;
+			$eObj->save();
+		}
+		else
+		{
+			throw new Exception("Cannot deactivate, invalid entity ID!");	
+		}
+		
+		
+		pageClass::setNotify("Deactivated entity!");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+function uploadEntityIcon($entityID)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		$eObj = new pmm_entity($entityID);
+		if (!$eObj->id) throw new Exception("Error, that entity could not be found!");		
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $eObj->id)) $g_sec->security_error_a();
+		
+		$dim = $eObj->settings->config("iconDim");
+		$tmp = explode("x",$dim);		
+		
+		if (count($tmp) != 2) throw new Exception("Error, missing Dimension information. Please try again.");
+		
+		$u = new upload($_FILES['entityIcon_'.$entityID]);		
+		$u->convertImage("png", $tmp);		
+		
+		if (!$u->uploadFile($config[baseAppDir]."images/pmm_entities/$eObj->id/icon.png")) throw new Exception($u->err);		
+		
+		pageClass::setNotify("Entity Icon Successfully Uploaded");
+		
+		$js->typeID = $eObj->typeID;
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);	
+}
+function getStaffWin($entityID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
+		
+		$eObj = new pmm_entity($entityID);
+		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
+		
+		$staffWin = new jqUI_dialog("staffWin", true, 875, 665, validation::prepForDisplay($eObj->title, false)." Staff");
+		$staffWin->setOption("autoOpen", true);		
+		
+		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
+		{
+			$staffWin->addButton("Add a new Staff Position", "function() { getStaffEdit(0, $entityID); }");
+		}
+		
+		$staffWin->addButton("Close", "function() { $(this).dialog('close'); }");
+		
+		$tabs = new tabControl("staffTabs");
+		$tabs->addClass("tabContainerNoHeader");
+		
+		$tpActive = new tabPage("Active Staff", "#active_staff");
+		$tpActive->addControl(new javaControl("$(function() { getStaff($entityID, 1); });"));
+		
+		$tabs->addTabPage($tpActive);
+		
+		$tpInactive = new tabPage("Inactive Staff", "#inactive_staff");
+		$tpInactive->click_event = "function() { getStaff($entityID, 2); }";		
+		
+		$tabs->addTabPage($tpInactive);
+		
+		$staffWin->addControl($tabs);
+		
+		$js->content = $staffWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}	
+function getStaff($entityID, $filter)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	$t = new tblBuilder("center", 0, 0, 0, '100%');
+	
+	if ($filter < 2 && ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+						$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)))
+	{
+		$t->addClass('sortable');
+		
+		$t->addAttribute("data-table", "pmm_entityStaff");
+	}
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
+		
+		$eObj = new pmm_entity($entityID);
+		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
+		
+		$staff = $eObj->getStaff($filter);
+		
+		$ct = 0;
+		foreach((array)$staff as $staffObj)
+		{				
+			$eDiv = new phpDIV();
+			$eDiv->class = 'entityContainer';
+			$eDiv->addAttribute("data-staffid", $staffObj->id);
+			
+			$iconDiv = new phpDIV();
+			$iconDiv->class = "entityLeft";
+			$iconDiv->addControl($staffObj->getIconObject($iconLoc, $iconDim));
+			
+			if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+				$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $staffObj->entityID))
+			{					
+				$ulDiv = new jqUI_uploader("staffIcon_$staffObj->id", "Upload new Icon ({$iconDim[0]}x{$iconDim[1]}):", "btnStaffIcon_$staffObj->id", "Upload Icon", true);
+				$ulDiv->uploadButton->onclick = "return uploadStaffIcon($staffObj->id);";
+				$ulDiv->uploadButton->setIconClass("ui-icon-image");
+				$ulDiv->formInput->label->breakAfter = true;
+
+				$iconDiv->addControl($ulDiv);
+			}
+			
+			$dDiv = new phpDIV();
+			$dDiv->class = 'functions';
+			$dDiv->addControl(new phpHeader(2, validation::prepForDisplay($staffObj->title, false)));								
+			if ($staffObj->assigned) $dDiv->addControl(new phpHeader(3, "Currently Assigned: ".validation::prepForDisplay($staffObj->assigned, false)));
+			if ($staffObj->term) $dDiv->addControl(new phpHeader(3, "Term: ".validation::prepForDisplay($staffObj->term, false)));
+			
+			if ($staffObj->updatedUserID)
+			{
+				$sec = new security($staffObj->updatedUserID);
+				$dDiv->addControl(new phpHeader(5, "Last updated by $sec->login on ".validation::parseMySqlDate($staffObj->updatedDateTime, "D, M d Y \a\\t h:ia")));	
+			}				
+			
+			$btnEdit = new jqUI_button("btnStaffEdit_$staffObj->id", "Edit", "", "ui-icon-wrench", true);
+			$btnEdit->onclick = "getStaffEdit($staffObj->id)";				
+			
+			$btnStatus = new jqUI_button("btnStatus_$staffObj->id", ($staffObj->inactive ? "Re-Activate" : "Deactivate"), "", ($staffObj->inactive ? "ui-icon-refresh" : "ui-icon-alert"), true);
+			$btnStatus->onclick = "toggleStaff($staffObj->id)";
+			
+			$dDiv->addControl($btnEdit);
+			$dDiv->addControl($btnStatus);
+			
+			if ($filter == 2 && ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+								 $g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $staffObj->entityID)))
+			{
+				$btnDelete = new jqUI_button("btnDeleteStaff_$staffObj->id", "Permanently Delete", "ui-state-error", "ui-icon-trash", true);
+				$btnDelete->onclick = "deleteStaff($staffObj->id)";
+
+				$dDiv->addControl($btnDelete);
+			}
+			
+			$eDiv->addControl($iconDiv);
+			$eDiv->addControl($dDiv);
+			
+			$r =& $t->addRow();
+			$r->addAttribute("data-id", $staffObj->id);
+			
+			$r->addCell(new tblCell($eDiv));				
+			
+			$ct++;				
+		}
+		
+		if (!$ct) $t = new phpParagraph("There are no staff positions in this category.");
+		
+		$js->content = $t->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}	
+function getStaffEdit($staffID, $entityID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($entityID);
+		validation::ensureInt($staffID);
+		
+		if (!$staffID) $staffID = 0;
+		
+		$staffObj = new pmm_entityStaff($staffID);
+		
+		if ($staffID)
+		{
+			if (!$staffObj->id) throw new Exception("Error, that staff entry could not be found!");
+			$entityID = $staffObj->entityID;
+		}
+		else
+		{
+			//This shouldn't happen
+			if (!$entityID) throw new Exception("Error, no entity provided for new Staff Entry. Please try again.");
+			
+			$eObj = new pmm_entity($entityID);
+			if (!$eObj->id) throw new Exception("Error, that entity could not be found! Please refresh the page and try again.");
+		}
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();			
+			
+		$staffEditWin = new jqUI_dialog("staffEditWin", true, 700, 450, $staffID ? "Modify Staff Entry" : "Add a new Staff Entry");
+		$staffEditWin->setOption("autoOpen", true);
+		
+		if (($staffID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) ||
+			(!$staffID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID)))
+		{	
+			//pseudo: if staffID && hasAccess GlobalWrite/EntityWrite || !staffID && hasAccess GlobalWrite/EntityInsert
+			$staffEditWin->addButton($staffID ? "Save Changes" : "Add Staff", "function() { saveStaff($staffID, $entityID); }");
+		}
+		
+		$staffEditWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
+		
+		if ($staffObj->updatedUserID)
+		{
+			$sec = new security($staffObj->updatedUserID);
+			$staffEditWin->addControl(new phpParagraph("Last edited by $sec->login on ".validation::parseMySqlDate($staffObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "", "left"));	
+		}
+		
+		$txtTitle = new customText("staff[title]", validation::prepTextForInput($staffObj->title), 50, 100, "floating textBox");
+		$txtTitle->setLabel("Title:", "longLabel floating");	
+		
+		$txtTerm = new customText("staff[term]", validation::prepTextForInput($staffObj->term), 4, 10, "floating textBox");
+		$txtTerm->setLabel("Term:", "longLabel floating");
+		
+		$txtAssn = new customText("staff[assigned]", validation::prepTextForInput($staffObj->assigned), 50, 50, "floating textBox");
+		$txtAssn->setLabel("Currently Assigned:", "longLabel floating");
+		
+		$txtDesc = new phpTextArea("staff[description]", validation::prepTextForInput($staffObj->description), 2, 60, "floating textBox");
+		$txtDesc->setLabel("Position Description:", "longLabel floating");
+		
+		$txtAddr = new phpTextArea("staff[address]", validation::prepTextForInput($staffObj->address), 2, 60, "floating textBox");
+		$txtAddr->setLabel("Address (contact):", "longLabel floating");
+		
+		$chkElected = new phpCheckbox("staff[isElected]", 1, $staffObj->isElected ? true : false, "floating");
+		$chkElected->setLabel("Elected Position?", "longLabel floating");
+		$chkElected->labelRenderOrder = 0;
+		
+		$frm = new phpForm("post", "staffEditForm");
+		$frm->addControl($txtTitle);
+		$frm->addControl($txtAssn);
+		$frm->addControl($txtDesc);
+		$frm->addControl($txtAddr);
+		$frm->addControl($txtTerm);
+		$frm->addControl($chkElected);
+		
+		$staffEditWin->addControl($frm);
+		
+		$js->addObject("content", $staffEditWin->render(), false);		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function saveStaff($staffID, $staff, $entityID)
+{
+	global $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($entityID);
+		validation::ensureInt($staffID);
+		
+		if (!$staffID) $staffID = 0;
+		
+		$staffObj = new pmm_entityStaff($staffID);
+		
+		if ($staffID)
+		{
+			if (!$staffObj->id) throw new Exception("Error, that staff entry could not be found!");
+			$entityID = $staffObj->entityID;
+		}
+		else
+		{
+			//This shouldn't happen
+			if (!$entityID) throw new Exception("Error, no entity provided for new Staff Entry. Please try again.");
+			
+			$eObj = new pmm_entity($entityID);
+			if (!$eObj->id) throw new Exception("Error, that entity could not be found! Please refresh the page and try again.");
+		}
+		
+		if (strlen($staff[title]) < 3) throw new Exception("Error, Staff Title must be at least 3 characters.");
+		
+		if (!$staff[isElected]) $staff[isElected] = 0;
+		$staff[description] = validation::prepMultiLineForStorage($staff[description]);
+		$staff[address] = validation::prepMultiLineForStorage($staff[address]);
+		
+		$staffObj->updatedUserID = $g_sec->id;
+		$staffObj->updatedDateTime = "now()";
+
+		foreach((array)$staff as $key=>$value)
+		{
+			$staffObj->$key = "'$value'";	
+		}
+		
+		if ($staffID)
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) $g_sec->security_error_a();
+				
+			$staffObj->save();
+			pageClass::setNotify("Staff Entry saved.");
+		}
+		else
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID)) $g_sec->security_error_a();
+				
+			$max = $d->qryCount("select max(position) from pmm_entityStaff where entityID=$entityID");
+			if (!$max) $max = 0;
+			
+			$max++;
+			
+			$staffObj->position = $max;
+			$staffObj->entityID = $entityID;
+			$staffObj->insert();
+
+			pageClass::setNotify("Successfully added Staff Entry.");
+		}
+		
+		$js->filter = $staffObj->inactive ? 2 : 1;
+		$js->entityID = $entityID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);		
+}
+function uploadStaffIcon($staffID)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		$sObj = new pmm_entityStaff($staffID);
+		if (!$sObj->id) throw new Exception("Error, that staff entry could not be found!");		
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $sObj->entityID)) $g_sec->security_error_a();
+		
+		$eObj = $sObj->getParentEntity();
+		
+		$dim = $eObj->settings->config("staffIconDim");
+		$tmp = explode("x",$dim);		
+		
+		//if (count($tmp) != 2) throw new Exception("Error, missing Dimension information. Please try again.");		
+		//Not needed at this time
+		
+		$u = new upload($_FILES['staffIcon_'.$staffID]);
+		
+		//get image dimensions, resize if too big.  Don't want to force dimensions, as some people use landscape, others portrait layout
+		$srcImg = $u->getSourceImageObject();			
+		$xD = ImageSX($srcImg);
+		$yD = ImageSY($srcImg);
+		while($xD > 600 )
+		{
+			$xD = $xD / 2;
+			$yD = $yD / 2;
+		}
+		$tmp[0] = $xD;
+		$tmp[1] = $yD;
+					
+		$u->convertImage("png", $tmp);		
+		
+		if (!$u->uploadFile($config[baseAppDir]."images/pmm_entities/$eObj->id/stafficon_$staffID.png")) throw new Exception($u->err);		
+		
+		pageClass::setNotify("Staff Icon Successfully Uploaded");
+		
+		$js->entityID = $sObj->entityID;
+		$js->filter = $sObj->inactive ? 2 : 1;
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);	
+}
+function toggleStaff($staffID)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		$sObj = new pmm_entityStaff($staffID);
+		if (!$sObj->id) throw new Exception("Error, that staff entry could not be found!");		
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, ($sObj->inactive ? permissions::insert : permissions::delete), $sObj->entityID)) $g_sec->security_error_a();
+		
+		if (!$sObj->inactive)
+		{
+			$sObj->position = 0;	
+		}
+
+		$sObj->inactive = $sObj->inactive ? 0 : 1;
+		$sObj->save();
+		
+		if ($sObj->inactive)
+		{
+			pageClass::setNotify("Successfully deactivated staff");
+		}
+		else
+		{
+			pageClass::setNotify("Successfully re-activated staff");	
+		}
+		
+		$js->entityID = $sObj->entityID;
+		$js->filter = $sObj->inactive ? 2 : 1;
+		$js->dataID = $staffID;
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);	
+}
+function deleteStaff($staffID)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		$sObj = new pmm_entityStaff($staffID);
+		if (!$sObj->id) throw new Exception("Error, that staff entry could not be found!");		
+		
+		// This shouldn't ever happen
+		if (!$sObj->inactive) throw new Exception("Only inactive staff entries can be permanently deleted. Please deactivate and try again.");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $sObj->entityID)) $g_sec->security_error_a();
+		
+		$sObj->delete();
+		
+		pageClass::setNotify("Staff position permanently deleted");		
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);	
+}
+function getFaqWin($entityID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		$eObj = new pmm_entity($entityID);
+		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
+		
+		$faqWin = new jqUI_dialog("faqWin", true, 700, 600, validation::prepForDisplay($eObj->title, false)." FAQ Entries");
+		$faqWin->setOption("autoOpen", true);		
+		
+		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
+		{
+			$faqWin->addButton("Add a new FAQ Entry", "function() { getFaqEdit(0, $entityID); }");
+		}
+		
+		$faqWin->addButton("Close", "function() { $(this).dialog('close'); }");
+
+		$faqDiv = new phpDIV();
+		$faqDiv->class = 'faqContainer';
+		$faqDiv->addControl(new javaControl("$(function() { getFaqEntries($entityID); });"));
+		
+		$faqWin->addControl($faqDiv);
+		
+		$js->content = $faqWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getFaqEntries($entityID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{
+		$eObj = new pmm_entity($entityID);
+		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
+			
+		$t = new tblBuilder("center", 0, 0, 5, '100%');
+		$t->class = 'listTable hoverTable';
+		
+		$r =& $t->addRow();
+		$r->addHeader(new tblHeader("Question"));
+		$r->addHeader(new tblHeader("&nbsp;"));
+		
+		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
+		{
+			$t->addClass('sortable');			
+			$t->addAttribute("data-table", "pmm_entityFaq");
+		}
+		
+		$faqs = $eObj->getFaqEntries();
+		foreach((array)$faqs as $faqObj)
+		{		
+			$ctlArray = array();
+			
+			$btnEdit = new jqUI_button("btnEditFaq_$faqObj->id", "Edit", "ui-state-highlight", "ui-icon-pencil", true);
+			$btnEdit->onclick = "getFaqEdit($faqObj->id, 0)";
+			
+			$ctlArray[] = $btnEdit;
+			
+			if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+				$g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $entityID))
+			{
+				$btnDelete = new jqUI_button("btnDeleteFaq_$faqObj->id", "Delete", "ui-state-error", "ui-icon-trash", true);
+				$btnDelete->onclick = "deleteFaqEntry($faqObj->id)";
+				
+				$ctlArray[] = $btnDelete;
+			}
+			
+			$r =& $t->addRow();
+			$r->addAttribute("data-id", $faqObj->id);
+			$r->addCell(new tblCell(validation::prepForDisplay($faqObj->question, false), "", "left"));
+			$r->addCell(new tblCell($ctlArray, "", "center", "", 245));		
+		}
+		
+		if (!count($faqs))
+		{
+			$r =& $t->addRow();
+			$r->addCell(new tblCell("There are no Faq entries defined for this entity.", "", "center", 2));
+		}
+		
+		$js->content = $t->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+function getFaqEdit($faqEntryID, $entityID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($entityID);
+		validation::ensureInt($faqEntryID);
+		
+		if (!$faqEntryID) $faqEntryID = 0;
+		
+		$faqObj = new pmm_entityFaq($faqEntryID);
+		
+		if ($faqEntryID)
+		{
+			if (!$faqObj->id) throw new Exception("Error, that faq entry could not be found!");
+			$entityID = $faqObj->entityID;
+		}
+		else
+		{
+			//This shouldn't happen
+			if (!$entityID) throw new Exception("Error, no entity provided for new Faq Entry. Please try again.");
+			
+			$eObj = new pmm_entity($entityID);
+			if (!$eObj->id) throw new Exception("Error, that entity could not be found! Please refresh the page and try again.");
+		}
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();			
+			
+		$faqEditWin = new jqUI_dialog("faqEditWin", true, 800, 475, $faqEntryID ? "Modify Faq Entry" : "Add a new Faq Entry");
+		$faqEditWin->setOption("autoOpen", true);
+		
+		if (($faqEntryID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) ||
+			(!$faqEntryID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID)))
+		{	
+			//pseudo: if faqEntryID && hasAccess GlobalWrite/EntityWrite || !faqEntryID && hasAccess GlobalWrite/EntityInsert
+			$faqEditWin->addButton($faqEntryID ? "Save Changes" : "Add Faq Entry", "function() { saveFaqEntry($faqEntryID, $entityID); }");
+		}
+		
+		$faqEditWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
+		
+		if ($faqObj->updatedUserID)
+		{
+			$sec = new security($faqObj->updatedUserID);
+			$faqEditWin->addControl(new phpParagraph("Last edited by $sec->login on ".validation::parseMySqlDate($faqObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "", "left"));	
+		}
+		
+		$txtQuestion = new customText("faq[question]", validation::prepTextForInput($faqObj->question), 50, 255, "floating textBox");
+		$txtQuestion->setLabel("Question:", "longLabel floating");	
+		
+		$txtAnswer = new phpTextArea("faq[answer]", validation::prepTextForInput($faqObj->answer), 12, 103, "wysiwyg floating");
+		$txtAnswer->setLabel("Answer:","longLabel floating", true);
+		$txtAnswer->addAttribute("data-upload-dataid", $faqObj->entityID);
+		$txtAnswer->addAttribute("data-upload-typeid", 6);
+		
+		$frm = new phpForm("post", "faqEditForm");
+		$frm->addControl($txtQuestion);
+		$frm->addControl($txtAnswer);
+		
+		$faqEditWin->addControl($frm);
+		
+		$js->addObject("content", $faqEditWin->render(), false);		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function saveFaqEntry($faqEntryID, $faq, $entityID)
+{
+	global $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($entityID);
+		validation::ensureInt($faqEntryID);
+		
+		if (!$faqEntryID) $faqEntryID = 0;
+		
+		$faqObj = new pmm_entityFaq($faqEntryID);
+		
+		if ($faqEntryID)
+		{
+			if (!$faqObj->id) throw new Exception("Error, that faq entry could not be found!");
+			$entityID = $faqObj->entityID;
+		}
+		else
+		{
+			//This shouldn't happen
+			if (!$entityID) throw new Exception("Error, no entity provided for new Faq Entry. Please try again.");
+			
+			$eObj = new pmm_entity($entityID);
+			if (!$eObj->id) throw new Exception("Error, that entity could not be found! Please refresh the page and try again.");
+		}
+				
+		if (strlen($faq[question]) < 3) throw new Exception("Error, Faq Question must be at least 3 characters.");
+		if (!strlen($faq[answer])) throw new Exception("Error, you must specify an answer!");
+				
+		$faq[answer] = validation::prepMultiLineForStorage($faq[answer]);
+		
+		$faqObj->updatedUserID = $g_sec->id;
+		$faqObj->updatedDateTime = "now()";
+
+		foreach((array)$faq as $key=>$value)
+		{
+			$faqObj->$key = "'$value'";	
+		}
+		
+		if ($faqEntryID)
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) $g_sec->security_error_a();
+				
+			$faqObj->save();
+			pageClass::setNotify("Faq Entry saved.");
+		}
+		else
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID)) $g_sec->security_error_a();
+				
+			$max = $d->qryCount("select max(position) from pmm_entityFaq where entityID=$entityID");
+			if (!$max) $max = 0;
+			
+			$max++;
+			
+			$faqObj->position = $max;
+			$faqObj->entityID = $entityID;
+			$faqObj->insert();
+
+			pageClass::setNotify("Successfully added Faq Entry.");
+		}		
+		
+		$js->entityID = $entityID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);		
+}
+function deleteFaqEntry($faqEntryID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		
+		$faqObj = new pmm_entityFaq($faqEntryID);
+		if (!$faqObj->id) throw new Exception("Error, that faq entry could not be found!");
+						
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $faqObj->entityID)) $g_sec->security_error_a();
+				
+		$faqObj->delete();
+		pageClass::setNotify("Faq Entry removed.");
+				
+		$js->entityID = $faqObj->entityID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);		
+}
+function getPostsWin($entityID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		$eObj = new pmm_entity($entityID);
+		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
+		
+		$postWin = new jqUI_dialog("postWin", true, 875, 665, validation::prepForDisplay($eObj->title, false)." News & Notices");
+		$postWin->setOption("autoOpen", true);		
+		
+		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
+		{
+			$postWin->addButton("Add a new Post", "function() { getPostEdit(0, $entityID); }");
+		}
+		
+		$postWin->addButton("Close", "function() { $(this).dialog('close'); }");
+
+		$ddlFilter = new phpDDL("postsFilter");
+		$ddlFilter->class = 'floating';
+		$ddlFilter->setLabel("Show me: ", "longLabel floating");
+
+		$arr = pmm_core::getPostTypes(true, true);
+		
+		$ddlFilter->bindByArray($arr);		
+		$ddlFilter->onchange = "refreshPostings($entityID)";
+		
+		$btnRefresh = new jqUI_button("btnRefreshPosts", "Refresh Posts", "", "ui-icon-refresh", true);
+		$btnRefresh->onclick = "refreshPostings($entityID)";
+		
+		$tabs = new tabControl("postTabs");
+		$tabs->addClass("tabContainerNoHeader");		
+		
+		$tabs->addWrapperControl($ddlFilter);
+		$tabs->addWrapperControl($btnRefresh);
+		
+		$tpActive = new tabPage("Active Postings", "#active_posts");
+		$tpActive->showLoading = true;
+		$tpActive->addControl(new phpParagraph("Listed below are the postings that would appear live on the website at this moment."));
+		$tpActive->addControl(new phpDiv());		
+		
+		$tabs->addTabPage($tpActive);
+		
+		$tpPend = new tabPage("Pending Postings", "#pending_posts");
+		$tpPend->showLoading = true;
+		$tpPend->addControl(new phpParagraph("Listed below are the postings that are currently inactive, pending posting based on the publish date."));
+		$tpPend->addControl(new phpDiv());		
+		
+		$tabs->addTabPage($tpPend);
+		
+		$tpExp = new tabPage("Expired Postings", "#expired_posts");
+		$tpExp->showLoading = true;
+		$tpExp->addControl(new phpParagraph("Listed below are the postings that are currently expired, based on the expire date.."));
+		$tpExp->addControl(new phpDiv());		
+		
+		$tabs->addTabPage($tpExp);
+		
+		$tpInact = new tabPage("Inactive Posts", "#inactive_posts");
+		$tpInact->showLoading = true;
+		$tpInact->addControl(new phpParagraph("Listed below are the postings that have been manually deactivated."));
+		$tpInact->addControl(new phpDiv());		
+		
+		$tabs->addTabPage($tpInact);
+		
+		$tabs->addControl(new javaControl("refreshPostings($entityID)"));
+		
+		$postWin->addControl($tabs);
+		
+		$js->content = $postWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getPostEntries($entityID, $typeID, $filter, $startPos)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	$pc = new pageContent();
+	
+	try
+	{
+		$limit = 15;
+		
+		$eObj = new pmm_entity($entityID);
+		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();			
+				
+		$posts = $eObj->getPostEntries($typeID, $filter);
+		
+		$totalPosts = count($posts);
+		
+		if ($totalPosts > $limit)
+		{
+			$nav = new navigationAJAX($startPos, $totalPosts, $limit, "getPostEntries",  true, "$entityID, $typeID, $filter");
+			$pc->addControl($nav);	
+		}
+		
+		if ($startPos)
+		{
+			$posts = array_slice($posts, $startPos, $limit);	
+		}
+		
+		foreach((array)$posts as $postObj)
+		{				
+			unset($dateDisp);
+			
+			if ($postObj->publishDate != "0000-00-00")
+			{
+				$dateDisp = "Publish on ".validation::parseMySqlDate($postObj->publishDate, "D, M d");	
+			}			
+			if ($postObj->expireDate != "0000-00-00")
+			{
+				$dateDisp .= "Expire on ".validation::parseMySqlDate($postObj->expireDate, "D, M d");	
+			}
+						
+			$eDiv = new phpDIV();
+			$eDiv->class = 'entityContainer';			
+			
+			$iconDiv = new phpDIV();
+			$iconDiv->class = "entityLeft";
+			$iconDiv->addControl($postObj->getIconObject($iconLoc, $iconDim));
+			
+			if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+				$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $postObj->entityID))
+			{					
+				$ulDiv = new jqUI_uploader("postIcon_$postObj->id", "Upload new Icon ({$iconDim[0]}x{$iconDim[1]}):", "btnStaffIcon_$postObj->id", "Upload Icon", true);
+				$ulDiv->uploadButton->onclick = "return uploadPostIcon($postObj->id);";
+				$ulDiv->uploadButton->setIconClass("ui-icon-image");
+				$ulDiv->formInput->label->breakAfter = true;
+
+				$iconDiv->addControl($ulDiv);
+			}
+			
+			$dDiv = new phpDIV();
+			$dDiv->class = 'functions';
+			$dDiv->addControl(new phpHeader(2, validation::prepForDisplay($postObj->title, false)));			
+			if ($dateDisp) $dDiv->addControl(new phpHeader(3, $dateDisp));
+						
+			if ($postObj->updatedUserID)
+			{
+				$sec = new security($postObj->updatedUserID);
+				$dDiv->addControl(new phpHeader(5, "Last updated by $sec->login on ".validation::parseMySqlDate($postObj->updatedDateTime, "D, M d Y \a\\t h:ia")));	
+			}			
+			
+			if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+				$g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $entityID))
+			{
+				$btnDelete = new jqUI_button("btnDeletePost_$postObj->id", "Delete Post", "ui-state-error", "ui-icon-trash", true);
+				$btnDelete->onclick = "deletePostEntry($postObj->id)";
+				
+				$dDiv->addControl($btnDelete);
+			}
+			
+			$btnEdit = new jqUI_button("btnEditPost_$postObj->id", "Edit Post", "ui-state-highlight", "ui-icon-pencil", true);
+			$btnEdit->onclick = "getPostEdit($postObj->id, 0)";			
+			
+			$dDiv->addControl($btnEdit);
+			
+			if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+				$g_sec->hasAccess(permissions::$municipal_entity, ($postObj->inactive ? permissions::insert : permissions::delete), $entityID))
+			{
+				$btnStat = new jqUI_button("btnPostStat_$postObj->id", ($postObj->inactive ? "Reactivate Post" : "Deactivate Post"),"", ($postObj->inactive ? "ui-icon-refresh" : "ui-icon-alert"), true); 
+				$btnStat->onclick = "togglePostStatus($postObj->id)";
+
+				$dDiv->addControl($btnStat);
+			}
+			
+			if (pageClass::checkSiteType(proteus_core::module_subscribers) && 
+				($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+				$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID) ||
+				$g_sec->hasAccess(permissions::$manage_subscribers, permissions::write)))
+			{
+				$optData = subscriberOption::getSubscriberOption(proteus_core::module_municipal, $postObj->entityID);
+				
+				if ($optData[id])
+				{
+					$btnEmail = new jqUI_button("btnEmail_$postObj->id", "Email Subscribers", "ui-state-highlight", "ui-icon-mail-closed", true);
+					$btnEmail->onclick = "getSubscriptionSendWin($optData[id], 0, ".subscriber_core::type_municipal_posting.", $postObj->id, '#postWin')";
+					
+					$dDiv->addControl($btnEmail);
+				}
+			}
+			
+			$eDiv->addControl($iconDiv);
+			$eDiv->addControl($dDiv);	
+			if (!$typeID) $eDiv->addControl(new phpHeader(4, "Post Type: <strong>".$postObj->getTypeDisplay()."</strong>"));
+
+			$pc->addControl($eDiv);
+		}
+		
+		if (!count($posts))
+		{
+			$pc->addControl(new phpParagraph("There are currently no posts in this category."));
+		}
+		
+		if ($nav) $pc->addControl($nav);
+		
+		$js->content = $pc->render();
+		$js->count = $totalPosts;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+function getPostEdit($postEntryID, $entityID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($entityID);
+		validation::ensureInt($postEntryID);
+		
+		if (!$postEntryID) $postEntryID = 0;
+		
+		$postObj = new pmm_entityPosting($postEntryID);
+		
+		if ($postEntryID)
+		{
+			if (!$postObj->id) throw new Exception("Error, that Post could not be found!");
+			$entityID = $postObj->entityID;
+		}
+		else
+		{
+			//This shouldn't happen
+			if (!$entityID) throw new Exception("Error, no entity provided for new Faq Entry. Please try again.");
+			
+			$eObj = new pmm_entity($entityID);
+			if (!$eObj->id) throw new Exception("Error, that entity could not be found! Please refresh the page and try again.");
+		}
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();			
+			
+		$postEditWin = new jqUI_dialog("postEditWin", true, 800, 675, $postEntryID ? "Modify Post" : "Add a new Post");
+		$postEditWin->setOption("autoOpen", true);
+		
+		if (($postEntryID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) ||
+			(!$postEntryID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID)))
+		{	
+			//pseudo: if staffID && hasAccess GlobalWrite/EntityWrite || !staffID && hasAccess GlobalWrite/EntityInsert
+			$postEditWin->addButton($postEntryID ? "Save Changes" : "Add Post", "function() { savePostEntry($postEntryID, $entityID); }");
+		}
+		
+		$postEditWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
+		
+		if ($postObj->updatedUserID)
+		{
+			$sec = new security($postObj->updatedUserID);
+			$postEditWin->addControl(new phpParagraph("Last edited by $sec->login on ".validation::parseMySqlDate($postObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "", "left"));	
+		}
+		
+		$ddlType = new phpDDL("post[typeID]");
+		$ddlType->class = 'floating';
+		$ddlType->setLabel("Post Type: ", "longLabel floating");
+		$ddlType->selected = $postObj->typeID;
+
+		$arr = pmm_core::getPostTypes();
+		$ddlType->bindByArray($arr);
+		
+		$txtTitle = new customText("post[title]", validation::prepTextForInput($postObj->title), 75, 255, "floating textBox");
+		$txtTitle->setLabel("Post Title:", "longLabel floating");	
+		
+		$txtBlurb = new phpTextArea("post[blurb]", validation::prepTextForInput($postObj->blurb), 3, 75, "floating textBox");
+		$txtBlurb->setLabel("Blurb:", "longLabel floating");		
+		
+		$txtBody = new phpTextArea("post[body]", validation::prepTextForInput($postObj->body), 12, 103, "wysiwyg floating");
+		$txtBody->setLabel("Post Body:","longLabel floating", true);
+		$txtBody->addAttribute("data-upload-dataid", $postObj->entityID);
+		$txtBody->addAttribute("data-upload-typeid", 6);
+		
+		$dtPub = new jqUI_datepicker("post[publishDate]", validation::parseMySqlDate($postObj->publishDate, "m-d-Y"), "Date to Publish:", true, "new Date(2012,1,1)");
+		$dtPub->label->class = "longLabel floating";
+		$dtPub->addClass('floating');
+		
+		$dtExp = new jqUI_datepicker("post[expireDate]", validation::parseMySqlDate($postObj->expireDate, "m-d-Y"), "Date to Expire:", true);
+		$dtExp->label->class = "longLabel floating";
+		$dtExp->addClass('floating');
+		
+		$frm = new phpForm("post", "postEditForm");
+		$frm->addControl($ddlType);
+		$frm->addControl($txtTitle);
+		$frm->addControl($txtBlurb);
+		$frm->addControl($dtPub);
+		$frm->addControl($dtExp);
+		$frm->addControl($txtBody);		
+		
+		$postEditWin->addControl($frm);
+		
+		$js->addObject("content", $postEditWin->render(), false);		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function savePostEntry($postEntryID, $post, $entityID, $cutOutBeforeExit = false) //cutOutBeforeExit if saving a post from within another AJAX call (like from within create entities)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($entityID);
+		validation::ensureInt($postEntryID);		
+		
+		$postObj = new pmm_entityPosting($postEntryID);
+		
+		if ($postEntryID)
+		{
+			if (!$postObj->id) throw new Exception("Error, that post could not be found!");
+			$entityID = $postObj->entityID;
+		}
+		else
+		{
+			//This shouldn't happen
+			if (!$entityID) throw new Exception("Error, no entity provided for new Post. Please try again.");
+			
+			$eObj = new pmm_entity($entityID);
+			if (!$eObj->id) throw new Exception("Error, that entity could not be found! Please refresh the page and try again.");
+		}
+				
+		if (strlen($post[title]) < 3) throw new Exception("Error, Post title must be at least 3 characters.");
+		if (!strlen($post[body])) throw new Exception("Error, you must specify some content to save your post.");
+		
+		$post[blurb] = validation::prepMultiLineForStorage($post[blurb]);
+		$post[body] = validation::prepMultiLineForStorage($post[body]);
+
+		foreach((array)$post as $key=>$value)
+		{
+			$postObj->$key = "'$value'";	
+		}
+		
+		$postObj->updatedUserID = $g_sec->id;
+		$postObj->updatedDateTime = "now()";
+		$postObj->publishDate = "'".($post[publishDate] ? validation::convertToMySqlDate($post[publishDate]) : "0000-00-00")."'";
+		$postObj->expireDate = "'".($post[expireDate] ? validation::convertToMySqlDate($post[expireDate]) : "0000-00-00")."'";
+		
+		if ($postEntryID)
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) $g_sec->security_error_a();
+				
+			$postObj->save();
+			pageClass::setNotify("Post saved.");
+		}
+		else
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID)) $g_sec->security_error_a();
+				
+			$postObj->entityID = $entityID;
+			$postObj->insert();
+
+			if(!$cutOutBeforeExit) pageClass::setNotify("Successfully added Post.");
+		}		
+		
+		$js->entityID = $entityID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	if(!$cutOutBeforeExit )
+	{
+		echo $js->render();
+		exit(0);
+	}		
+}
+function deletePostEntry($postEntryID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{	
+		
+		$postObj = new pmm_entityPosting($postEntryID);
+		if (!$postObj->id) throw new Exception("Error, that post could not be found!");
+						
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $$postObj->entityID)) $g_sec->security_error_a();
+				
+		$postObj->delete();
+		pageClass::setNotify("Post successfully removed.");
+				
+		$js->entityID = $postObj->entityID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);		
+}
+function togglePostStatus($postEntryID)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		$pObj = new pmm_entityPosting($postEntryID);
+		if (!$pObj->id) throw new Exception("Error, that post could not be found!");		
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, ($pObj->inactive ? permissions::insert : permissions::delete), $pObj->entityID)) $g_sec->security_error_a();
+				
+		$pObj->inactive = $pObj->inactive ? 0 : 1;
+		$pObj->save();
+		
+		if ($pObj->inactive)
+		{
+			pageClass::setNotify("Successfully deactivated Post");
+		}
+		else
+		{
+			pageClass::setNotify("Successfully re-activated Post");	
+		}
+		
+		$js->entityID = $pObj->entityID;		
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);	
+}
+function uploadPostIcon($postEntryID)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		$pObj = new pmm_entityPosting($postEntryID);
+		if (!$pObj->id) throw new Exception("Error, that Post could not be found!");		
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $pObj->entityID)) $g_sec->security_error_a();
+		
+		$eObj = $pObj->getParentEntity();
+		
+		$dim = $eObj->settings->config("postIconDim");
+		$tmp = explode("x",$dim);		
+		
+		if (count($tmp) != 2) throw new Exception("Error, missing Dimension information. Please try again.");
+		
+		$u = new upload($_FILES['postIcon_'.$postEntryID]);		
+		$u->convertImage("png", $tmp);		
+		
+		if (!$u->uploadFile($config[baseAppDir]."images/pmm_entities/$eObj->id/posticon_$postEntryID.png")) throw new Exception($u->err);		
+		
+		pageClass::setNotify("Post Icon Successfully Uploaded");
+		
+		$js->entityID = $pObj->entityID;		
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);	
+}
+function getDocumentsWin($entityID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		$eObj = new pmm_entity($entityID);
+		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
+		
+		$docWin = new jqUI_dialog("docWin", true, 800, 665, validation::prepForDisplay($eObj->title, false)." Documents &amp; Links");
+		$docWin->setOption("autoOpen", true);		
+		$docWin->addButton("Close", "function() { $(this).dialog('close'); }");
+
+		$tabs = new tabControl("postTabs");
+		$tabs->addClass("tabContainerNoHeader");		
+		
+		$fDiv = new phpDiv();
+		$fDiv->id = "filesContainer";
+		
+		$tpContent = new tabPage("Custom Content", "#custom_content");
+		$tpContent->addControl(new phpDIV());
+		$tpContent->addControl(new javaControl("$(function() { getContentEntries(1,$entityID,'#custom_content > div'); })"));
+		
+		$tabs->addTabPage($tpContent);
+		
+		$tpDocs = new tabPage("Attached Documents", "#entity_docs");		
+		//$tpDocs->addControl(new phpParagraph("Listed below are the documents that are attached to this Entity."));
+		$tpDocs->addControl($fDiv);
+		$tpDocs->addControl(new javaControl("getFiles(1, $entityID)"));		
+		
+		$tabs->addTabPage($tpDocs);
+		
+		$lDiv = new phpDiv();
+		$lDiv->id = "linksContainer";
+		
+		$tpLinks = new tabPage("Link Resources", "#entity_links");		
+		//$tpLinks->addControl(new phpParagraph("Listed below are the links that are attached to this Entity."));
+		$tpLinks->addControl($lDiv);		
+		$tpLinks->addControl(new javaControl("getLinks(1, $entityID)"));
+		
+		$tabs->addTabPage($tpLinks);
+		
+		$docWin->addControl($tabs);
+		
+		$js->content = $docWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getFiles($dataID, $typeID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	$pc = new pageContent();
+	
+	try
+	{
+		$caption = "Upload new File:";
+		$emptyMessage = "No files found.";
+				
+		switch($typeID)
+		{
+			case 0:
+				//General Municipal Files (not yet implemented)
+				break;
+			case 1:
+				//Entity Files
+				$eObj = new pmm_entity($dataID);
+				if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
+		
+				$entityID = $eObj->id;								 
+				$files = $eObj->getFiles();
+				break;
+				
+			case 2:
+				//Entity Agendas
+				$aObj = new pmm_entityAgenda($dataID);
+				if (!$aObj->id) throw new Exception("Error, that Agenda could not be found!");
+		
+				$caption = "Upload Meeting Minutes:";
+				$emptyMessage = "No Minutes found for this Agenda";
+				
+				$entityID = $aObj->entityID;								 
+				$files = $aObj->getFiles();
+				break;
+				
+			default:
+				throw new Exception("Error, unsupported file list request.");
+		}
+
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
+			
+		$writeAccess = ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+						$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID));
+		
+		$deleteAccess = ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+						 $g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $entityID));
+						 
+		$insertAccess = ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+						 $g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID));
+		
+		if ($insertAccess)
+		{
+			$ulDiv = new jqUI_uploader("entityFile", $caption, "btnFileUpload", "Upload File", true);
+			$ulDiv->uploadButton->onclick = "return uploadFile($typeID, $dataID);";
+			$ulDiv->uploadButton->setIconClass("ui-icon-image");			
+			
+			$pc->addControl($ulDiv);
+		}
+		
+		$t = new tblBuilder("center", 0, 0, 5, '100%');
+		$t->class = 'listTable hoverTable filesTable';
+		
+		$r =& $t->addRow();
+		$r->addHeader(new tblHeader("File"));		
+		$r->addHeader(new tblHeader("Size"));		
+		$r->addHeader(new tblHeader("&nbsp;"));
+		
+		if ($writeAccess)
+		{
+			$t->addClass('sortable');
+			
+			$t->addAttribute("data-table", "pmm_entityFiles");
+		}
+		
+		foreach((array)$files as $fileObj)
+		{		
+			$ctlArray = array();
+			
+			if (pageClass::checkSiteType(proteus_core::module_subscribers))
+			{
+				$optData = subscriberOption::getSubscriberOption(proteus_core::module_municipal, $entityID);
+				
+				if ($writeAccess && $optData[id])
+				{
+					$btnEmail = new jqUI_button("btnEmail_$fileObj->id", "", "actionControl", "ui-icon-mail-closed", true);
+					$btnEmail->onclick = "getSubscriptionSendWin($optData[id], 0, ".subscriber_core::type_municipal_file.", $fileObj->id, '#docWin')";
+					$btnEmail->title = "Email Subscribers";
+	
+					$ctlArray[] = $btnEmail;
+				}
+			}
+			
+			$btnEdit = new editControl();
+			$btnEdit->onclick = "getFileEdit($fileObj->id)";
+			
+			$ctlArray[] = $btnEdit;
+			
+			if ($deleteAccess)
+			{
+				$btnDelete = new deleteControl();
+				$btnDelete->onclick = "deleteFile($fileObj->id)";
+				
+				$ctlArray[] = $btnDelete;
+			}
+
+			if ($fileObj->localFile)
+			{
+				$fSize = filesize($fileObj->localFile);
+				$sizeDisp = @number_format(round($fSize / 1024, 2), 2)."Kb";
+			}
+			else
+			{
+				$sizeDisp = "<strong>!! FILE MISSING !!</strong>";
+			}			
+			
+			$fileLink = new phpHyperlink($fileObj->file, validation::prepForDisplay($fileObj->caption, false), "", true);
+			$spnFName = new phpSpan($fileObj->fileName, "fileName"); 
+			
+			$r =& $t->addRow();
+			$r->addAttribute("data-id", $fileObj->id);			
+			$r->addCell(new tblCell(array($fileLink, $spnFName), "", "left"));			
+			$r->addCell(new tblCell($sizeDisp, "", "center"));
+			$r->addCell(new tblCell($ctlArray, "", "center", "", 150));
+		}
+		
+		if (!count($files))
+		{
+			$r =& $t->addRow();
+			$r->addCell(new tblCell($emptyMessage, "", "center", 4));
+		}
+		
+		$pc->addControl($t);
+		
+		$js->content = $pc->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+function getFileEdit($fileID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($fileID);		
+		if (!$fileID) $fileID = 0;
+		
+		$fileObj = new pmm_entityFile($fileID);
+		if (!$fileObj->id) throw new Exception("Error, that file entry could not be found!");
+		
+		if (!$fileObj->hasAccess($g_sec, permissions::read, permissions::read)) $g_sec->security_error_a();		
+			
+		$fileEditWin = new jqUI_dialog("fileEditWin", true, 600, 200, "Modify File entry");
+		$fileEditWin->setOption("autoOpen", true);
+		
+		if ($fileObj->hasAccess($g_sec, permissions::write, permissions::write))
+		{				
+			$fileEditWin->addButton("Save Changes", "function() { saveFile($fileID); }");
+		}
+		
+		$fileEditWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
+		
+		if ($fileObj->updatedUserID)
+		{
+			$sec = new security($fileObj->updatedUserID);
+			$fileEditWin->addControl(new phpParagraph("Last edited by $sec->login on ".validation::parseMySqlDate($fileObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "", "left"));	
+		}
+		
+		$txtCaption = new customText("file[caption]", validation::prepTextForInput($fileObj->caption), 50, 50, "floating textBox");
+		$txtCaption->setLabel("File Caption:", "longLabel floating");		
+		
+		$frm = new phpForm("post", "fileEditForm");
+		$frm->addControl($txtCaption);		
+		
+		$fileEditWin->addControl($frm);
+		
+		$js->addObject("content", $fileEditWin->render(), false);		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function uploadFile($typeID, $dataID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		validation::ensureInt($typeID);
+		if (!$typeID) $typeID = 0;
+		
+		$fileObj = new pmm_entityFile();
+		$fileObj->dataID = $dataID;
+		$fileObj->typeID = $typeID;
+		
+		if (!$fileObj->hasAccess($g_sec, permissions::insert, permissions::write)) $g_sec->security_error_a();
+		
+		$u = new upload($_FILES['entityFile'], false);
+		
+		$tmp = explode(".", $u->p_Name);
+		if (count($tmp) < 2) throw new Exception("Error, all files must have a valid extension.");
+		$origName = str_ireplace("_"," ", $tmp[count($tmp)-2] ); //restore spaces for readability of caption
+		$tmp[count($tmp)-2] .= "_".time();
+		
+		$fileName = implode(".", $tmp);
+		$fileName = preg_replace("/[^0-9a-z\.\-\_]/is", "", $fileName);
+
+		$folder = $config[baseAppDir].$fileObj->fileFolder;
+		
+		switch($typeID)
+		{
+			case 2:
+				// Make sure the /meetings folder has been created
+				if (!file_exists($folder)) mkdir($folder);
+				break;
+		}
+		
+		if (!$u->uploadFile($folder.$fileName)) throw new Exception($u->err);		
+		
+		$max = $d->qryCount("select max(position) from pmm_entityFiles where dataID=$dataID and typeID=$typeID");
+		if (!$max) $max = 0;
+		$max++;		
+		
+		$fileObj->position = $max;
+		$fileObj->updatedUserID = $g_sec->id;
+		$fileObj->updatedDateTime = "now()";
+		//$fileObj->fileName = $fileObj->caption = "'$fileName'";		
+		$fileObj->fileName = "'$fileName'";
+		$fileObj->caption = "'$origName'"; //changed so that default caption doesn't have _ and numbers in it
+		
+		$fileObj->insert();
+		
+		pageClass::setNotify("File Successfully Uploaded");	
+
+		$js->success = 1;
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);	
+}
+function deleteFile($fileID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		$fileObj = new pmm_entityFile($fileID);
+		if (!$fileObj->id) throw new Exception("Error, that file could not be found!");
+		
+		if (!$fileObj->hasAccess($g_sec, permissions::delete, permissions::write)) $g_sec->security_error_a();
+
+		$fileObj->delete();
+		
+		pageClass::setNotify("File successfully removed.");
+				
+		$js->dataID = $fileObj->dataID;
+		$js->typeID = $fileObj->typeID;		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);		
+}
+function getLinks($dataID, $typeID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	$pc = new pageContent();
+	
+	try
+	{
+		switch($typeID)
+		{
+			case 0:
+				//General Municipal Links (not yet implemented)
+				break;
+			case 1:
+				//Entity Files
+				$eObj = new pmm_entity($dataID);
+				if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
+		
+				if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+					!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $eObj->id)) $g_sec->security_error_a();
+					
+				$writeAccess = ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+								$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $eObj->id));
+				
+				$deleteAccess = ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+								 $g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $eObj->id));
+								 
+				$insertAccess = ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+								 $g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $eObj->id));
+								 
+				$links = $eObj->getLinks();
+				break;
+		}
+
+		if ($insertAccess)
+		{
+			$btnNew = new jqUI_button("btnNewLink", "Add a new Link Resource", "", "ui-icon-link", true);
+			$btnNew->onclick = "getLinkEdit(0, $typeID, $dataID)";
+				
+			$pc->addControl($btnNew);
+		}
+		
+		$t = new tblBuilder("center", 0, 0, 5, '100%');
+		$t->class = 'listTable hoverTable';
+		
+		$r =& $t->addRow();
+		$r->addHeader(new tblHeader("Link Resource"));						
+		$r->addHeader(new tblHeader("&nbsp;"));
+		
+		if ($writeAccess)
+		{
+			$t->addClass('sortable');			
+			$t->addAttribute("data-table", "pmm_entityLinks");
+		}
+		
+		foreach((array)$links as $linkObj)
+		{		
+			$ctlArray = array();
+			
+			$btnEdit = new editControl();
+			$btnEdit->onclick = "getLinkEdit($linkObj->id)";
+			
+			$ctlArray[] = $btnEdit;
+			
+			if ($deleteAccess)
+			{
+				$btnDelete = new deleteControl();
+				$btnDelete->onclick = "deleteLink($linkObj->id)";
+				
+				$ctlArray[] = $btnDelete;
+			}
+			
+			$lnk = new phpHyperlink($linkObj->fullUrl, validation::prepForDisplay($linkObj->caption, false), "", true); 
+			$spnLink = new phpSpan($linkObj->url, "fullUrl");
+			
+			$r =& $t->addRow();
+			$r->addAttribute("data-id", $linkObj->id);	
+			$r->addCell(new tblCell(array($lnk, $spnLink), "", "left"));									
+			$r->addCell(new tblCell($ctlArray, "", "center", "", 245));
+		}
+		
+		if (!count($links))
+		{
+			$r =& $t->addRow();
+			$r->addCell(new tblCell("There are no links in this category.", "", "center", 4));
+		}
+		
+		$pc->addControl($t);
+		
+		$js->content = $pc->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+function saveFile($fileID, $file)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		$fileObj = new pmm_entityFile($fileID);
+		if (!$fileObj->id) throw new Exception("Error, that file could not be found!");
+		
+		if (!$fileObj->hasAccess($g_sec, permissions::write, permissions::write)) $g_sec->security_error_a();
+		if (strlen($file[caption]) < 3) throw new Exception("Sorry, but file captions must be at least 3 characters. Please try again.");
+		
+		foreach((array)$file as $key=>$value)
+		{
+			$fileObj->$key = "'$value'";	
+		}
+		
+		$fileObj->updatedUserID = $g_sec->id;
+		$fileObj->updatedDateTime = "now()";
+		
+		$fileObj->save();
+		
+		pageClass::setNotify("File successfully saved.");
+				
+		$js->dataID = $fileObj->dataID;
+		$js->typeID = $fileObj->typeID;		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);		
+}
+function getLinkEdit($linkID, $typeID, $dataID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($linkID);		
+		if (!$linkID) $linkID = 0;
+		
+		$linkObj = new pmm_entityLink($linkID);
+		
+		if ($linkID)
+		{
+			if (!$linkObj->id) throw new Exception("Error, that link resource could not be found!");
+		}
+		else
+		{
+			$linkObj->typeID = $typeID;
+			$linkObj->dataID = $dataID;	
+		}
+		
+		if (!$linkObj->hasAccess($g_sec, permissions::read, permissions::read)) $g_sec->security_error_a();
+		
+		$eObj = $linkObj->getParentEntity();
+		if (!$eObj->id) throw new Exception("Error, that entity could not be found!");
+		
+		$linkEditWin = new jqUI_dialog("linkEditWin", true, 700, 225, "Modify Link Resource");
+		$linkEditWin->setOption("autoOpen", true);
+		
+		if ($linkObj->hasAccess($g_sec, permissions::write, permissions::write))
+		{				
+			$linkEditWin->addButton("Save Changes", "function() { saveLink($linkID, $linkObj->typeID, $linkObj->dataID); }");
+		}
+		
+		$linkEditWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
+		
+		if ($linkObj->updatedUserID)
+		{
+			$sec = new security($linkObj->updatedUserID);
+			$linkEditWin->addControl(new phpParagraph("Last edited by $sec->login on ".validation::parseMySqlDate($linkObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "", "left"));	
+		}
+		
+		$txtCaption = new customText("link[caption]", validation::prepTextForInput($linkObj->caption), 50, 75, "floating textBox");
+		$txtCaption->setLabel("Link Caption:", "longLabel floating");		
+		
+		$txtUrl = new customText("link[url]", validation::prepTextForInput($linkObj->url), 50, 255, "floating textBox");
+		$txtUrl->setLabel("URL:", "longLabel floating");
+		
+		$frm = new phpForm("post", "linkEditForm");
+		$frm->addControl($txtCaption);		
+		$frm->addControl($txtUrl);
+		
+		$linkEditWin->addControl($frm);
+		
+		$js->addObject("content", $linkEditWin->render(), false);		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function saveLink($linkID, $link, $typeID, $dataID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		validation::ensureInt($linkID);		
+		if (!$linkID) $linkID = 0;
+		
+		$linkObj = new pmm_entityLink($linkID);
+		
+		if ($linkID)
+		{
+			if (!$linkObj->id) throw new Exception("Error, that link resource could not be found!");
+		}
+		else
+		{
+			$linkObj->typeID = $typeID;
+			$linkObj->dataID = $dataID;	
+		}
+		
+		if (!$linkObj->hasAccess($g_sec, permissions::write, permissions::write)) $g_sec->security_error_a();
+		
+		$eObj = $linkObj->getParentEntity();
+		if (!$eObj->id) throw new Exception("Error, that entity could not be found!");
+		
+		if (strlen($link[caption]) < 3) throw new Exception("Sorry, but link captions must be at least 3 characters. Please try again.");
+		if (strlen($link[url]) < 10) throw new Exception("Sorry, but URLs must be at least 10 characters. Please try again.");
+		
+		$link[url] = strtolower($link[url]);
+		
+		foreach((array)$link as $key=>$value)
+		{
+			$linkObj->$key = "'$value'";	
+		}
+		
+		$linkObj->updatedUserID = $g_sec->id;
+		$linkObj->updatedDateTime = "now()";
+		
+		if ($linkID)
+		{
+			$linkObj->save();
+		}
+		else
+		{
+			$linkObj->insert();	
+		}
+		
+		pageClass::setNotify("Link Resource successfully saved.");
+				
+		$js->dataID = $linkObj->dataID;
+		$js->typeID = $linkObj->typeID;		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);		
+}
+function deleteLink($linkID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{		
+		$linkObj = new pmm_entityLink($linkID);
+		if (!$linkObj->id) throw new Exception("Error, that link resource could not be found!");
+		
+		if (!$linkObj->hasAccess($g_sec, permissions::write, permissions::write)) $g_sec->security_error_a();
+		
+		$linkObj->delete();
+		
+		pageClass::setNotify("Link Resource Removed.");
+				
+		$js->dataID = $linkObj->dataID;
+		$js->typeID = $linkObj->typeID;		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);		
+}
+function getAgendaWin($entityID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		$eObj = new pmm_entity($entityID);
+		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
+		
+		$agendaWin = new jqUI_dialog("agendaWin", true, 875, 725, validation::prepForDisplay($eObj->title, false)." Agendas");
+		$agendaWin->setOption("autoOpen", true);		
+		
+		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
+		{
+			$agendaWin->addButton("Add a new Agenda", "function() { getAgendaEdit(0, $entityID); }");
+		}
+		
+		$agendaWin->addButton("Close", "function() { $(this).dialog('close'); }");
+		
+		$tabs = new tabControl("agendaTabs");
+		$tabs->addClass("tabContainerNoHeader");
+		
+		$tpActive = new tabPage("Upcoming Meetings", "#upcoming_meetings");
+		$tpActive->addControl(new javaControl("$(function() { getAgendas($entityID, 0); });"));
+		
+		$tabs->addTabPage($tpActive);
+		
+		$tpInactive = new tabPage("Past Meetings", "#past_meetings");
+		$tpInactive->click_event = "function() { getAgendas($entityID, 1); }";		
+		
+		$tabs->addTabPage($tpInactive);
+		
+		$agendaWin->addControl($tabs);
+		
+		$js->content = $agendaWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getAgendas($entityID, $filter)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		validation::ensureInt($filter);
+		if (!$filter) $filter = 0;
+		
+		$eObj = new pmm_entity($entityID);
+		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
+			
+		$t = new tblBuilder("center", 0, 0, 5, '100%');
+		$t->class = 'listTable hoverTable';
+		
+		$r =& $t->addRow();
+		$r->addHeader(new tblHeader("Title"));
+		$r->addHeader(new tblHeader("Date &amp; Time"));
+		$r->addHeader(new tblHeader("&nbsp;"));		
+		
+		$agendas = $eObj->getAgendas($filter);
+		foreach((array)$agendas as $agendaObj)
+		{		
+			$ctlArray = array();
+			
+			if (pageClass::checkSiteType(proteus_core::module_subscribers))
+			{
+				$optData = subscriberOption::getSubscriberOption(proteus_core::module_municipal, $entityID);
+					
+				if ($optData[id])
+				{
+					$btnEmail = new jqUI_button("btnEmail_$entity[id]", "", "actionControl", "ui-icon-mail-closed", true);
+					$btnEmail->onclick = "getSubscriptionSendWin($optData[id], 0, ".subscriber_core::type_municipal_agenda.", $agendaObj->id)";
+					$btnEmail->title = "Email Subscribers";
+					
+					$ctlArray[] = $btnEmail;
+				}
+			}
+			
+			$btnFiles = new jqUI_button("btnManageFiles_$agendaObj->id", "", "actionControl", "ui-icon-note", true);
+			$btnFiles->onclick = "getFilesWin(2, $agendaObj->id, '#agendaWin')";
+			$btnFiles->title = "Meeting Minutes";
+			
+			$ctlArray[] = $btnFiles;
+			
+			$btnEdit = new editControl();
+			$btnEdit->onclick = "getAgendaEdit($agendaObj->id, 0)";
+			
+			$ctlArray[] = $btnEdit;
+			
+			if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+				$g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $entityID))
+			{
+				$btnDelete = new deleteControl();
+				$btnDelete->onclick = "deleteAgenda($agendaObj->id)";
+				
+				$ctlArray[] = $btnDelete;
+			}
+			
+			$r =& $t->addRow();
+			$r->addAttribute("data-id", $agendaObj->id);
+			$r->addCell(new tblCell(validation::prepForDisplay($agendaObj->title, false), "evenCell", "left"));
+			$r->addCell(new tblCell(validation::parseMySqlDate($agendaObj->meetingDateTime, "D, M d \a\\t h:ia"), "oddCell", "left", "", 175));
+			$r->addCell(new tblCell($ctlArray, "evenCell", "center", "", 340));		
+		}
+		
+		if (!count($agendas))
+		{
+			$r =& $t->addRow();
+			$r->addCell(new tblCell("There are no Agenda entries defined for this entity.", "evenCell", "center", 3));
+		}
+		
+		$js->content = $t->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+function getAgendaEdit($agendaID, $entityID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($entityID);
+		validation::ensureInt($agendaID);
+		
+		if (!$agendaID) $agendaID = 0;
+		
+		$agendaObj = new pmm_entityAgenda($agendaID);
+		
+		if ($agendaID)
+		{
+			if (!$agendaObj->id) throw new Exception("Error, that Agenda could not be found!");
+			$entityID = $agendaObj->entityID;
+		}
+		else
+		{
+			//This shouldn't happen
+			if (!$entityID) throw new Exception("Error, no entity provided for new Agenda Entry. Please try again.");
+			
+			$eObj = new pmm_entity($entityID);
+			if (!$eObj->id) throw new Exception("Error, that entity could not be found! Please refresh the page and try again.");
+		}
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();			
+			
+		$agendaEditWin = new jqUI_dialog("agendaEditWin", true, 800, 675, $agendaID ? "Modify Agenda Entry" : "Add a new Agenda Entry");
+		$agendaEditWin->setOption("autoOpen", true);
+		
+		if (($agendaID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) ||
+			(!$agendaID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID)))
+		{	
+			//pseudo: if agendaID && hasAccess GlobalWrite/EntityWrite || !agendaID && hasAccess GlobalWrite/EntityInsert
+			$agendaEditWin->addButton($agendaID ? "Save Changes" : "Add agenda", "function() { saveAgenda($agendaID, $entityID); }");
+		}
+		
+		$agendaEditWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
+		
+		if ($agendaObj->updatedUserID)
+		{
+			$sec = new security($agendaObj->updatedUserID);
+			$agendaEditWin->addControl(new phpParagraph("Last edited by $sec->login on ".validation::parseMySqlDate($agendaObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "", "left"));	
+		}
+		
+		$txtTitle = new customText("agenda[title]", validation::prepTextForInput($agendaObj->title), 50, 50, "floating textBox");
+		$txtTitle->setLabel("Title:", "longLabel floating");
+		
+		$txtLoc = new phpTextArea("agenda[location]", validation::prepTextForInput($agendaObj->location), 2, 60, "floating textBox");
+		$txtLoc->setLabel("Meeting Location:", "longLabel floating");
+		
+		$txtBody = new phpTextArea("agenda[body]", validation::prepTextForInput($agendaObj->body), 16, 102, "floating textBox wysiwyg");
+		$txtBody->setLabel("Meeting Agenda Detail:", "longLabel floating", true);		
+		$txtBody->addAttribute("data-upload-dataid", $entityID);
+		$txtBody->addAttribute("data-upload-typeid", 6);
+		
+		$dtSplit = explode(" ", $agendaObj->meetingDateTime);
+		
+		$ddlTime = new phpDDL("agenda[time]");
+		$ddlTime->setLabel("Meeting Time:", "longLabel floating");
+		$ddlTime->addClass("floating");	
+		$ddlTime->selected = $dtSplit[1] ? substr($dtSplit[1], 0, -3) : $eObj->settings->config("defaultMeetingTime");
+		
+		for($i = 0; $i <= 23; $i++)
+		{
+			for($j = 0; $j <= 45; $j+=15)
+			{	
+				$hrVal = ($i > 12 || !$i ? abs($i - 12) : $i);			
+				
+				$periodDisp = " ".($i >= 12 ? "PM" : "AM");
+				
+				$jDisp = sprintf("%02d", $hrVal).":".sprintf("%02d", $j);
+				$jVal = sprintf("%02d", $i).":".sprintf("%02d", $j);
+				
+				$ddlTime->addListItem(new phpListItem($jDisp.$periodDisp, $jVal));
+			}
+		}
+
+		$dtDate = new jqUI_datepicker("agenda[date]", validation::parseMySqlDate($agendaObj->meetingDateTime, "m-d-Y"), "Meeting Date:", true, "new Date(2005,1,1)");
+		$dtDate->label->class = 'longLabel floating';
+		$dtDate->addClass('floating');
+		$dtDate->setOption("buttonImage", "'../includes/js/jquery/themes/smoothness/images/calendar.gif'");
+		
+		$frm = new phpForm("post", "agendaEditForm");
+		$frm->addControl($txtTitle);
+		$frm->addControl($dtDate);
+		$frm->addControl($ddlTime);
+		$frm->addControl($txtLoc);
+		$frm->addControl($txtBody);
+		if(!$agendaID) //only give option to post as a notice if is a new agenda
+		{
+			$chkNotice = new phpCheckbox("agenda[isNoticeAlso]", 1, false, "floating");
+			$chkNotice->setLabel("Also post agenda text as a notice item?", "longLabel floating");
+			$chkNotice->labelRenderOrder = 0;
+			$frm->addControl($chkNotice);
+		}		
+		
+		$agendaEditWin->addControl($frm);
+		
+		$js->addObject("content", $agendaEditWin->render(), false);		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function saveAgenda($agendaID, $agenda, $entityID )
+{
+	global $g_sec;
+	global $config;
+	
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($entityID);
+		validation::ensureInt($agendaID);		
+		
+		$agendaObj = new pmm_entityAgenda($agendaID);
+		
+		if ($agendaID)
+		{
+			if (!$agendaObj->id) throw new Exception("Error, that agenda entry could not be found!");
+			$entityID = $agendaObj->entityID;
+		}
+		else
+		{
+			//This shouldn't happen
+			if (!$entityID) throw new Exception("Error, no entity provided for new Agenda Entry. Please try again.");
+			
+			$eObj = new pmm_entity($entityID);
+			if (!$eObj->id) throw new Exception("Error, that entity could not be found! Please refresh the page and try again.");
+		}
+				
+		if (strlen($agenda[title]) < 3) throw new Exception("Error, Agenda title must be at least 3 characters.");
+		if (!strlen($agenda[body])) throw new Exception("Error, you must specify Agenda content!");
+				
+		$agenda[body] = validation::prepMultiLineForStorage($agenda[body]);
+		$agenda[location] = validation::prepMultiLineForStorage($agenda[location]);
+		
+		$agenda[meetingDateTime] = validation::convertToMySqlDate($agenda[date])." {$agenda[time]}:00";
+		
+		$isNoticeAlso = intval( $agenda[isNoticeAlso] );
+		$noticeDate = $agenda[date];
+		
+		unset($agenda[isNoticeAlso]);
+		unset($agenda[date]);
+		unset($agenda[time]);
+		
+		$agendaObj->updatedUserID = $g_sec->id;
+		$agendaObj->updatedDateTime = "now()";
+
+		foreach((array)$agenda as $key=>$value)
+		{
+			$agendaObj->$key = "'$value'";	
+		}
+		
+		if ($agendaID)
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) $g_sec->security_error_a();
+				
+			$agendaObj->save();
+			pageClass::setNotify("Agenda successfully saved.");
+		}
+		else
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID)) $g_sec->security_error_a();				
+			
+			$agendaObj->entityID = $entityID;
+			$agendaObj->insert();
+			
+			//SEE ABOUT POSTING NEW ITEM AS NOTICE TO CUT OUT EXTRA STEPS
+			$noticeNotify = '';
+			if( $isNoticeAlso ) //do we want to post this as a notice at the same time?  Many meetings also require public notice
+			{
+				$post = array();
+				$post[body] = "<p><em>Meeting Held On: $noticeDate </em></p>" . $agenda[body];
+				$post[body] .= '
+					<br>
+					<a href = "'.$config[scripturl].'minutes.php?show='.$agendaObj->id.'">View this Agenda & Associated Minutes here</a>
+				';
+				$shortDesc = str_replace("&nbsp;", "", $agenda[body]); //&nbsp; doesn't work for blurb
+				$shortDesc = str_replace("&amp;", "and", $shortDesc); //&amp; doesn't work for blurb
+				$shortDesc = str_replace("<br>", "\n", $shortDesc); //<br> will show up literal for blurb
+				$shortDesc = str_replace("<li>", "\n", $shortDesc); //replace with newline to keep a semblance of organization
+				
+				$shortDesc = strip_tags($shortDesc, ''); //auto prepare the blurb: remove all other formatting
+				$shortDesc = "Meeting Held On: $noticeDate \n" . $shortDesc;
+				if(strlen($shortDesc) > 250) //if still more than 400 characters, truncate
+				{	
+					$shortDesc = substr($shortDesc, 0, 250); 
+					$shortDesc.=" ...";
+				}
+				
+				$post[title] = $agenda[title];
+				$post[blurb] = $shortDesc; 
+				$post[publishDate] = ''; //this will make it display automatically
+				
+				$Edates = explode("-", $noticeDate);
+				if (sizeof($Edates) < 3) throw new Exception("Error, there must be a valid date for the agenda to post it as a notice!");
+				$expireJ = 1 + gregoriantojd($Edates[0], $Edates[1], $Edates[2] ); //make expire 1 day after the meeting
+				list($Emonth, $Eday, $Eyear) = explode('/', jdtogregorian($expireJ));
+				$expireG = sprintf('%02d-%02d-%+05d', $Emonth, $Eday, $Eyear);
+				
+				$post[expireDate] = $expireG;
+				savePostEntry('', $post, $entityID, true); //save post and true to cutting out before exit
+				$noticeNotify = " and Public Notice.";
+			}
+			
+			pageClass::setNotify("Successfully added Agenda Entry" . $noticeNotify );
+		}		
+		
+		$js->entityID = $entityID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);		
+}
+function getFilesWin($typeID, $dataID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		switch($typeID)
+		{
+			case 2:
+				$aObj = new pmm_entityAgenda($dataID);
+				if (!$aObj->id) throw new Exception("Error, that Agenda could not be found!");
+				
+				$title = validation::prepForDisplay($aObj->title, false)." Meeting Minutes";
+
+				$entityID = $aObj->entityID;
+				break;
+			default:
+				throw new Exception("Unsupported file listing request. Please try again.");
+		}
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
+		
+		$filesWin = new jqUI_dialog("docWin", true, 800, 650, $title);
+		$filesWin->setOption("autoOpen", true);		
+		$filesWin->addButton("Close", "function() { $(this).dialog('close'); }");
+
+		$dvFiles = new phpDIV();
+		$dvFiles->id = 'filesContainer';
+		$dvFiles->addControl(new javaControl("getFiles($typeID, $dataID)"));		
+		
+		$filesWin->addControl($dvFiles);
+		
+		$js->content = $filesWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function deleteAgenda($agendaID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{	
+		
+		$agendaObj = new pmm_entityAgenda($agendaID);
+		if (!$agendaObj->id) throw new Exception("Error, that Agenda could not be found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $agendaObj->entityID)) $g_sec->security_error_a();						
+		
+		$agendaObj->delete();
+		
+		pageClass::setNotify("Agenda successfully removed.");
+				
+		$js->entityID = $agendaObj->entityID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);		
+}
+
+function getEventsWin($entityID)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		$eObj = new pmm_entity($entityID);
+		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
+		
+			
+		if (!$g_sec->hasAccess(permissions::$manage_calendars, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$modify_calendar, permissions::read, 0)) $g_sec->security_error();		
+			
+		$eventsWin = new jqUI_dialog("eventsWin", true, 875, 325, validation::prepForDisplay($eObj->title, false)." Event Calendars");
+		$eventsWin->setOption("autoOpen", true);		
+		
+		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
+		{
+			$eventsWin->addButton("Add Calendar", "function() { getCalendarWin(0, 1, $entityID); }");
+			
+		}
+		$eventsWin->addButton("Close", "function() { $(this).dialog('close'); }");
+//		$eventsWin->addControl(new javaControl("$(function() { getCalendars($entityID); });"));
+
+		
+		$dv = new phpDIV();
+		$dv->id = "calendarsContainer";
+	
+		$eventsWin->addControl($dv);
+		$eventsWin->addControl(new jqLoader("getCalendars(1, $entityID)"));	
+		
+		$js->content = $eventsWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+
+	
+	$a->render();
+?>

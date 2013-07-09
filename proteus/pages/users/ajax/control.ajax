@@ -1,6 +1,6 @@
 <?php
 
-	$g_sec = permissions::getAuthorizedUser();
+	$g_sec = permissions::authenticateAjax(true);
 	
 	switch($action)
 	{
@@ -20,12 +20,12 @@
 			getLinkedOptions($permKey);
 			break;
 			
-		case "deleteSecurityAssn":
-			deleteSecurityAssn($keyID);
+		case "removePermission":
+			removePermission($assnID);
 			break;
 			
-		case "addSecurityAssn":
-			addSecurityAssn($userID, $matrixID, $value);
+		case "addPermission":
+			addPermission($userID, $permissionKey);
 			break;
 			
 		case "savePermissions":
@@ -61,7 +61,7 @@ function getUsers($paging, $sortData, $filterColumns, $customColumns)
 	
 	try
 	{
-		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::read) && !$g_sec->is(permissions::$school_rep)) $g_sec->security_error();
+		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::read) && !$g_sec->is(permissions::$school_rep)) $g_sec->security_error_a();
 		
 		$t = new tblBuilder('center',0,0,4,'100%');
 		$t->class = 'listTable hoverTable';
@@ -198,10 +198,7 @@ function showEditUser($userID)
 		if ($sec->id) $txtPass->setDescription("&nbsp;&nbsp;* Leave blank for no change", "desc");
 		
 		$txtEmail = new customText("details[email]", $sec->email, 25, 255);
-		$txtEmail->setLabel("Email Address:");
-		
-		$chk = new phpCheckbox("details[test]");
-		$chk->setLabel("Test Checkbox");
+		$txtEmail->setLabel("Email Address:");		
 		
 		$dob = $sec->dob ? validation::parseMySqlDate($sec->dob, "m-d-Y") : ($sec->id ? "" : date("m-d-Y", strtotime("-25 YEARS")));		
 		
@@ -215,8 +212,7 @@ function showEditUser($userID)
 		$uForm->addControl($txtTitle);
 		$uForm->addControl($txtLogin);
 		$uForm->addControl($txtPass);
-		$uForm->addControl($txtEmail);
-		$uForm->addControl($chk);
+		$uForm->addControl($txtEmail);		
 		$uForm->addControl(new hiddenInput("action", "updateUser"));		
 		$uForm->addControl(new hiddenInput("userID", $sec->id));
 	
@@ -233,8 +229,8 @@ function showEditUser($userID)
 			
 			$tabs->addTabPage($tp);
 			
-			$tpComments = new jqUI_tabPage("account_notes", "Employer Comments");			
-			$tpComments->addControl(new commentContainer($eObj->id, customComments::comment_user, true));
+			$tpComments = new jqUI_tabPage("account_notes", "Account Comments", "ui-icon-comment");			
+			$tpComments->addControl(new commentContainer($sec->id, customComments::comment_user, true));
 										
 			$tabs->addTabPage($tpComments);
 		}
@@ -416,7 +412,7 @@ function getPermissions($userID)
 			$permission = permissions::getPermissionByKey($assn["permissionKey"]);
 			if (!$permission["key"]) continue;
 			
-			if (!$conf->checkSiteType($permission["siteType"])) continue;
+			if (!$conf->moduleEnabled($permission["siteType"])) continue;
 
 			/* switch($permission["siteType"])
 			{
@@ -548,8 +544,10 @@ function getPermissions($userID)
 			{	
 				if ($sec->is($perm))
 				{
+					$permAssn = $sec->getPermissionAssignment($perm);
+					
 					$dCtl = new deleteControl();
-					$dCtl->onclick = "removePermission('{$perm["key"]}')";
+					$dCtl->onclick = "removePermission('{$permAssn["id"]}')";
 					
 					$r = $kTable->addRow();
 					$r->addCell(new tblCell($title,"evenCell","left", "", 150));	
@@ -585,9 +583,8 @@ function getPermissions($userID)
 			$pc->addControl($frm);			
 		}
 		
-		$btnAddS = new jqUI_button('btnAddS', 'Add Permission', "floating", "ui-icon-key", true);		
-		$btnAddS->breakAfter = true;		
-		$btnAddS->onclick = "addSecurityAssn($userID);";
+		$btnAddS = new jqUI_button('btnAddS', 'Add Permission', "floating", "ui-icon-key", true);				
+		$btnAddS->onclick = "addPermission($userID);";
 		
 		$pc->addControl($kTable);
 		
@@ -634,25 +631,22 @@ function savePermissions($userID, $perms, $assnID='')
 				
 				// Intrinsic read permissions
 				if ($value && !($value & permissions::read))
-				{
-					$js->reload = 1;
+				{					
 					$value++;
 				}
 				
-				$cv[bitValue] = $value;
+				$cv["bitValue"] = $value;
 				
-				if ($permAssn[id])
+				if ($permAssn["id"])
 				{
 					if ($value)
 					{
-						$d->qryUpdateByArray("permissionsAssignment", $cv, "id=$permAssn[id]");
+						$d->qryUpdateByArray("permissionsAssignment", $cv, array("id"=>$permAssn["id"]));
 					}
 					else
 					{
 						//Remove the empty entry (cleanup)
-						$d->qry("delete from permissionsAssignment where id=$permAssn[id]");
-						
-						$js->reload = 1;
+						$d->qry("delete from permissionsAssignment where id={$permAssn["id"]}");				
 					}
 				}
 				else
@@ -660,9 +654,8 @@ function savePermissions($userID, $perms, $assnID='')
 					//This shouldn't ever happen...
 					if ($assnID) throw new Exception("Invalid assignment ID provided.");
 					
-					$cv[userID] = $userID;
-					$cv[permissionKey] = "'$key'";
-					//$cv[dataID] = $dataID;
+					$cv["userID"] = $sec->id;
+					$cv["permissionKey"] = "'$key'";
 									
 					$d->qryInsertByArray("permissionsAssignment", $cv);
 				}
@@ -680,7 +673,7 @@ function savePermissions($userID, $perms, $assnID='')
 	echo $js->render();
 	exit();				
 }
-function addSecurityAssn($userID, $matrixID, $value)
+function addPermission($userID, $permissionKey)
 {
 	global $config, $g_sec;
 
@@ -690,18 +683,20 @@ function addSecurityAssn($userID, $matrixID, $value)
 	try
 	{
 		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::write)) $g_sec->security_error_a();
+				
+		$sec = new security_a($userID);
 		
-		validation::ensureInt($matrixID);
-		if (!$matrixID) throw new Exception("Error, no valid security assignment selected. Please try again.");
+		$perm = permissions::getPermissionByKey($permissionKey);
+		if (!$perm["key"]) throw new Exception("Error, that security key could not be found.");
 		
-		$sec = new security($userID);
-		if (!$sec->id) throw new Exception("Error, that user could not be found!");
-
-		$cv[matrixID] = $matrixID;
-		$cv[matrixValue] = "'$value'";
-		$cv[userID] = $userID;
-	
-		$d->qryInsertByArray('rightsAssignment', validation::quotedArray($cv));		
+		if ($sec->is($perm)) throw new Exception("Error, that user is already a member of that permission set.");
+		
+		$cv["permissionKey"] = "'$permissionKey'";
+		$cv["addedDateTime"] = "now()";
+		$cv["bitValue"] = 1;
+		$cv["userID"] = $sec->id;
+		
+		$d->qryInsertByArray("permissionsAssignment", $cv);
 		
 		pageClass::setNotify("Successfully added security assignment.");	
 	}
@@ -714,7 +709,7 @@ function addSecurityAssn($userID, $matrixID, $value)
 	echo $js->render();
 	exit();
 }
-function deleteSecurityAssn($keyID)
+function removePermission($assnID)
 {
 	global $config, $g_sec;
 
@@ -723,19 +718,15 @@ function deleteSecurityAssn($keyID)
 	
 	try
 	{
-		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::write)) $g_sec->security_error_a();
+		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::write)) $g_sec->security_error_a();		
 		
-		validation::ensureInt($keyID);
-		if (!$keyID) throw new Exception("Error, no valid security assignment selected. Please try again.");
+		$assn = permissions::getPermissionEntry($assnID);		
 		
-		$keyData = $d->qryArray("select * from rightsAssignment where id=$keyID");
-		if (!$keyData[id]) throw new Exception("Error, that assignment could not be found!");
+		$d->qry("delete from permissionsAssignment where id=$assn[id]");				
+		
+		pageClass::setNotify("Successfully removed permission assignment.");
 
-		$js->userID = $keyData[userID];
-		
-		$d->qry("delete from rightsAssignment where id = $keyID");
-		
-		pageClass::setNotify("Successfully removed permission assignment.");	
+		$js->userID = $assn[userID];
 	}
 	catch (Exception $ex)
 	{

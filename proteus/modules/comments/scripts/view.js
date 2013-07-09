@@ -12,7 +12,7 @@ function getComments(dataID, typeID, container)
 {
 	var cont = $(container);
 	
-	$.getJSON("comments.ajax", {action: "getComments", dataID: dataID, typeID: typeID}).then(function(output)
+	$.getJSON("admin/module/comments", {action: "getComments", dataID: dataID, typeID: typeID}).then(function(output)
 	{
 		if (output.error)
 		{
@@ -25,29 +25,43 @@ function getComments(dataID, typeID, container)
 		$("#" + cont.closest(".tabContent").attr("data-tablink")).removeClass('tabLoading').find(".tabLoaderIcon").replaceWith("<span class='commentCount tabLoaderIcon'> (" + output.commentCount + ")</span>");
 		
 		cont.updateHelper(function() { return addComment(dataID, typeID, container); }, {autoSave: false});
+		
+		$("textarea", cont).click(function() 
+		{ 
+			var obj = $(this);
+			
+			if (obj.is(".empty")) obj.removeClass("empty").val("");
+			obj.addClass("focused");
+		}).blur(function()
+		{
+			var obj = $(this);
+			
+			if (!$(this).val().length)
+			{	
+				// Needed the extra keyup to trigger the updateHelper dirty mechanism *after* setting the content back to the default string
+				obj.val("Post a comment...").addClass("empty").keyup();
+			}
+			
+			obj.removeClass("focused");
+		}).autogrow();
 	});
 }
 function addComment(dataID, typeID, cont)
 {
 	$.showLoading("Adding Comment");
 	
-	$.post("comments.ajax", {
+	$.post("admin/module/comments", {
 		action: "addComment", 
 		comment: $("#adminComment").val(),
 		dataID: dataID,
 		typeID: typeID
 	}, null, "json").then(function(output)
 	{
-		$.hideLoading();
-		
-		if (output.error)
+		if (!$.ajaxError(output, $))
 		{
-			$(output.error).appendTo("body");
-			return false;
+			getMessages();
+			getComments(dataID, typeID, cont);
 		}
-		
-		getMessages();
-		getComments(dataID, typeID, cont);		
 	});
 }
 function deleteComment(commentID)
@@ -56,7 +70,7 @@ function deleteComment(commentID)
 	{
 		$.showLoading("Removing Comment");
 		
-		$.getJSON("comments.ajax", {action: "deleteComment", commentID: commentID}).then(function(output)
+		$.getJSON("admin/module/comments", {action: "deleteComment", commentID: commentID}).then(function(output)
 		{
 			$.hideLoading();
 			
@@ -82,7 +96,7 @@ function approveComment(commentID)
 {
 	$.showLoading("Approving Comment");
 	
-	$.getJSON("comments.ajax?action=approveComment", {commentID: commentID}).then(function(output)
+	$.getJSON("admin/module/comments", {action: "approveComment", commentID: commentID}).then(function(output)
 	{
 		$.hideLoading();
 		

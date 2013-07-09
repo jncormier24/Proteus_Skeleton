@@ -1,0 +1,56 @@
+/** **/
+div.configWin label
+{
+	font-weight: bold;
+}
+div.configWin fieldset
+{
+	padding: 8px;
+	
+	border-radius: 5px;
+	
+	margin: 4px 4px 10px 4px;
+}
+div.configWin legend
+{
+	font-weight: bold;
+	font-size: 15px;
+}
+div.mod_select
+{
+	padding: 8px;	
+	
+	background-color: #e2e2e2;
+	
+	border-radius: 5px;
+	border: 1px solid #ffffff;
+	
+	margin: 0px 0px 1px 0px;
+	
+	overflow: hidden;
+}
+div.mod_select h4
+{
+	float: left;
+	font-size: 16px;	
+	
+	color: #333333;
+	
+	margin-top: 6px;
+}
+div.mod_select > div
+{
+	float: right;
+}
+div.mod_select > div label.ui-button
+{
+	background: none;
+	background-color: #999999;
+	color: #ffffff;
+}
+div.mod_select > div label.ui-button.ui-state-active
+{
+	background: none;
+	background-color: #eeeeee;
+	color: #3383BB;
+}

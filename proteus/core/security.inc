@@ -90,7 +90,7 @@ class permissions extends permission_base
 	// -- Top-level group assignments: Set "isPermissionGroup" on any permission entry that should be assigned as a top-level group assignment (no R/W/I/D, just group assignment)
 	public static $site_admin = array("key"=>"site_admin", "standalone"=>true, "description"=>"Grants full R/W/I/D permissions to all site functionality. Assign with Caution!", "isPermissionGroup"=>true);
 	
-	// -- Standalone permissions (not assigned to any particular data ID)
+	// -- Standalone permissions (not assigned to any particular data ID)	
 	public static $manage_category_items = array("key"=>"manage_category_items", "max_perms"=>15, "description"=>"Manage all Category Items","standalone"=>true,"siteType"=>proteus_core::module_categoryItems);
 	public static $manage_showcases = array("key"=>"manage_showcases", "max_perms"=>15, "description"=>"Manage all Showcases","standalone"=>true,"siteType"=>proteus_core::module_showcase);
 	public static $manage_users = array("key"=>"manage_users", "max_perms"=>15, "description"=>"Manage System Users","standalone"=>true,"siteType"=>proteus_core::module_users);	
@@ -132,8 +132,10 @@ class permissions extends permission_base
 	
 		$d = new DAL(true);	
 		
+		$secObj = new security(0);
+		
 		// pageClass by default will initialize and attempt to get available login information.
-		// If login information is never SET, this will always return false
+		// If login information is never SET, this will always return false without needing a trip to the DB
 		
 		if ($_SESSION["username"] && (!$login && !$pass))
 		{
@@ -142,19 +144,19 @@ class permissions extends permission_base
 		}
 		else
 		{
-			if (!$pass) return false;
+			if (!$pass) return $secObj;
 			$pass = crypt($pass, 'pr');
 			
 			$force = true;
 		}
 		
 		// No information found, nobody has logged in yet
-		if (!$login || !$pass) return false;
+		if (!$login || !$pass) return $secObj;
 		
 		//Once validated, don't re-validate for another 20 minutes
 		$sCache = new session_cache("login");
-		$secObj = $sCache->loadObject($secObj);
-	
+		$secObj = $sCache->loadObject($secObj);		
+		
 		if ($sCache->isExpired(20) || !$secObj->id || $force)
 		{			
 			//Check local users database for authentication if configured
@@ -167,20 +169,34 @@ class permissions extends permission_base
 				$secObj = new security($obj["id"]);
 	
 				$_SESSION["username"] = $login;
-				$_SESSION["password"] = $pass;
-	
-				$sCache->storeObject($secObj);
+				$_SESSION["password"] = $pass;	
 				
-				return $secObj;
+				$sCache->storeObject($secObj);
 			}			
 		}	
 		
 		if ($secObj->id && $setLastLogin)
 		{
-			$secObj->lastLogin = "now()";
+			$secObj->lastLogin = "now()";				
 		}
 		
-		return $secObj ? $secObj : false;
+		return $secObj;
+	}
+	public static function authenticateAjax($secure=true)
+	{
+		// This function is used in conjunction with the standard Proteus post-request bootstrapper ($.ajaxError)
+		$sec = permissions::getAuthorizedUser();
+		
+		if (!$sec->id && $secure)
+		{
+			$js = new json_a();
+			$js->error = "You must be logged in to access this content.";
+
+			echo $js->render();
+			exit(0);
+		}
+		
+		return $sec;
 	}
 }
 class security_a extends security
@@ -203,19 +219,19 @@ class security
 	
 	public $global_admin = false;
 	
-	public function __construct($userID, $populate=true)
+	public function __construct($userID=0, $populate=true)
 	{
 		global $config;		
 		
 		validation::ensureInt($userID);
 		
-		if (!$userID) return false; 
+		//if (!$userID) return false; 
 		
 		$this->userID = $userID;
-		$this->account_data = security::getAccountFromID($this->userID, false);
+		if ($userID) $this->account_data = security::getAccountFromID($this->userID, false);
 
 		// Shorctut since this is tested in so many places
-		if ($populate) $this->global_admin = $this->is(permissions::$site_admin);
+		if ($userID && $populate) $this->global_admin = $this->is(permissions::$site_admin);
 	}	
 	public function __get($key)
 	{		
@@ -355,7 +371,7 @@ class security
 			$eInfo = "Account ID: $acct[id]";
 		}		
 		
-		$iAddr = getenv("REMOTE_ADDR");			
+		$iAddr = $_SERVER["REMOTE_ADDR"];		
 		$details = $acct[name]." user attempted access to restricted area.\nIP Address: $iAddr \nCalling file: {$_SERVER["PHP_SELF"]} \n".$eInfo;		
 		
 		error_log($details);		

@@ -37,6 +37,19 @@ $(function()
 		obj.data("menuTimer", timeout);
 	});
 	
+	// Set all the inputs to react to being focused; add a class and define style in style.css (since it's global)
+	$(document).on(
+	{
+		focus: function()
+		{
+			$(this).addClass("focused");
+		},
+		blur: function()
+		{
+			$(this).removeClass("focused");
+		}
+	}, "input, textarea");
+	
 	$.fn.tableRowAlternate = function()
 	{
 		$("table.listTable td", this).removeClass("evenCell oddCell");

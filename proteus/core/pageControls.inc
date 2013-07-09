@@ -38,11 +38,14 @@ class pageClass extends pageContent
 		try
 		{
 			$this->authUser = permissions::getAuthorizedUser();
+			
+			// Set the last access here because we only case about access to pages; not to ajax, etc.
+			customSession::setLastAccess($this->authUser);
 		}
 		catch (Exception $ex)
 		{
-			// Catch any DB errors, etc.
-			error($ex->getMessage());
+			// Catch any DB errors, etc.; have to stop here or a loop will be created (cannot use error())
+			debug($ex);
 		}
 	}
 	public function setCustomView($templateFile="view.tpl")
@@ -99,7 +102,7 @@ class pageClass extends pageContent
 		// Render the pageModules and all requisites before including the autoInclude items
 		$this->renderPageModules();
 		
-		foreach($config["auto_include_folders"] as $folder=>$exts)
+		/* foreach($config["auto_include_folders"] as $folder=>$exts)
 		{
 			foreach($exts as $ext)
 			{				
@@ -122,7 +125,13 @@ class pageClass extends pageContent
 					}
 				}
 			}
-		}
+		} */
+		$pageBase = $config["pageDir"]."/".$config["pageIndex"]."/";
+		$searchBase = $config["baseAppDir"].$pageBase;
+		
+		// Automatically include the view.css and view.js files for the page
+		if (file_exists($searchBase."scripts/view.js")) $this->addScriptObject(new javascriptControl("", $pageBase."scripts/view.js"));
+		if (file_exists($searchBase."styles/view.css")) $this->addStylesheetObject(new stylesheetControl($pageBase."styles/view.css"));
 		
 		$this->parser->pushParam("PAGE_CONTENT", parent::render());
 		$this->parser->pushParam("HEAD_OBJECTS", $this->head_objects->render());
@@ -132,6 +141,8 @@ class pageClass extends pageContent
 		
 		echo $this->parser->render();
 		ob_end_flush();
+		
+		exit(0);
 	}	
 	public function addPageModule($module)
 	{
@@ -210,11 +221,8 @@ class pageClass extends pageContent
 		
 		if (!$this->authUser) $this->authUser = permissions::getAuthorizedUser();
 		
-		if (!$this->authUser)
+		if (!$this->authUser->id)
 		{
-			//die(print_r($_SERVER, true));			
-			//$ref = implode("/", $config["params"]);
-
 			$ref = $_SERVER["SCRIPT_URL"];
 			$this->redirect($config["scripturl"].$loginPageIndex."?ref=$ref");	
 		}		

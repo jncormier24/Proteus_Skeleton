@@ -13,10 +13,14 @@ class proteus_core
 	const module_metaData = 10;
 	const module_municipal = 11;
 	const module_subscribers = 12;
-
-	public static $module_comments = array("siteType"=>0, "required"=>true, "location"=>"proteus/modules/comments");
-	public static $module_customContent = array("siteType"=>3, "required"=>true, "location"=>"proteus/modules/customContent");
 	
+	public static $module_municipal = array("siteType"=>11, "required"=>false, "location"=>"proteus/modules/municipal", "caption"=>"Municipal Framework", "class"=>"pmm_core");
+	
+	public static $module_comments = array("siteType"=>0, "required"=>true, "location"=>"proteus/modules/comments", "caption"=>"Comments", "class"=>"customComments_core");
+	public static $module_customContent = array("siteType"=>3, "required"=>true, "location"=>"proteus/modules/customContent", "caption"=>"Custom Content, Inline Editor", "class"=>"customContent_core");
+	public static $module_calendars = array("siteType"=>0, "required"=>true, "location"=>"proteus/modules/calendars", "caption"=>"Calendars", "class"=>"customCalendar_core");
+	public static $module_users = array("siteType"=>0, "required"=>true, "location"=>"", "caption"=>"Users Database", "class"=>"proteus_user_core");
+		
 	public $files = array("sitemap.ajax");	
 	public $tables = array("config"=>"CREATE TABLE `config` (
 									 `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -37,6 +41,16 @@ class proteus_core
 									  KEY `dataID` (`dataID`),
 									  KEY `contentKey` (`contentKey`),
 									  KEY `addedDateTime` (`addedDateTime`)
+									) ENGINE=InnoDB DEFAULT CHARSET=utf8;",
+							"sessions"=>"CREATE TABLE IF NOT EXISTS `sessions` (
+									  `session_id` varchar(32) NOT NULL,
+									  `userID` INT(11) NOT NULL,
+									  `data` text NOT NULL,
+									  `lastAccess` datetime NOT NULL,
+									  `lastPage` int(11) NOT NULL,
+									  `ipAddress` int(11) unsigned NOT NULL,
+									  `views` int(11) NOT NULL,
+									  PRIMARY KEY (`session_id`)
 									) ENGINE=InnoDB DEFAULT CHARSET=utf8;");
 	
 	public $queries = array("config"=>array("insert into config (keyName, keyValue) values('hitCount',0)",
@@ -89,16 +103,40 @@ class proteus_core
 	{
 		global $config;
 		include_once($config["baseAppDir"].$module["location"]."/model.inc");
+		
+		$strClass = $module["class"];
+		
+		return $strClass ? new $strClass() : false;
+	}
+	public static function includeSubPage($control_file)
+	{
+		// Use this to include a sub-page by using a named control (.inc) file. Subpages will have inherent access to the model.inc
+		// file, if any, for the parent page.
+		
+		global $config;
+		include($config["pageDir"]."/".$config["pageIndex"]."/".$control_file);
 	}
 	public static function syncAdminModules()
 	{
 		$db = new dbSync();		
+		$mods = proteus_core::getModulesArray();
+		
+		foreach($mods as $mod)
+		{
+			if ($mod["required"])
+			{
+				$obj = new $mod["class"];
+				$db->syncModule($obj);
+			}
+		}
 		
 		//Sync all the core Proteus modules
-		$db->syncModule(new proteus_core());
+		/*$db->syncModule(new proteus_core());
 		$db->syncModule(new customComments_core());
 		$db->syncModule(new customContent_core());
-		$db->syncModule(new proteus_user_core());
+		
+		// Always use the users module
+		$db->syncModule(new proteus_user_core());*/
 		
 		//$conf = new siteConfig();
 		
@@ -113,6 +151,94 @@ class proteus_core
 		if ($conf->checkSiteType(proteus_core::module_metaData)) $db->syncModule(new metaData_core());
 		if ($conf->checkSiteType(proteus_core::module_municipal)) $db->syncModule(new pmm_core());
 		if ($conf->checkSiteType(proteus_core::module_subscribers)) $db->syncModule(new subscriber_core()); */
+	}
+}
+class customSession
+{
+	/*
+	 * Custom Session Data - this class is used to mimic a simple session handler for custom data. Since the built in session handler
+	 * is less than reliable, this creates an easy way to get online users, and store simple data in a fashion untethered from the 
+	 * default session mechanism, which is extremely volatile and unpredictable.
+	 * 
+	 * All data is based on the CURRENT session only (by design), and instantiating the class creates a way to store/read custom data from 
+	 * the internal array.
+	 * 
+	 * Use the static methods in this class to perform anonymous actions on the session table - set last access, etc.
+	*/
+	private $p_data = array();
+	private $p_sessID;
+	
+	public function __construct()
+	{		
+		$this->p_sessID = session_id();
+	}
+	public function __get($key)
+	{
+		// Late bind the data for performance
+		if (!count($this->p_data)) $this->fill();
+		
+		switch($key)
+		{
+			 // Used a switch case here in anticipation of adding more features to this
+			case "data":				
+				return unserialize($this->p_data["data"]);				
+		}
+		
+		return $this->p_data[$key];
+	}
+	private function fill()
+	{
+		$d = new DAL(true);
+		$this->p_data = $d->qryArray("select * from sessions where session_id='{$this->p_sessID}'");
+	}
+	public function __set($key, $value)
+	{
+		$d = new DAL(true);
+		
+		$this->p_data[$key] = $value;
+		
+		$cv["data"] = "'".serialize($this->p_data)."'";
+		
+		$d->qryUpdateByArray("sessions", $cv, array("session_id"=>$this->p_sessID));
+	}	
+	public static function setLastAccess(security $secObj = null)
+	{
+		global $config;
+		
+		$d = new DAL(true);
+		$sessID = session_id();		
+		
+		$cv["lastAccess"] = "now()";
+		$cv["lastPage"] = "'{$_SERVER["PHP_SELF"]}'";
+		$cv["ipAddress"] = ip2long($_SERVER["REMOTE_ADDR"]);
+		$cv["views"] = "views+1";
+		
+		// Could probably add some paranoid checking in here at the expense of DB overhead; ensure sessionID ip addresses match.
+				
+		$aff = $d->qryUpdateByArray("sessions", $cv, array("session_id"=>$sessID));
+		
+		if (!$aff[0])
+		{
+			$cv["session_id"] = "'{$sessID}'";
+
+			if ($secObj->id) $cv["userID"] = $secObj->id;
+			
+			try 
+			{
+				$d->qryInsertByArray("sessions", $cv);
+				customSession::clean();
+			}
+			catch (Exception $ex)
+			{
+				$cv["error_description"] = "Unable to store custom session information.";
+				$cv["error_message"] = $ex->getMessage();
+				debug($cv);
+			}			
+		}	
+	}
+	public static function clean()
+	{
+		
 	}
 }
 class customConfig
@@ -201,7 +327,7 @@ class customConfig
 
 		if ($this->$key)
 		{
-			$d->qryUpdateByArray('config', $cv, "keyName='$key' and dataID=$this->p_dataID and typeID=$this->p_typeID");
+			$d->qryUpdateByArray('config', $cv, array("keyName"=>"'$key'", "dataID"=>$this->p_dataID, "typeID"=>$this->p_typeID));
 		}
 		else
 		{
@@ -231,19 +357,11 @@ class siteConfig extends customConfig
 	public function __construct()
 	{
 		parent::__construct(customConfig::config_site);		
-	}
-	public function __get($key)
-	{
-		return $this->p_data[$key]->$key;		
-	}
-	public function __set($key, $value)
-	{
-		return $this->p_data[$key]->$key = $value;
-	}
-	public function checkSiteType($type)
+	}	
+	public function moduleEnabled($type)
 	{			
 		$tmp = explode("::", $this->siteType);
-	
+			
 		foreach($tmp as $val)
 		{
 			if ($val == $type) return true;

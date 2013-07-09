@@ -67,7 +67,15 @@ class webControl extends pageContent
 		
 		if ($key == "class")
 		{
-			$this->classes = Array($value=>$value);
+			if ($value)
+			{
+				$this->classes = array($value=>$value);				
+			}
+			else
+			{
+				$this->classes = array();
+			}
+			
 			return;
 		}
 				
@@ -370,37 +378,37 @@ class resizedImage extends image
 }
 class formInput extends webControl
 {			
-	var $label;	
-	var $required;
-	var $validation = "^.{1,}$";
+	public $label;	
+	public $required;
+	public $validation = "^.{1,}$";
 	
 	//Set to 1 to render the label AFTER the control (checkboxes)
-	var $labelRenderOrder = 0;
+	public $labelRenderOrder = 0;
 	
- 	var $desc;	
+ 	public $desc;	
 	
-	function formInput($name, $type, $value='')
+	public function __construct($name, $type, $value='')
 	{		
 		$this->name = $name;
 		$this->id = $name;
 		
 		$type = strtolower($type);
 		
-		$this->addAttribute("type",$type);
-		$this->addAttribute("value",$value);
+		$this->type = $type;
+		$this->value = $value;
 		
 		$this->controlTag = "input";				
 	}		
-	function setLabel($label, $class='', $breakAfter=false)
+	public function setLabel($label, $class='', $breakAfter=false)
 	{
 		$this->label = new phpLabel($label, $this->id, $class);			
 		if ($breakAfter) $this->label->breakAfter = true;
 	}
-	function setDescription($desc, $class='')
+	public function setDescription($desc, $class='')
 	{
 		$this->desc = new phpSpan($desc, $class);		
 	}
-	function setRequired($desc='', $class='')
+	public function setRequired($desc='', $class='')
 	{
 		$this->required = true;	
 		
@@ -409,7 +417,7 @@ class formInput extends webControl
 		
 		$this->setDescription($tmp, $class);
 	}
-	function render()
+	public function render()
 	{
 		if (isset($this->label) && !$this->labelRenderOrder) $this->preContent = $this->label->render();
 		if (isset($this->label) && $this->labelRenderOrder) $this->postContent = $this->label->render();
@@ -418,12 +426,26 @@ class formInput extends webControl
 		return parent::render();
 	}
 }
+class phpRadioButton extends formInput 
+{
+	public function __construct($name, $value, $selected = false, $class="")
+	{
+		if ($class) $this->class = $class;		
+		parent::__construct($name, 'radio', $value);
+		
+		// Set to 1 to render the label AFTER the control!
+		$this->labelRenderOrder = 1;
+		
+		if ($selected) $this->addParameter('checked');
+	}	
+}
+
 class phpCheckbox extends formInput 
 {
 	public function __construct($name, $value=1, $selected = false, $class='')
 	{
 		if ($class) $this->class = $class;		
-		parent::formInput($name, 'checkbox', $value);
+		parent::__construct($name, 'checkbox', $value);
 		
 		// Set to 1 to render the label AFTER the control!
 		//$this->labelRenderOrder = 1;
@@ -435,7 +457,7 @@ class hiddenInput extends formInput
 {			
 	function hiddenInput($name, $value='')
 	{		
-		parent::formInput($name, 'hidden', $value);		
+		parent::__construct($name, 'hidden', $value);		
 	}		
 }
 class phpForm extends webControl
@@ -825,24 +847,6 @@ class phpDDL extends formInput
 
 			$this->controls[] = $li;
 		}
-		//die(parent::render());
-		/* for($i=0; $i < count($this->listItems); $i++)
-		{
-			if (strlen($this->selected) && (!strcmp($this->listItems[$i]->value,$this->selected) || !strcmp($this->listItems[$i]->data,$this->selected)))
-			{				
-				$this->listItems[$i]->addParameter("selected");	
-			}
-			
-			if (!strlen($this->listItems[$i]->value)) $this->listItems[$i]->value = $this->listItems[$i]->data;
-			if (!strlen($this->listItems[$i]->data)) $this->listItems[$i]->data = $this->listItems[$i]->value;
-			
-			$this->controlData .= $this->listItems[$i]->render()."\n";	
-		}	
-		
-		$strCombo .= parent::render();
-		$strCombo .= $this->getCloseTag();
-		
-		return $this->preContent.$strCombo.$this->postContent.($this->required ? $this->desc->render() : "").($this->breakAfter ? "<br style='clear:both;' />" : "");*/
 		
 		return parent::render();
 	}
@@ -853,25 +857,26 @@ class phpHyperlink extends webControl
 	public $url;
 	public $display;
 	
-	function __construct($url, $display='', $class='', $newWindow=false)
+	function __construct($url="", $display="", $class="", $newWindow=false)
 	{		
-		$url = preg_replace("/(\&)([^\#])/", "&amp;$2", $url);
+		$url = preg_replace("/(\&)([^\#])/", "&amp;$2", $url);		
+
+		// With no URL, this is probably a link being used for a UI control (i.e., no content)
+		if (!$url) $url = "javascript:void(0)";
 		
-		//$this->format = $format;
 		$this->url = $url;
 		$this->display = $display;
 		
-		if (empty($display) && !is_null($display)) $this->display = $url;
+		//if (empty($display) && !is_null($display)) $this->display = $url;
 		
-		$this->addAttribute("href", $url);
-		
-		//$this->controlData = $this->display;
-		$this->controlTag = "A";
+		$this->addAttribute("href", $url);		
+
+		$this->controlTag = "a";
 		$this->controlCloseTag = true;
 		
 		if ($class) $this->addClass($class);
 				
-		if ($newWindow) $this->addAttribute("target","_blank");
+		if ($newWindow) $this->target = "_blank";
 	}
 	public function render()
 	{
@@ -948,28 +953,16 @@ class phpHeader extends webControl
 }
 class phpLabel extends webControl
 {
-	function phpLabel($content, $formField='', $class='')
+	function phpLabel($content, $formField="", $class="")
 	{
-		$this->controlTag = "LABEL";
+		$this->controlTag = "label";
 		$this->controlData = $content;
 		$this->controlCloseTag = true;
+		
 		if ($formField) $this->for = $formField;
 		
-		$this->class = $class;
+		if ($class) $this->class = $class;
 	}	
-}
-class phpText extends webControl
-{
-	function phpText($content)
-	{
-		$this->controlTag = "";
-		$this->controlData = $content;
-		$this->controlCloseTag = false;
-	}
-	function render()
-	{
-		return $this->controlData;	
-	}
 }
 class phpDIV extends webControl
 {
@@ -1013,18 +1006,14 @@ class phpHRule extends webControl
 	}	
 }
 class phpTextArea extends formInput
-{	
-	var $rows;
-	var $cols;
-	
-	function phpTextArea($name, $value='', $rows='', $cols='', $class='')
+{		
+	public function __construct($name, $value="", $rows="", $cols="", $class="")
 	{		
 		$this->id = $name;
 		
 		if ($class) $this->class = $class;
 		
-		$this->addAttribute("name",$name);		
-		//$this->addAttribute("type",'text');				
+		$this->id = $name;		
 		
 		$this->rows = $rows;
 		$this->cols = $cols;
@@ -1035,10 +1024,7 @@ class phpTextArea extends formInput
 		$this->controlCloseTag = true;
 	}	
 	function render()
-	{
-		$this->addAttribute('rows', $this->rows);
-		$this->addAttribute('cols', $this->cols);
-
+	{		
 		if (isset($this->desc))
 		{
 			if ($this->breakAfter) 
@@ -2181,7 +2167,7 @@ class jqUI_hyperlink extends phpHyperlink
 {	
 	public $iconClass;
 	
-	public function __construct($url, $display, $class='', $iconClass='', $newWindow='')
+	public function __construct($url, $display, $class="", $iconClass="", $newWindow="")
 	{
 		parent::__construct($url, $display, $class, $newWindow);	
 		
@@ -2198,6 +2184,16 @@ class jqUI_hyperlink extends phpHyperlink
 		}
 
 		return parent::render();
+	}
+}
+class jqUI_linkControl extends jqUI_hyperlink
+{
+	public function __construct($iconClass="ui-icon-closethick", $class="", $title="")
+	{
+		parent::__construct("", "", $class, $iconClass);
+		
+		$this->addClass("jqLinkControl");
+		if ($title) $this->title = $title;
 	}
 }
 class jqUI_uploader extends phpDIV

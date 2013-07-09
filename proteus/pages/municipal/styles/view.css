@@ -1,0 +1,220 @@
+#btnSettings, #btnNewEntity
+{
+	float: right;
+	margin: 8px 5px 4px 0px;
+}
+img.entityIcon, div.entityIcon
+{
+	float: left;
+	
+	border: 1px solid #808080;
+	box-shadow: 2px 2px 3px #333333;
+	border-radius: 3px;
+	
+	max-width: 280px !important;	
+	max-height: 250px;	
+}
+div.entityIcon
+{
+	background-color: #8398AF;
+}
+div.entityIcon p
+{
+	text-align: center;
+	padding: 15px 0px;	
+}
+div.entityLeft
+{
+	float: left;	
+}
+div.entityLeft div.uploadDiv
+{
+	float: left;
+	clear: left;
+	
+	margin: 5px 0px 0px 0px;
+}
+div.entityLeft div.uploadDiv label
+{
+	top: 0px;
+	
+	font-size: 10px;
+	text-align: left;
+	
+	color: #808080;	
+}
+div.entityLeft div.uploadDiv button
+{
+	clear: left;
+	
+	margin-top: 3px !important;
+	
+	width: 222px;	
+}
+div.entityLeft div.uploadDiv .ui-button .ui-button-text
+{
+	line-height: 15px;	
+}
+div.entityContainer
+{
+	position: relative;
+	clear: left;	
+	
+	padding: 15px 0px 15px 10px;
+	margin: 0px 2px 2px 2px;
+	
+	border-style: solid;
+	border-color: #DFDFDF;
+	border-width: 1px 0px 0px 0px;
+	border-radius: 3px;
+	
+	background-image: url(images/row_shine_strong.png);
+	background-repeat: repeat-x;
+	background-color: #D8DFE7;
+	
+	overflow: hidden;	
+}
+div.entityContainer div.functions
+{
+	float: right;
+	
+	margin: 0px 8px 0px 0px;
+	
+	width: 500px;	
+}
+div.functions h2, div.functions h3, div.entityContainer h4, div.functions h5
+{
+	float: right;
+	clear: right;
+
+	margin: -10px 0px 12px 0px;
+	
+	width: 95%;
+	
+	text-align: right;
+}
+div.functions h2
+{
+	font-size: 15px;	
+}
+div.functions h3
+{
+	font-size: 11px;
+	font-style: italic;
+	
+	color: #4b4b4b;	
+}
+div.entityContainer > h4
+{
+	position: absolute;
+	
+	bottom: -10px;
+	right: 10px;
+	
+	font-size: 11px;	
+	color: #808080;
+	
+	width: 200px;
+}
+div.entityContainer > h4 strong, table.filesTable tr td strong
+{
+	color: #7F1F1F;
+}
+div.functions h5
+{	
+	font-size: 9px;	
+	color: #9999aa;	
+}
+div.entityContainer > div.functions button
+{
+	float: right;
+	
+	margin: 2px 0px 3px 5px;
+	width: 180px;
+}
+#entities
+{
+	min-height: 320px;	
+}
+#entities > label, #entities > select
+{
+	float: left;
+}
+#entities > label
+{
+	margin: 15px 0px 0px 0px;	
+}
+#entities > p
+{
+	clear: both;
+	padding-top: 10px;	
+}
+#entityFilter
+{
+	margin: 8px 0px 20px 8px;
+}
+#entityWin label, #staffEditWin label, #faqEditWin label, #settingsWin label, #postEditWin label, #fileEditWin label, #linkEditWin label, #agendaEditWin label
+{
+	clear: left;
+}
+#entityWin div.wysiwyg
+{
+	float: left;
+}
+#settingsForm span.longLabel
+{
+	text-align: left !important;
+}
+#staffEditWin p, #faqEditWin p, #postEditWin p, #fileEditWin p, #linkEditWin p, #agendaEditWin p
+{
+	font-size: 10px;
+	color: #808080;
+	
+	margin-bottom: 12px;
+	text-align: right;
+}
+#postWin div.tabContent, #docWin div.tabContent, #agendaWin div.tabContent, #staffWin div.tabContent
+{	
+	overflow: auto;	
+}
+#postWin div.tabContent
+{
+	height: 455px;	
+}
+#agendaWin div.tabContent, #staffWin div.tabContent, #docWin div.tabContent
+{
+	height: 500px;	
+}
+#postWin div.tabContent > p
+{
+	color: #4b4b4b;
+	font-size: 12px;
+	
+	text-align: justify;
+	
+	padding: 0px 10px 10px 0px;
+}
+#postTabs > label
+{
+	width: 70px !important;	
+}
+#btnRefreshPosts
+{
+	float: left;
+	margin: 3px 0px 12px 5px;
+}
+#btnNewLink
+{
+	margin-bottom: 8px;
+}
+span.fileName, span.fullUrl
+{
+	display: block;
+	
+	color: #808080;
+	
+	font-size: 10px;
+	font-style: italic;
+	
+	margin: 4px 0px 0px 0px;
+}

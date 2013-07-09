@@ -1,4 +1,6 @@
-<?php 
+<?php
+	$g_sec = permissions::authenticateAjax(false);
+	
 	switch($action)
 	{
 		case "logout":

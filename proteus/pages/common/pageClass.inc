@@ -25,12 +25,9 @@ class adminPage extends pageClass
 		// Application specific additions to template		
 		$this->parser->pushParam("NAV_CONTENT", $this->navigation->render());
 		$this->parser->pushParam("HEADER_CONTENT", $this->header->render());
-		$this->parser->pushParam("FOOTER_CONTENT", $this->footer->render());
+		$this->parser->pushParam("FOOTER_CONTENT", $this->footer->render());		
 		
-		// All pages using MVC architecture need this
-		//$this->addPageModule(new baseHRefModule($config[adminScriptUrl]));		
-		
-		$this->addPostScriptObject(new javascriptControl("","proteus/admin/common/scripts/view.js"));
+		$this->addPostScriptObject(new javascriptControl("","proteus/pages/common/scripts/view.js"));
 		
 		// Render parent
 		parent::render();
@@ -49,20 +46,40 @@ class admin_navigation extends phpDIV
 	
 		if ($secObj->id)
 		{
+			$conf = new siteConfig();
+			
 			$lnk = new jqUI_hyperlink("admin", "Admin Home", "", "ui-icon-home");
-			$this->menu->addListItem(new htmlListItem($lnk->render()));
+			$this->menu->addListItem(new htmlListItem($lnk->render()));		
 		
-		
-			$lnk = new jqUI_hyperlink("javascript:void()", "Management", "", "ui-icon-gear");		
+			if ($conf->moduleEnabled(proteus_core::$module_municipal["siteType"]) && $secObj->is(permissions::$manage_municipal_entities))
+			{
+				$lnk = new jqUI_hyperlink("admin/municipal", "Municipal", "", "ui-icon-flag");
+				$li = new htmlListItem($lnk->render());
+				
+				$this->menu->addListItem($li);
+			}
+			
+			$lnk = new jqUI_hyperlink("javascript:void()", "Management", "", "ui-icon-gear");
 			$li = new htmlListItem($lnk->render());
 			
 			$ul = new phpUnOrderedList();
 			
-			$lnk = new jqUI_hyperlink("admin/users", "Manage Users", "", "ui-icon-person");
-			$ul->addListItem(new htmlListItem($lnk->render()));
+			if ($secObj->is(permissions::$site_configuration))
+			{	
+				$lnk = new jqUI_hyperlink("admin/config", "System Settings", "", "ui-icon-wrench");
+				$ul->addListItem(new htmlListItem($lnk->render()));
+			}
+			
+			if ($secObj->is(permissions::$manage_users))
+			{				
+				$lnk = new jqUI_hyperlink("admin/users", "Manage Users", "", "ui-icon-person");
+				$ul->addListItem(new htmlListItem($lnk->render()));
+			}
 			
 			$li->addControl($ul);
-			$this->menu->addListItem($li);
+			
+			if (count($ul->listItems)) $this->menu->addListItem($li);
+			//$this->menu->addListItem($li);
 		}
 		
 		$lnk = new jqUI_hyperlink("index", "Back to Site", "", "ui-icon-seek-prev");
@@ -84,7 +101,7 @@ class admin_header extends phpDIV
 	
 		$this->addControl(new phpHeader(1, "Proteus IV Content Management Framework"));
 		
-		if ($secObj)
+		if ($secObj->id)
 		{
 			$dv = new phpDIV("", "authUser");
 			
@@ -118,8 +135,13 @@ function admin_error_handler($errNo, $errStr, $errFile='', $errLine='', $type=''
 	{
 		if ($config["debug_mode"])
 		{
-			debug("Error: $errNo <br>File: $errFile <br> Desc: $errStr <br>Line: $errLine<br />StackTrace: ".var_export(debug_backtrace(), true), null, false);
-			return;
+			debug("Error: $errNo 
+			       File: $errFile 
+			       Desc: $errStr
+			       Line: $errLine
+			
+			       StackTrace: ".var_export(debug_backtrace(), true));
+			return;			
 		}
 	}
 	
@@ -162,6 +184,35 @@ function admin_error_handler($errNo, $errStr, $errFile='', $errLine='', $type=''
 	$eCont->addControl($cmdBack);
 
 	$a->addControl($eCont);
-	$a->render();
+	$a->render();	
+}
+class commentsModule extends pageModule 
+{
+	/*
+	 * This module is intended for use in the administration panel only. For front-end use of comments, see the bundled 
+	 * "root/modules/comments" which has template module for front-end comments
+	 */
+	public function __construct()
+	{			
+		$this->addRequisiteModule(new jqAutoGrowModule());
+		$this->addScriptObject(new javascriptControl("", "proteus/modules/comments/scripts/view.js"));
+		$this->addStylesheet(new stylesheetControl("proteus/modules/comments/styles/view.css"));			
+	}	
+}
+class calendarModule extends pageModule 
+{
+	public function __construct()
+	{			
+		$this->addScriptObject(new javascriptControl("", "proteus/modules/calendar/scripts/view.js"));
+		$this->addStylesheet(new stylesheetControl("proteus/modules/calendar/styles/view.css"));			
+	}	
+}
+class customContentModule extends pageModule 
+{
+	public function __construct()
+	{			
+		$this->addScriptObject(new javascriptControl("", "proteus/modules/customContent/scripts/view.js"));
+		$this->addStylesheet(new stylesheetControl("proteus/modules/customContent/styles/view.css"));			
+	}	
 }
 ?>

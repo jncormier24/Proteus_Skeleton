@@ -1,0 +1,147 @@
+<?php
+	$g_sec = permissions::authenticateAjax(true);
+	
+	switch($action)
+	{			
+		case "addComment":
+			addComment($dataID, $typeID, $comment);
+			break;
+			
+		case "getComments":
+			getComments($dataID, $typeID);
+			break;
+			
+		case "deleteComment":
+			deleteComment($commentID);
+			break;	
+	}
+	
+function getComments($dataID, $typeID)
+{
+	global $g_sec, $config;
+	
+	$js = new json_a();	
+	
+	try
+	{
+				
+		$cObj = new customComments($dataID, $typeID);
+		if (!$cObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
+		
+		$postAccess = $cObj->hasAccess($g_sec, permissions::insert);
+		$deleteAccess = $cObj->hasAccess($g_sec, permissions::delete);
+		
+		$t = new tblBuilder('center',0,0,4,'100%');
+		$t->class = 'listTable hoverTable';
+		
+		if ($postAccess)
+		{
+			$txtComment = new phpTextArea("adminComment", "Post a comment...", 1, 75, "empty");					
+			
+			$r = $t->addRow();
+			$r->addHeader(new tblHeader($txtComment));		
+		}
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("Comments"));		
+		
+		$cQry = $cObj->getCommentQuery();
+		
+		$cCt = 0;
+		while($entry = $cQry->fetch_assoc())
+		{
+			$addr = long2ip($entry[addedIPAddress]);
+			
+			$auth = new security($entry[addedUserID]);
+			
+			if ($deleteAccess)
+			{
+				$dCtl = new jqUI_linkControl("ui-icon-closethick", "deleteComment", "Delete Comment");
+				$dCtl->onclick = "deleteComment({$entry["id"]})";
+			}
+			else
+			{
+				$dCtl = new phpFiller();	
+			}
+			
+			$pDisp = new jqUI_label("Posted by $auth->login on ".validation::parseMySqlDate($entry[addedDateTime], "D, M d Y \a\\t H:i"), "ui-icon-comment", "posted");
+			
+			$r = $t->addRow();
+			$r->id = "commentRow_$entry[id]";
+			$r->addCell(new tblCell($dCtl->render().validation::prepForDisplay($entry[comment]).$pDisp->render(), 'evenCell','left'));
+			
+			$cCt++;
+		}
+		
+		if (!$cCt)
+		{
+			$r = $t->addRow();
+			$r->addCell(new tblCell("<strong>There are no comments to display.</strong>", "evenCell", "center"));
+		}
+		
+		$js->commentCount = $cCt;
+		$js->content = $t->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		
+		$js->content = $eWin->render();	
+	}
+	
+	echo $js->render();
+}
+function deleteComment($commentID)
+{
+	global $g_sec, $config;
+		
+	$js = new json_a();
+	
+	try
+	{		
+		$detail = customComments::getCommentByID($commentID);
+
+		if ($detail[addedUserID] != $g_sec->id)
+		{
+			$cObj = new customComments($detail[dataID], $detail[typeID]);
+			if (!$cObj->hasAccess($g_sec, permissions::delete)) $g_sec->security_error_a();
+		}	 
+		
+		if (!customComments::deleteComment($commentID)) throw new Exception("Error deleting comment! Please refresh the page and try again.");
+		
+		pageClass::setNotify("Successfully deleted comment!");		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+	
+	echo $js->render();
+}
+function addComment($dataID, $typeID, $comment)
+{
+	global $config, $g_sec;	
+		
+	$js = new json_a();	
+	
+	try
+	{	
+		$cObj = new customComments($dataID, $typeID);		
+		
+		if (!$cObj->hasAccess($g_sec, permissions::insert)) $g_sec->security_error_a();
+		
+		$cObj->addComment($comment);		
+				
+		pageClass::setNotify("Comment successfully added.");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+?>

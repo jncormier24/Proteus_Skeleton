@@ -13,6 +13,7 @@ class customComments_core
 										 `fullName` varchar(75) NOT NULL,
 										 `socialNetworkData` varchar(50) NOT NULL,
 										 `addedDateTime` datetime NOT NULL,
+										 `addedUserID` int(11) NOT NULL,
 										 PRIMARY KEY (`id`)
 										) ENGINE=MyISAM DEFAULT CHARSET=utf8");
 }
@@ -130,23 +131,23 @@ class customComments
 		{
 			case customComments::comment_user:
 				$perm = permissions::$manage_users;		
-				if ($accessLevel == lri_permissions::insert) $accessLevel = lri_permissions::read;
-				if ($accessLevel == lri_permissions::delete) $accessLevel = lri_permissions::write;		
+				if ($accessLevel == permissions::insert) $accessLevel = permissions::read;
+				if ($accessLevel == permissions::delete) $accessLevel = permissions::write;		
 				break;					
 			
 			/*
 			 * SWB: Left this as an example of how to do permission checking by a particular dataID
 			 *
 			 case lri_comments::comment_internship:
-				$perm = lri_permissions::$manage_internships;				
-				if ($accessLevel == lri_permissions::insert) $accessLevel = lri_permissions::read;
-				if ($accessLevel == lri_permissions::delete) $accessLevel = lri_permissions::write;
+				$perm = permissions::$manage_internships;				
+				if ($accessLevel == permissions::insert) $accessLevel = permissions::read;
+				if ($accessLevel == permissions::delete) $accessLevel = permissions::write;
 				
 				if ($sec->hasAccess($perm, $accessLevel, 0)) return true;
 				
 				$iObj = new lri_internship($this->dataID);
 								
-				return $sec->is(lri_permissions::$employer_employee, $iObj->employerID); 
+				return $sec->is(permissions::$employer_employee, $iObj->employerID); 
 			*/				
 				
 			default:
@@ -156,4 +157,23 @@ class customComments
 		return $sec->hasAccess($perm, $accessLevel, 0);
 	}
 } 
+class commentContainer extends phpDIV
+{
+	public function __construct($dataID, $typeID, $renderLoader = false, $id = '')
+	{
+		parent::__construct();
+		
+		$this->class = "commentContainer";
+		$this->addAttribute("data-dataid", $dataID);
+		$this->addAttribute("data-typeid", $typeID);
+		
+		if ($id) $this->id = $id;
+		
+		if ($renderLoader)
+		{
+			if (!$this->id) $this->id = "comment_container_{$dataID}_{$typeID}";
+			$this->addControl(new jqLoader("getComments($dataID, $typeID, '#$this->id')"));
+		}
+	}
+}
 ?>

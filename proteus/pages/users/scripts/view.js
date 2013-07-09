@@ -73,9 +73,13 @@ function updateUser()
 				getUsers();	
 			}
 			
-			cont.dialog('close');
-			
 			dfd.resolve();
+			
+			if (parseInt(output.userID))
+			{
+				cont.dialog('close');
+				showEditUser(output.userID);
+			}
 		}
 		else
 		{
@@ -89,13 +93,15 @@ function updateUser()
 function getPermissions(userID)
 {
 	var cont = $("#permissions > div");
-	$.showLoading("Loading Permissions Interface");
+	$.showLoading("Loading Permissions");
 	
 	$.getJSON("admin/ajax/users", {action: "getPermissions", userID: userID}).then(function(output)
 	{
 		if (!$.ajaxError(output, $))
 		{
 			cont.html(output.content);
+			
+			checkPermissionRequisites();
 		}
 	});			
 }
@@ -132,73 +138,79 @@ function savePermissions(userID, ctl)
 	
 	$.post("admin/ajax/users", {action: "savePermissions", "perms[]": perms, userID: userID, assnID: assnID}, null, "json").then(function(output)		
 	{
-		cont.hideLoading();
+		if (!$.ajaxError(output, cont))
+		{		
+			$("tr").removeClass("warnRow").attr("dirty", 0);
+			getMessages();
 		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
-		}
-		
-		$("tr").removeClass("warnRow").attr("dirty", 0);
-		getMessages();
-		
-		if (output.reload)
-		{
-			cont.dialog('close');
-			getPermissions(userID);
-		}
-		
+			var parent = $("tr[data-permkey='" + output.setRead + "']");
+			
+			checkPermissionRequisites();
+		}		
 	});	 
 }
-function addSecurityAssn(userID, matrixID)
+function checkPermissionRequisites()
+{
+	$("#permissions table tr").has("input[type=checkbox]").each(function()
+	{		
+		var readCtl = $("input[type=checkbox]:eq(0)", this);
+		var bitVal = 0;
+		
+		$("input:checked", this).each(function()
+		{
+			bitVal += parseInt($(this).val());
+		});
+		
+		if (bitVal > 1)
+		{
+			readCtl.prop("checked", true).prop("disabled", true);
+		}
+		else
+		{
+			readCtl.prop("disabled", false);
+		}		
+	});
+}
+function addPermission(userID)
 {
 	var cont = $("#permissionWin");
 	cont.showLoading("Adding Security Assignment");
 	
 	$.post("admin/ajax/users", {
-		action: "addSecurityAssn", 
-		userID: userID, 
-		matrixID: (matrixID ? matrixID : $("#accessSec").val()), 
-		value: (matrixID ? $("#menuSec").val() : "") 
+		action: "addPermission", 
+		userID: userID,
+		permissionKey: $("#accessSec").val()	 
 	}, null, 'json').then(function(output)
 	{
-		cont.hideLoading();
-		
-		if (output.error)
+		if (!$.ajaxError(output, cont))
 		{
-			$(output.error).appendTo("body");
-			return;
-		}
-		
-		getMessages();
-		
-		cont.dialog('close');
-		
-		getPermissions(userID);		
+			getMessages();
+			
+			cont.dialog('close');
+			
+			getPermissions(userID);	
+		}		
 	});		
 }
-function deleteSecurityAssn(keyID)
+function removePermission(assnID)
 {
-	var cont = $("#permissionWin");
-	cont.showLoading("Removing Security Assignment");
-	
-	$.getJSON("admin/ajax/users", {action: "deleteSecurityAssn", keyID: keyID}).then(function(output)
+	$.jqConfirm("Are you sure you want to remove this permission assignment?", function()
 	{
-		cont.hideLoading();
+		var cont = $("#permissionWin");
+		cont.showLoading("Removing Security Assignment");
 		
-		if (output.error)
+		$.getJSON("admin/ajax/users", {action: "removePermission", assnID: assnID}).then(function(output)
 		{
-			$(output.error).appendTo("body");
-			return;
-		}
-		
-		getMessages();
-		
-		cont.dialog('close');
-		
-		getPermissions(output.userID);		
-	});			
+			if (!$.ajaxError(output, cont))
+			{
+				getMessages();
+			
+				cont.dialog('close');
+			
+				getPermissions(output.userID);
+			}
+		});
+	});
 }
 function addMenuAccess(userID)
 {

@@ -1,0 +1,39 @@
+#btnSaveContent
+{
+	float: right;
+	margin: -50px 25px 0px 0px; 
+}
+#contentWin label
+{
+	clear: left;
+}
+#contentWin .redactor_box
+{
+	float: left;
+	clear: left;
+	
+	width: 100%;
+	/*height: 435px;*/
+	
+	margin-top: 8px;
+}
+#contentWin .redactor_textBox
+{
+/*	height: 370px;*/	
+}
+#contentWin .wysiwyg
+{
+	float: left;
+	clear: left;
+}
+#contentWin p.updated
+{
+	float: right;
+	clear: both;
+	
+	padding: 10px 0px 0px 0px;
+}
+#btnNewContent
+{
+	margin-bottom: 10px;
+}

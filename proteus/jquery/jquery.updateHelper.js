@@ -291,6 +291,8 @@
 				});	
 			
 				parent.data("options", options).data("func", func);
+				
+				return $(this);
 		}
 	};
 	

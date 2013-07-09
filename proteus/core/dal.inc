@@ -142,7 +142,7 @@ class DAL
 		if ($logResult && strtolower(substr($qry, 0, 6)) == "select")
 		{
 			array_push($this->resultSets, $retVal);
-		}
+		}		
 		
 		return $retVal;
 	}	
@@ -181,7 +181,7 @@ class DAL
 		$val = $this->qryArray($qry);
 		return $val[0];
 	}	
-	public function qryUpdateByArray($tableName, $cvList, $whereClause, $debug=false, $ignore=false)
+	public function qryUpdateByArray($tableName, $cvList, $whereClause)
 	{	
 		$stmt = "";
 		
@@ -205,18 +205,15 @@ class DAL
 			$whereClause = implode(" AND ", (array)$wTmp);			
 		}
 		
-		$qry = "update ".($ignore ? "IGNORE " : "")."$tableName set $stmt where $whereClause";
-		
-		if ($debug) error_log($qry);
+		$qry = "update ".($ignore ? "IGNORE " : "")."$tableName set $stmt where $whereClause";		
 		
 		if ($this->qry($qry, false)) return array($this->getMatchedRows(), $this->dbLink->affected_rows);
 
 		return false;		
 	}
 	private function getMatchedRows()
-	{
-		if (!$this->info) return false;
-		preg_match("/^Rows matched: ([0-9]?)/", $this->info, $m);
+	{		
+		preg_match("/^Rows matched: ([0-9]?)/", $this->dbLink->info, $m);
 		
 		return $m[1];
 	} 

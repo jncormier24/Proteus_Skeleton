@@ -9,11 +9,16 @@ function error_handler($errNo, $errStr, $errFile='', $errLine='', $type='')
 	// error_reporting()==0 if the @ sign was used
 	if ($errNo == E_NOTICE || error_reporting()==0) return;
 	
-	if($errNo == E_WARNING)
+	if ($errNo == E_WARNING)
 	{	
 		if ($config["debug_mode"])
 		{			
-			debug("Error: $errNo <br>File: $errFile <br> Desc: $errStr <br>Line: $errLine<br />StackTrace: ".var_export(debug_backtrace(), true), null, false);
+			debug("Error: $errNo 
+			       File: $errFile 
+			       Desc: $errStr
+			       Line: $errLine
+			
+			       StackTrace: ".var_export(debug_backtrace(), true));
 			return;
 		}
 	}	

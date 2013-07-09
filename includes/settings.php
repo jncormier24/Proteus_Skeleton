@@ -38,6 +38,9 @@
 	// Set the site to use zlib output compression; should be set to true in most installation cases
 	$config["use_zlib_compression"] = true;
 	
-	// Set the custom error handler to be shown whenever an error occurs, or when calling the error() function
+	// Set the custom error handler to be shown whenever an error occurs, or when calling the error() function from code
 	$config["custom_error_handler"] = "error_handler";
+	
+	// Set the number of days to retain custom session data.
+	$config["session_retention_days"] = "3";
 ?>

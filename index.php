@@ -5,22 +5,19 @@
 	$config["pageIndex"] = array_shift($config["params"]);
 	
 	switch($config["pageIndex"])
-	{
-		/* case "admin":
-			// Get the page index to know where to route the ajax request
-			$config["pageIndex"] = array_shift($config["params"]);
-			if (!$config["pageIndex"]) die("No request specified.");
-				
-			@include("proteus/admin/{$config["pageIndex"]}/model.inc");
-			include("proteus/admin/{$config["pageIndex"]}/control.inc");
-				
-			break; */
+	{		
 		case "ajax":
 			// Get the page index to know where to route the ajax request
 			$config["pageIndex"] = array_shift($config["params"]);
 			if (!$config["pageIndex"]) die("No request specified.");
 			
-			include("pages/{$config["pageIndex"]}/control.ajax");
+			// By default, a pageIndex URL can be given, and control.ajax will be assumed. For subpages, or other reasons of needing 
+			// multiple .ajax files, add the ajax filename to the end of the /ajax request; i.e., ajax/index/file.ajax			
+			$reqFile = $config["params"][count($config["params"])-1];
+			
+			$controlFile = preg_match("/\.ajax$/i", $reqFile) ? $reqFile : "control.ajax";
+			
+			include("pages/{$config["pageIndex"]}/ajax/$controlFile");
 			
 			break;			
 		default:	

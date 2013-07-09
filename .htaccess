@@ -16,13 +16,16 @@ php_flag magic_quotes_gpc off
 </FilesMatch>
 
 RewriteEngine On
+RewriteBase /Proteus_Skeleton
+
 RewriteCond %{REQUEST_FILENAME} -s [OR]
 RewriteCond %{REQUEST_FILENAME} -l [OR]
 RewriteCond %{REQUEST_FILENAME} -d
-RewriteBase /Proteus_Skeleton
+
 RewriteRule ^.*$ - [NC,L]
 
-RewriteRule admin proteus/index.php [NC,L]
+RewriteRule ^admin/(.*)$ proteus/index.php [NC,L]
+RewriteRule ^admin$ proteus/index.php [NC,L]
 RewriteRule ^.*$ index.php [NC,L]
 
 ErrorDocument 404 404.php

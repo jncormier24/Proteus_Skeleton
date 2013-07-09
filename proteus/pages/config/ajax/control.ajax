@@ -1,0 +1,117 @@
+<?php
+	$g_sec = permissions::getAuthorizedUser();
+
+	switch($action)
+	{
+		case "setModStat":
+			setModStat($siteType, $stat);
+			break;
+			
+		case "updateConfig":
+			updateConfig($data);
+			break;
+	}
+	
+function updateConfig($data)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{	
+		if (!$g_sec->hasAccess(permissions::$site_configuration, permissions::write)) $g_sec->security_error_a();
+	
+		$conf = new siteConfig();
+		
+		foreach($data as $key=>$value)
+		{
+			if (stristr($value, '\r\n')) $value = validation::prepMultiLineForStorage($value);
+			
+			validation::makeSafe($value);			
+
+			$conf->$key = $value;	
+		}
+		
+		pageClass::setNotify("Sucessfully modified site settings.");
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function setModStat($siteType, $stat)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($stat);
+		validation::ensureInt($siteType);		
+		
+		if (!$g_sec->hasAccess(permissions::$site_configuration, permissions::write)) $g_sec->security_error_a();
+	
+		$modArr = proteus_core::getModulesArray();
+		
+		foreach($modArr as $mod)
+		{
+			if ($mod["siteType"] == $siteType) break;
+		}
+		
+		if (!count($mod)) throw new Exception("Error, that module could not be found ($siteType)");
+		if (!$siteType || $mod["required"]) throw new Exception("Error, required modules cannot be modified.");
+		
+		$conf = new siteConfig();		
+		
+		if (!$stat && !$conf->moduleEnabled($mod["siteType"])) throw new Exception("Error, that module is already disabled.");
+		if ($stat && $conf->moduleEnabled($mod["siteType"])) throw new Exception("Error, that module is already enabled.");
+		
+		// Include the model file so that we can sync
+		$modObj = proteus_core::includeModule($mod);
+		
+		$tmp = explode("::", $conf->siteType);
+		
+		if ($stat)
+		{
+			$syncObj = new dbSync();
+			$syncObj->syncModule($modObj);
+			
+			$tmp[] = $mod["siteType"];
+			
+			pageClass::setNotify("Successfully enabled Module. Please refresh to see any updates to the admin navigation.");
+		}
+		else
+		{
+			pageClass::setNotify("Successfully disabled Module; data has been retained for later use.");
+
+			foreach($tmp as $key=>$type)
+			{
+				if ($type == $mod["siteType"])
+				{					
+					unset($tmp[$key]);
+					break;
+				}	
+			}
+		}				
+		
+		$conf->siteType = implode("::", $tmp);
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+
+?>

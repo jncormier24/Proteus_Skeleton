@@ -26,8 +26,7 @@
 	$config["scripturl"] = "http".($_SERVER["HTTPS"] == "on" ? "s" : "")."://".$_SERVER["HTTP_HOST"]."/".$config["application_root"];	
 
 	include($config["libraryDir"]."core/controls.inc");
-	include($config["libraryDir"]."core/parser.inc");
-	include($config["libraryDir"]."core/pageModules.inc");		
+	include($config["libraryDir"]."core/parser.inc");			
 	include($config["libraryDir"]."core/error.inc");	
 	include($config["libraryDir"]."core/cache.inc");	
 	
@@ -37,14 +36,15 @@
 		
 	include($config["libraryDir"]."core/core.inc");
 	include($config["libraryDir"]."core/pageControls.inc");
-		
+	include($config["libraryDir"]."core/pageModules.inc");
+	
 	// Find all the required modules (required=true) and include their models
 	// Some modules will still require adding a pageModule to access CSS/JS functionality, this is just to include the object models
 	$mods = proteus_core::getModulesArray();
 	
 	foreach($mods as $mod)
-	{
-		if ($mod["required"]) proteus_core::includeModule($mod);
+	{		
+		if ($mod["required"] && $mod["location"]) proteus_core::includeModule($mod);		
 	}
 	
 	// Store the URI in array format for processing
@@ -55,11 +55,8 @@
 	if ($config["custom_error_handler"]) set_error_handler($config["custom_error_handler"]);	
 	if ($config["use_zlib_compression"]) ini_set("zlib.output_compression","1");	
 	
+	// Set the server timezone. This is the same zone used in every connection to set the timezone. (keeps cloud servers in sync)
 	date_default_timezone_set($config["server_timezone"]);	
-	
-	$dateObj = new DateTime(); //"now", new DateTimeZone($config["server_timezone"]));	
-	 
-	//$config["tz_offset"] = $dateObj->getOffset() / 60 / 60;
 		
 	//Create globals
 	//Get VARS must be alpha-numeric only!
@@ -103,7 +100,7 @@
 	}
 	
 	//application/json, text/javascript filtering - runs after the includes so that $action can be properly allocated
-	if (preg_match("'/ajax/'i", $_SERVER['PHP_SELF']) && isset($action) && !preg_match("/^application\/json\, text\/javascript/i", $_SERVER['HTTP_ACCEPT']))
+	if (preg_match("'/ajax|modules/'i", $_SERVER['PHP_SELF']) && isset($action) && !preg_match("/^application\/json\, text\/javascript/i", $_SERVER['HTTP_ACCEPT']))
 	{
 		//Silently discard, but allow for image upload requests (rework the plugin later to not need this!!)
 		if (!preg_match("/image\//i", $_SERVER[HTTP_ACCEPT]) && !preg_match("/upload/i", $action))
@@ -112,7 +109,7 @@
 		}
 	}
 	
-	session_start();
+	session_start();		
 
 function walkEreg(&$str)
 {

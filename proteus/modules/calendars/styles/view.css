@@ -1,0 +1,33 @@
+#btnAddCal
+{
+	float: right;	
+	
+	margin: -2px 0px 8px 0px;	
+}
+#calendarsContainer
+{
+	clear: both;	
+}
+#entryIconDiv .fileinput-wrapper
+{
+	float: left;
+}
+#btnAddIcon
+{
+	position: relative;
+	top: -3px;
+}
+#entryFiles .fileinput-wrapper
+{
+	float: left;
+	padding-top: 4px;
+}
+#enWin .wysiwyg
+{
+	float: left;
+}
+#enWin label
+{
+	clear: left;
+	width: 145px;
+}

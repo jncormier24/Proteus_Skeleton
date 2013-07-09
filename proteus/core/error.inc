@@ -32,25 +32,9 @@ function debug_string_backtrace()
 
         return $trace;
 } 
-function debug($errMess, $pageClassObj = '', $limitAdmin=true)
+function debug($obj)
 {
-	global $g_sec;
-	
-	if ($g_sec->isAdmin || !$limitAdmin)
-	{	
-		if ($pageClassObj && method_exists($pageClassObj, "render"))
-		{
-			$dbg = $errMess."<div style='text-align: left;'><hr>Stack Trace:<br /><pre>".var_export(debug_backtrace(), true)."</pre><hr></div>";
-			
-			$pageClassObj->addControl(new phpLiteral($dbg));			
-		}
-		else
-		{			
-			print_r($errMess);
-			echo "<hr>";			
-			//No stack trace if the pageobject isn't defined (ie unplanned debug from error handler)
-			//echo "Stack Trace:<br />".print_r(debug_backtrace())."<hr></span>";			
-		}
-	}
+	// Just a shortcut handler to print raw debug information out
+	die(nl2br(print_r($obj, true)));
 }
 ?>

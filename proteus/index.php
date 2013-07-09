@@ -12,7 +12,7 @@
 	$libraryDir = array_pop($tmpArr);
 	
 	// Override the default value so we can have an accurate base for the admin console pages structure
-	$config["pageDir"] = "$libraryDir/admin";
+	$config["pageDir"] = "$libraryDir/pages";
 	
 	// Remap the config setting, this will prevent framework.inc from reloading a new baseAppDir
 	$config["baseAppDir"] = implode("/", $tmpArr)."/";
@@ -24,7 +24,7 @@
 	unset($config["custom_error_handler"]);
 	
 	include("framework.inc");	
-	include("admin/pageClass.inc");
+	include("pages/common/pageClass.inc");
 	
 	$config["custom_error_handler"] = "admin_error_handler";
 	
@@ -67,20 +67,35 @@
 	
 	switch($config["pageIndex"])
 	{
+		case "module":
+			// Get the page index to know where to route the ajax request
+			$config["pageIndex"] = array_shift($config["params"]);
+			if (!$config["pageIndex"]) die("No request specified.");
+			
+			@include("modules/{$config["pageIndex"]}/model.inc");
+			include("modules/{$config["pageIndex"]}/ajax/control.ajax");
+			
+			break;
 		case "ajax":
 			// Get the page index to know where to route the ajax request
 			$config["pageIndex"] = array_shift($config["params"]);
 			if (!$config["pageIndex"]) die("No request specified.");
-				
-			include("admin/{$config["pageIndex"]}/control.ajax");
-				
+
+			// By default, a pageIndex URL can be given, and control.ajax will be assumed. For subpages, or other reasons of needing 
+			// multiple .ajax files, add the ajax filename to the end of the /ajax request; i.e., ajax/index/file.ajax
+			$reqFile = $config["params"][count($config["params"])-1];
+			
+			$controlFile = preg_match("/\.ajax$/i", $reqFile) ? $reqFile : "control.ajax";
+			
+			@include("pages/{$config["pageIndex"]}/model.inc");
+			include("pages/{$config["pageIndex"]}/ajax/$controlFile");				
 			break;
 		default:
 			if (!$config["pageIndex"]) $config["pageIndex"] = "index";
 				
-			@include("admin/{$config["pageIndex"]}/model.inc");
+			@include("pages/{$config["pageIndex"]}/model.inc");
 			
-			$controlFile = "admin/{$config["pageIndex"]}/control.inc";
+			$controlFile = "pages/{$config["pageIndex"]}/control.inc";
 			if (file_exists($controlFile))
 			{
 				include($controlFile);
@@ -88,7 +103,7 @@
 			else
 			{
 				header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found"); 
-				include($config[baseAppDir]."404.php");			
+				include($config["baseAppDir"]."404.php");			
 			}
 	}
 	
