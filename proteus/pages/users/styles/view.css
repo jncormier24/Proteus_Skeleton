@@ -33,7 +33,7 @@ button.permissions .ui-button-text
 {
 	margin-left: 4px;
 }
-#btnAddSpec
+#btnAddSpec, #btnAddS
 {
 	float: left;
 	margin-top: 2px;
@@ -44,6 +44,5 @@ button.permissions .ui-button-text
 }
 #permOptions
 {
-	float: left;
-	padding: 2px 0px 0px 3px;
+	float: left;	
 }

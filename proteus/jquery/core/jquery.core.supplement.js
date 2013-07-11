@@ -19,7 +19,7 @@ $(document).ready(function()
 	initJQButtons();
 	getMessages();
 	
-	$(document).tooltip();
+	$(document).not("button").tooltip();
 });
 
 // Limit scope pollution from any deprecated API
@@ -761,8 +761,8 @@ $(document).ready(function()
 			title: "Error",
 			closeCallback: function() { $(this).remove(); },
 			buttons: [{text: "Ok", click: function() { $(this).dialog('close'); }}],
-			width: 320,
-			height: 200,
+			width: 600,
+			height: 225,
 			autoResize: true
 		}, opts);
 		
@@ -829,6 +829,7 @@ $(document).ready(function()
 		opts = $.extend(
 		{ 
 			title: "Please Confirm",
+			width: 550,
 			buttons:
 			[{
 				text: "Yes", 

@@ -23,7 +23,7 @@ function getEntityEdit(entityID)
 		{		
 			$(output.content).appendTo("body");
 			
-			$("#container").block({message: "", baseZ: 10});
+			$.blockContainer();
 			
 			var opts = null;
 			
@@ -38,7 +38,8 @@ function getEntityEdit(entityID)
 			
 			$("#entityWin").dialog("option", "close", function() 
 			{  
-				$("#container").unblock();
+				$.unblockContainer();
+				
 				$(this).remove();
 			}).find("textarea.wysiwyg").redactor(opts);
 		}
@@ -317,12 +318,20 @@ function deleteStaff(staffID)
 }
 function getFaqWin(entityID)
 {
+	if ($("#faqWin").length)
+	{
+		$.jqAlert("FAQ Editor already open; please close existing editor and try again.");
+		$("#faqWin").dialog("moveToTop");
+		
+		return;
+	}
+	
 	$.showLoading("Loading FAQ Interface");
 	
 	$.getJSON("admin/ajax/municipal", {action: "getFaqWin", entityID: entityID}).then(function(output)
 	{
 		if (!$.ajaxError(output, $))
-		{		
+		{				
 			$(output.content).appendTo("body");
 			getFaqEntries(entityID);
 		}
@@ -331,20 +340,15 @@ function getFaqWin(entityID)
 function getFaqEntries(entityID)
 {
 	var cont = $("#faqWin div.faqContainer");
-	cont.setWorking("Loading FAQ Entries");
+	cont.showLoading("Loading FAQ Entries");
 	
 	$.getJSON("admin/ajax/municipal", {action: "getFaqEntries", entityID: entityID}).then(function(output)
 	{
-		$.hideLoading();
-		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, cont))
+		{		
+			cont.html(output.content);
+			initTableSort();
 		}
-		
-		cont.html(output.content);
-		initTableSort();
 	});	
 }
 function saveFaqEntry(faqEntryID, entityID)
@@ -375,38 +379,52 @@ function getFaqEdit(faqEntryID, entityID)
 	
 	$.getJSON("admin/ajax/municipal", {action: "getFaqEdit", entityID: entityID, faqEntryID: faqEntryID}).then(function(output)
 	{
-		win.hideLoading();
-		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, win))
+		{	
+			// Redactor no-modal support
+			$.hideDialogs(true);
+			
+			$(output.content).appendTo("body");
+			
+			var opts = {				
+				imageUpload: "admin/module/customContent?action=assetUpload&contentID=" + faqEntryID + "&dataID=" + output.entityID + "&typeID=-1",
+				imageUploadErrorCallback: function(output) { $.jqAlert(output.error); },
+				fileUpload: "admin/module/customContent?action=assetUpload&isFile=1&contentID=" + faqEntryID + "&dataID=" + output.entityID + "&typeID=-1",
+				fileUploadErrorCallback: function(output) { $.jqAlert(output.error); }				
+			}
+			
+			$(".wysiwyg", "#faqEditWin").redactor(faqEntryID ? opts : {});
+			
+			$("#faqEditWin").dialog("option", "close", function()
+			{
+				$.showDialogs(true);				
+				$(this).remove();
+			});
+			
 		}
-		
-		$(output.content).appendTo("body");
-		initWYSIWYG(".wysiwyg", "#faqEditWin");
 	});	
 }
 function deleteFaqEntry(faqEntryID)
 {
-	if (!confirm("Are you SURE you want to permanently delete this Faq Entry?\n\nThis cannot be undone!")) return;
-	
-	var win = $("#faqWin");
-	
-	win.showLoading("Removing Faq Entry");
-	
-	$.getJSON("admin/ajax/municipal", {action: "deleteFaqEntry", faqEntryID: faqEntryID}).then(function(output)
-	{
-		win.hideLoading();
+	$.jqConfirm("Are you SURE you want to permanently delete this Faq Entry?\n\nThis cannot be undone and will permanently remove all support file and images associated with this content!", function()
+	{	
+		var win = $("#faqWin");
 		
-		if (output.error)
+		win.showLoading("Removing Faq Entry");
+		
+		$.getJSON("admin/ajax/municipal", {action: "deleteFaqEntry", faqEntryID: faqEntryID}).then(function(output)
 		{
-			$(output.error).appendTo("body");
-			return;
-		}
-		
-		getMessages();		
-		getFaqEntries(output.entityID);
+			win.hideLoading();
+			
+			if (output.error)
+			{
+				$(output.error).appendTo("body");
+				return;
+			}
+			
+			getMessages();		
+			getFaqEntries(output.entityID);
+		});
 	});
 }
 function getPostsWin(entityID)
@@ -599,10 +617,10 @@ function getDocumentsWin(entityID)
 	$.getJSON("admin/ajax/municipal", {action: "getDocumentsWin", entityID: entityID}).then(function(output)
 	{
 		if (!$.ajaxError(output, $))
-		{		
+		{			
 			$(output.content).appendTo("body");
 			
-			getContentEntries(1, entityID, '#custom_content > div');			
+			getContentEntries(output.contentType, entityID, '#custom_content > div');			
 			getFiles(1, entityID);
 			getLinks(1, entityID);
 		}
@@ -682,40 +700,39 @@ function saveLink(linkID, typeID, dataID)
 }
 function deleteLink(linkID, container)
 {
-	if (!confirm("Are you SURE you want to permanently remove this link resource? This cannot be undone, and may affect any published hyperlinks indexed by search engines!")) return;
-	
-	var win = container ? $(container) : $("#docWin");
-	win.showLoading("Removing Link Resource");
-	
-	$.getJSON("admin/ajax/municipal", {action: "deleteLink", linkID: linkID}).then(function(output)
-	{
-		win.hideLoading();
+	$.jqConfirm("Are you SURE you want to permanently remove this link resource? This cannot be undone, and may affect any published hyperlinks indexed by search engines!", function()
+	{	
+		var win = container ? $(container) : $("#docWin");
+		win.showLoading("Removing Link Resource");
 		
-		if (output.error)
+		$.getJSON("admin/ajax/municipal", {action: "deleteLink", linkID: linkID}).then(function(output)
 		{
-			$(output.error).appendTo("body");
-			return;
-		}
-		
-		getMessages();			
-		getLinks(output.typeID, output.dataID);
-	});
+			win.hideLoading();
+			
+			if (output.error)
+			{
+				$(output.error).appendTo("body");
+				return;
+			}
+			
+			getMessages();			
+			getLinks(output.typeID, output.dataID);
+		});
+	}, { width: 650});
 }
 function getFiles(typeID, dataID)
 {
 	var cont = $("#filesContainer");
-	cont.setWorking("Loading Files");
+	cont.showLoading("Loading Files");
 	
 	$.getJSON("admin/ajax/municipal", {action: "getFiles", typeID: typeID, dataID: dataID}).then(function(output)
 	{
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, cont))
+		{		
+			cont.html(output.content);
+			initTableSort();			
+			initJqPopupMenus();
 		}
-		
-		cont.html(output.content);
-		initTableSort();
 	});
 }
 function getFileEdit(fileID, window)
@@ -773,11 +790,11 @@ function uploadFile(typeID, dataID, container)
 		{
 			win.hideLoading();
 			
-			$("#" + _element).val("").fileinput();
+			$("#" + _element).fileinput();
 			
 			if (data.error)
 			{
-				alert(data.error);
+				$.jqAlert(data.error);
 				return;
 			}			
 			
@@ -794,24 +811,25 @@ function uploadFile(typeID, dataID, container)
 }
 function deleteFile(fileID, container)
 {
-	if (!confirm("Are you SURE you want to permanently remove this file? This cannot be undone, and may affect any published hyperlinks indexed by search engines!")) return;
-	
-	var win = container ? $(container) : $("#docWin");
-	win.showLoading("Removing File Entry");
-	
-	$.getJSON("admin/ajax/municipal", {action: "deleteFile", fileID: fileID}).then(function(output)
-	{
-		win.hideLoading();
+	$.jqConfirm("Are you SURE you want to permanently remove this file? This cannot be undone, and may affect any published hyperlinks indexed by search engines!", function()
+	{	
+		var win = container ? $(container) : $("#docWin");
+		win.showLoading("Removing File Entry");
 		
-		if (output.error)
+		$.getJSON("admin/ajax/municipal", {action: "deleteFile", fileID: fileID}).then(function(output)
 		{
-			$(output.error).appendTo("body");
-			return;
-		}
-		
-		getMessages();			
-		getFiles(output.typeID, output.dataID);
-	});
+			win.hideLoading();
+			
+			if (output.error)
+			{
+				$(output.error).appendTo("body");
+				return;
+			}
+			
+			getMessages();			
+			getFiles(output.typeID, output.dataID);
+		});
+	}, { width: 650});
 }
 function getAgendaWin(entityID)
 {

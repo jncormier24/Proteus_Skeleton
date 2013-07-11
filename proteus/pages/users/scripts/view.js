@@ -38,8 +38,10 @@ function showEditUser(userID)
 			if (userID)
 			{				
 				$("#userForm").updateHelper(function() { return updateUser(); }, {autoSave: false, disableControls: output.disableEdit});
-			}
 				
+				getPermissions(userID, true);
+			}
+			
 			dfd.resolve();
 		}
 		else
@@ -90,10 +92,10 @@ function updateUser()
 	
 	return dfd.promise();
 }
-function getPermissions(userID)
+function getPermissions(userID, hideLoader)
 {
 	var cont = $("#permissions > div");
-	$.showLoading("Loading Permissions");
+	if (!hideLoader) $.showLoading("Loading Permissions");
 	
 	$.getJSON("admin/ajax/users", {action: "getPermissions", userID: userID}).then(function(output)
 	{
@@ -155,6 +157,7 @@ function checkPermissionRequisites()
 	{		
 		var readCtl = $("input[type=checkbox]:eq(0)", this);
 		var bitVal = 0;
+		var obj = $(this);
 		
 		$("input:checked", this).each(function()
 		{
@@ -168,7 +171,9 @@ function checkPermissionRequisites()
 		else
 		{
 			readCtl.prop("disabled", false);
-		}		
+		}	
+		
+		if (obj.attr("data-assnrow") && !readCtl.is(":checked")) obj.fadeOut();
 	});
 }
 function addPermission(userID)
@@ -216,12 +221,12 @@ function addMenuAccess(userID)
 {
 	addSecurityAssn(userID, 2);			
 }
-function getLinkedOptions()
+function getLinkedOptions(userID)
 {
 	var cont = $("#permissionWin");
 	cont.showLoading("Loading Available Options");
 	
-	$.getJSON("admin/ajax/users", {action: "getLinkedOptions", permKey: $("#permKey").val()}).then(function(output)
+	$.getJSON("admin/ajax/users", {action: "getLinkedOptions", permKey: $("#permKey").val(), userID: userID}).then(function(output)
 	{
 		cont.hideLoading();
 		

@@ -1,8 +1,14 @@
 <?php
 	$g_sec = permissions::getAuthorizedUser();
+	
+	proteus_core::includeAllModules();
 	 
 	switch($action)
 	{
+		case "assetUpload":
+			assetUpload($dataID, $typeID, $contentID, $isFile);
+			break;
+			
 		case "deleteContentEntry":
 			deleteContentEntry($contentID);
 			break;
@@ -37,16 +43,16 @@ function getContentEntries($typeID, $dataID)
 		
 		$deleteAccess = customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::delete, permissions::delete);
 		$writeAccess = customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::write);
-		$insertAccess = customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::write, permissions::insert);
+		$insertAccess = customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::write, permissions::insert);		
 		
 		switch($typeID)
 		{
-			case customContent_core::content_generic:
+			case proteus_core::$module_customContent["siteType"]:
 				if ($dataID) throw new Exception("Invalid arguments supplied.");
 				$title = "Modify Custom Content";
 				break;
 						
-			case customContent_core::content_municipal_entity:				
+			case proteus_core::$module_municipal["siteType"]:				
 				$title = "Modify Custom Entity Content";
 				break;
 				
@@ -55,7 +61,7 @@ function getContentEntries($typeID, $dataID)
 		}		
 		
 		if ($insertAccess)
-		{
+		{			
 			$txtPage = new customText('pageName','',25, 255, 'textBox');	
 			$txtPage->setLabel("Add new Content Page: ", 'longLabel');
 			$txtPage->addAttribute('style','margin-right: 10px;');
@@ -89,6 +95,7 @@ function getContentEntries($typeID, $dataID)
 				order by position asc";
 		$iQry = $d->qry($qry);	
 	
+		$ct = 0;
 		while($content = $iQry->fetch_assoc())
 		{		
 			$eCtl = new editControl();
@@ -97,8 +104,7 @@ function getContentEntries($typeID, $dataID)
 			if ($deleteAccess)
 			{
 				$dCtl = new deleteControl();
-				$dCtl->onclick = "deleteContentEntry($content[id])";
-				$dCtl->setVerifyMessage("Are you sure you want to delete this Content Page? This cannot be undone!");
+				$dCtl->onclick = "deleteContentEntry($content[id])";				
 			}
 			else
 			{
@@ -110,10 +116,18 @@ function getContentEntries($typeID, $dataID)
 		
 			$r->addCell(new tblCell(validation::prepForDisplay($content[caption], false),'evenCell','left'));
 			$r->addCell(new tblCell(validation::prepForDisplay($content[pageName], false),'evenCell','left'));				
-			$r->addCell(new tblCell(array($eCtl, $dCtl),'evenCell','center', "", 70));
+			$r->addCell(new tblCell(array($eCtl, $dCtl),"evenCell","center"));
+			
+			$ct++;
 		}		
 	
-		$pc->addControl($t);
+		if (!$ct)
+		{
+			$r = $t->addRow();
+			$r->addCell(new tblCell("There are no content pages associated yet.", "bold", "center", 3));
+		}
+		
+		$pc->addControl($t);		
 		
 		$js->content = $pc->render();
 	}	
@@ -138,47 +152,32 @@ function getContentWin($contentID)
 
 		if (!customContent_core::checkPermission($g_sec, $cpObj->typeID, $cpObj->dataID, permissions::read)) $g_sec->security_error_a();
 		
-		switch($cpObj->typeID)
-		{
-			case customContent_core::content_generic:
-				$uploadType = 5;
-				break;
-				
-			case customContent_core::content_municipal_entity:
-				$uploadType = 6;
-				break;	
-		}
+		$dataObj = customContentData::getDataObject($cpObj->typeID, $cpObj->dataID);
+		$uploadType = $dataObj->module["siteType"];
 		
 		$writeAccess = customContent_core::checkPermission($g_sec, $cpObj->typeID, $cpObj->dataID, permissions::write);		
 		
 		$cWin = new jqUI_dialog("contentWin", true, 875, 650, "Modify Custom Content");
+		$cWin->addClass("configWin");
 		$cWin->setOption("autoOpen", true);	
-		//$cWin->setOption("modal", 0);			
+		$cWin->setOption("modal", 0);			
+		
+		$cWin->addCloseButton();
 		
 		if ($writeAccess)
 		{			
 			$cWin->addButton("Save Content", "function() { updateContentEntry($contentID); }");
-		}
+		}		
 		
-		$cWin->addButton("Cancel", "function() { $(this).dialog('close'); }");		
-		
-		$txtCaption = new customText("caption",validation::prepTextForInput($cpObj->caption),50, 255, 'textBox floating');	
-		$txtCaption->setLabel("Caption: ", 'longLabel floating');					
+		$txtCaption = new customText("caption",validation::prepTextForInput($cpObj->caption),50, 255);	
+		$txtCaption->setLabel("Caption: ");					
 	
-		$txtTitle = new customText("pageName",validation::prepTextForInput($cpObj->pageName),25, 255, 'textBox floating');	
-		$txtTitle->setLabel("Content Name: ", 'longLabel floating');			
+		$txtTitle = new customText("pageName",validation::prepTextForInput($cpObj->pageName),25, 255);	
+		$txtTitle->setLabel("Content Name: ");			
 	
-		$txtDesc = new phpTextArea("pageData", validation::prepTextForInput($cpObj->pageData), 23, 113, "textBox floating wysiwyg");	
-		$txtDesc->addAttribute("data-upload-dataid", $contentID);
-		$txtDesc->addAttribute("data-upload-typeid", $uploadType);
+		$txtDesc = new phpTextArea("pageData", validation::prepTextForInput($cpObj->pageData), 23, 113, "wysiwyg");		
 	
-		/*$chkMenu = new formInput('content[menuInclude]', 'checkbox', 1);
-		$chkMenu->class = 'floating';
-		if ($content[menuInclude]) $chkMenu->addParameter('checked');
-		$chkMenu->setLabel("Include in menu: ", 'longLabel floating');
-		$chkMenu->breakAfter = true;*/
-	
-		$aForm = new phpForm('post', 'contentForm');	
+		$aForm = new phpForm("post", "contentForm");	
 		$aForm->addControl($txtCaption);
 		$aForm->addControl($txtTitle);		
 		$aForm->addControl($txtDesc);
@@ -191,6 +190,7 @@ function getContentWin($contentID)
 			$cWin->addControl(new phpParagraph("Content last modified by {$sec->login} on ".validation::parseMySqlDate($cpObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "updated"));	
 		}		
 		
+		$js->dataID = $dataObj->id;
 		$js->uploadType = $uploadType;
 		$js->content = $cWin->render();
 	}
@@ -289,7 +289,7 @@ function updateContentEntry($contentID, $typeID, $dataID, $fields)
 }
 function deleteContentEntry($contentID)
 {
-	global $g_sec;
+	global $config, $g_sec;
 
 	$d = new DAL(true);
 	$js = new json_a();
@@ -299,6 +299,18 @@ function deleteContentEntry($contentID)
 		$cpObj = new customContentData($contentID);
 
 		if (!customContent_core::checkPermission($g_sec, $cpObj->typeID, $cpObj->dataID, permissions::delete, permissions::delete)) $g_sec->security_error_a();
+		
+		$dataObj = customContentData::getDataObject($cpObj->typeID, $cpObj->dataID, $contentID);
+		if (!$dataObj->id) throw new Exception("Error, linked data not found.");
+		
+		$assetDir = $config["baseAppDir"]."assets/".$dataObj->assetDir;
+		
+		foreach(glob($assetDir."/*") as $file)
+		{
+			@unlink($file);
+		}
+		
+		@rmdir($assetDir);
 		
 		$d->qry("delete from customContent where id=$contentID");
 		
@@ -311,6 +323,125 @@ function deleteContentEntry($contentID)
 	{
 		$eWin = new jqUI_errorNotify($ex);
 		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function assetUpload($dataID, $typeID, $contentID, $isFile)
+{
+	global $config;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{			
+		if (!$dataID && $typeID != 5 && $typeID != 2) throw new Exception("Error, no ID provided. This can be caused by attempting to add files to an entry that has not yet been saved. Please save your work and try again.");
+		if (!$typeID) throw new Exception("Error, missing upload data. Please refresh the page and try again.");
+
+		$baseDir = "assets/";
+		
+		$dataObj = customContentData::getDataObject($typeID, $dataID, $contentID);
+		if (!$dataObj->id) throw new Exception("Error, no linked data found.");
+		
+		$imgDir = $baseDir.$dataObj->assetDir;
+		
+		$dir = $config["baseAppDir"].$imgDir;
+		
+		if (!is_dir($dir)) mkdir($dir, 0770, true);
+		
+		$uploadedFile = '';	
+		
+		$isImage = $isFile ? false : true;
+		
+		//Grab first entry in the files array
+		$upload = new upload(current($_FILES), false);
+
+		if (!$isFile)
+		{		
+			$ext = $upload->getFileExtensionByMIME($upload->p_TmpName);		
+					
+			switch($ext)
+			{			
+				case "jpg":
+				case "jpeg":
+					$base = imagecreatefromjpeg($upload->p_TmpName);
+					break;
+				case "gif":
+					$base = imagecreatefromgif($upload->p_TmpName);
+					break;
+				case "png":
+					$base = imagecreatefrompng($upload->p_TmpName);
+					break;					
+				default:
+					$isImage = false;	
+					break;
+			}
+			
+			if (!$base) throw new Exception("Could not create image from uploaded file. Please try again.");
+		}		
+
+		$fPath = "$dir/".$upload->p_Name;		
+		$retVal = $upload->uploadFile($fPath, ($isImage ? array("jpg","gif","jpeg","png") : array()));
+	
+		if ($upload->err) throw new Exception($upload->err);
+		
+		if ($isImage)
+		{
+			$oWidth = imagesx($base);
+			$oHeight = imagesy($base);
+			
+			if ($oWidth > 465)
+			{
+				$ratio = $oHeight / $oWidth;
+				
+				$nWidth = 465;
+				$nHeight = $ratio*465;				
+			}		
+			else
+			{
+				$nWidth = $oWidth;
+				$nHeight = $oHeight;	
+			}
+			
+			//Create the new image
+			$dest = imagecreatetruecolor($nWidth, $nHeight);
+			imagecopyresampled($dest, $base, 0,0,0,0,$nWidth, $nHeight, $oWidth, $oHeight);			
+			
+			//In case the mime type and file extension are different			
+			$ext = ".".$upload->getFileExtension($upload->p_Name);
+	
+			//Append the current timestamp to the file (for lookups and for overwrite prevention)
+			$newFile = "support_".basename($upload->p_Name, $ext)."_".time().".jpg";			
+			
+			if (!imagejpeg($dest, "$dir/$newFile", 95))
+			{
+				throw new Exception("Unable to create JPG from uploaded image", -1);	
+			}
+			
+			imagedestroy($dest);
+			imagedestroy($base);			
+			
+			//Unlink the original uploaded file
+			unlink($fPath);
+
+			$uploadedFile = "$imgDir/$newFile";
+			$js->image = $js->filelink = stripslashes($uploadedFile);
+		}
+		else
+		{		
+			$js->caption = $js->filename = stripslashes($upload->p_Name);
+			$js->file = $js->filelink = stripslashes($imgDir."/".$upload->p_Name);	
+		}		
+	}
+	catch(Exception $ex)
+	{
+		$msg = $ex->getMessage();
+		
+		error_log($msg);
+		
+		$js->error = $msg;
 	}
 	
 	echo $js->render();

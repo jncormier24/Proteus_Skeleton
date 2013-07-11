@@ -4,6 +4,8 @@ class customContent_core
 	const content_generic = 0;
 	const content_municipal_entity = 1;	
 		
+	public $asset_folders = array("contentPages");	
+	
 	public $tables = array("customContent"=>"CREATE TABLE `customContent` (
 											 `id` int(11) NOT NULL AUTO_INCREMENT,
 											 `dataID` int(11) NOT NULL DEFAULT '0',
@@ -54,22 +56,21 @@ class customContent_core
 		}		
 			
 		return $arr;	
-	}
+	}	
 	public static function checkPermission(security $sec, $typeID, $dataID, $permissionMask='', $adminMask='')
 	{		
 		if (!$permissionMask && !$adminMask) return false;
 		
 		switch($typeID)
 		{
-			case customContent_core::content_generic:
+			case proteus_core::$module_customContent["siteType"]:				
 				return $sec->hasAccess(permissions::$manage_custom_content, $adminMask ? $adminMask : $permissionMask);				
-				break;	
-				
-			case customContent_core::content_municipal_entity:
+								
+			case proteus_core::$module_municipal["siteType"]:
 				$obj = new pmm_entity($dataID);
-				return $sec->hasAccess(permissions::$manage_municipal_entities, $adminMask ? $adminMask : $permissionMask) ||
-					   ($permissionMask && $sec->hasAccess(permissions::$municipal_entity, $permissionMask, $obj->id));
 				
+				return $sec->hasAccess(permissions::$manage_municipal_entities, $adminMask ? $adminMask : $permissionMask) ||
+					   ($permissionMask && $sec->hasAccess(permissions::$municipal_entity, $permissionMask, $obj->id));				
 			default:
 				return false;
 		}			
@@ -108,5 +109,70 @@ class customContentData
 	{
 		return $this->contentData[$keyName];	
 	}	
+	public static function getDataObject($typeID, $dataID, $contentID="")
+	{
+		$data = new stdClass();
+		
+		switch($typeID)
+		{
+			case -1:
+				// Municipal FAQ Entries
+				$data = new pmm_entityFaq($dataID);
+				$imgDir = "municipal/$dataID/faq/$contentID";
+				
+				break;				
+			case 1:	
+				$data = new categoryItem($dataID);
+				$imgDir = "images/categoryItems/$dataID";
+				break;
+				
+			case 2:
+				//Inline Edit images		
+				$imgDir = "images/contentPages";
+				break;
+			
+			case 3:				
+				// Blog Entries				
+				$entry = new customBlogEntry($dataID);
+				$imgDir = "images/blogs/$dataID";
+				break;
+				
+			case 4:
+				// Custom Forms (description)
+				$imgDir = "images/forms/$dataID";
+				break;
+				
+			case proteus_core::$module_customContent["siteType"]:
+				
+				$data = new customContentData($dataID);				
+				$imgDir = "contentPages/$dataID";
+				$module = proteus_core::$module_customContent;				
+				
+				break;				
+			case proteus_core::$module_municipal["siteType"]:
+
+				$data = new pmm_entity($dataID);
+				
+				$imgDir = "municipal/$dataID/content/$contentID";
+				$module = proteus_core::$module_municipal;
+				
+				break;			
+			case proteus_core::$module_calendars["siteType"]:
+				// Calendar Entries
+				
+				$data = new customCalendar($dataID, false);
+				$imgDir = "calendars/$dataID/content/$contentID";
+				$module = proteus_core::$module_calendars;
+				
+				break;				
+			default:
+				throw new Exception("Invalid upload type specified!");					
+		}		
+		
+		$data->module = $module;
+		$data->assetDir = $imgDir;
+		
+		return $data;
+	}
 } 
 ?>

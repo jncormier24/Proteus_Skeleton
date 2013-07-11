@@ -153,4 +153,19 @@ class jqFileInputModule extends pageModule
 		$this->addScriptObject(new jqLoader("$('input[type=file]').fileinput();"));
 	}
 }
+class jqTableSortModule extends pageModule
+{
+	public function __construct()
+	{
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/jquery.tableSort.js"));						
+	}	
+}
+class jqClipboardModule extends pageModule
+{
+	// SWB 7/13: This only works on hyperlinks and static DOM elements. May be removed at a later date, currently un-used
+	public function __construct()
+	{
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/zclip/jquery.zclip.js"));						
+	}	
+}
 ?>

@@ -2,6 +2,8 @@
 
 	$g_sec = permissions::authenticateAjax(true);
 	
+	proteus_core::includeAllModules();
+	
 	switch($action)
 	{
 		case "removeUser":
@@ -17,7 +19,7 @@
 			break;
 			
 		case "getLinkedOptions":
-			getLinkedOptions($permKey);
+			getLinkedOptions($permKey, $userID);
 			break;
 			
 		case "removePermission":
@@ -224,8 +226,7 @@ function showEditUser($userID)
 		if ($sec->id)
 		{
 			$tp = new jqUI_tabPage("permissions", "Permissions", "ui-icon-key");
-			$tp->addControl(new phpDIV());
-			$tp->addControl(new jqLoader("getPermissions($userID)"));
+			$tp->addControl(new phpDIV());			
 			
 			$tabs->addTabPage($tp);
 			
@@ -352,7 +353,7 @@ function getPermissions($userID)
 		
 		foreach($permArr as $permission)
 		{				
-			if (!$permission["standalone"] || $permission["isPermissionGroup"] || ($permission["siteType"] && !$conf->checkSiteType($permission["siteType"]))) continue;
+			if (!$permission["standalone"] || $permission["isPermissionGroup"] || ($permission["siteType"] && !$conf->moduleEnabled($permission))) continue;
 			
 			$pAssign = $d->qryArray("select * from permissionsAssignment where permissionKey='{$permission["key"]}' and userID=$sec->id and dataID=0 and typeID=".permissions::permission_generic);
 			
@@ -414,7 +415,7 @@ function getPermissions($userID)
 			
 			if (!$conf->moduleEnabled($permission["siteType"])) continue;
 
-			/* switch($permission["siteType"])
+			 switch($permission["siteType"])
 			{
 				case proteus_core::module_categoryItems:
 					$obj = new customCategory($assn["dataID"]);
@@ -456,7 +457,7 @@ function getPermissions($userID)
 					
 					break;
 					
-				case proteus_core::module_calendars:
+				case proteus_core::$module_calendars["siteType"]:
 					try
 					{
 						$obj = new customCalendar($assn["dataID"], false);
@@ -468,7 +469,7 @@ function getPermissions($userID)
 					}					
 					break;
 					
-				case proteus_core::module_municipal:
+				case proteus_core::$module_municipal["siteType"]:
 					try 
 					{
 						$obj = new pmm_entity($assn["dataID"]);
@@ -482,7 +483,7 @@ function getPermissions($userID)
 					
 				default:
 					continue;
-			} */			
+			}
 			
 			$chkRead = ($permission["max_perms"] & 1) ? new phpCheckbox("read_$idx", 1, $assn["bitValue"] & 1) : new phpFiller();
 			$chkRead->onclick = "savePermissions($userID, this)";
@@ -499,6 +500,7 @@ function getPermissions($userID)
 			$pTitle = ucwords(str_replace("_", " ", $permission["key"]));
 			
 			$r = $tS->addRow();
+			$r->addAttribute("data-assnrow", 1);
 			$r->addAttribute("data-permkey", $permission["key"]);
 			$r->addAttribute("data-assnid", $assn["id"]);
 			
@@ -526,7 +528,7 @@ function getPermissions($userID)
 		
 		$ddlPerm = new phpDDL("permKey");		
 		$ddlPerm->setLabel("Add new Permission:");
-		$ddlPerm->onchange = "getLinkedOptions()";
+		$ddlPerm->onchange = "getLinkedOptions({$sec->id})";
 		$ddlPerm->addListItem(new phpListItem("",""));
 		
 		$ddlSec = new phpDDL('accessSec');		
@@ -536,7 +538,7 @@ function getPermissions($userID)
 		{	
 			$title = ucwords(str_replace("_", " ", $perm["key"]));
 			
-			if (!$perm["standalone"] && !$perm["isPermissionGroup"] && $conf->checkSiteType($perm["siteType"]))
+			if (!$perm["standalone"] && !$perm["isPermissionGroup"] && $conf->moduleEnabled($perm))
 			{				
 				$ddlPerm->addListItem(new phpListItem($title, $perm["key"]));	
 			}
@@ -590,8 +592,12 @@ function getPermissions($userID)
 		
 		if (count($ddlSec->listItems))
 		{
-			$pc->addControl($ddlSec);
-			$pc->addControl($btnAddS);
+			$frm = new phpForm();
+			
+			$frm->addControl($ddlSec);
+			$frm->addControl($btnAddS);
+			
+			$pc->addControl($frm);
 		}		
 		
 		$js->content = $pc->render();
@@ -737,7 +743,7 @@ function removePermission($assnID)
 	echo $js->render();
 	exit();
 }
-function getLinkedOptions($permKey)
+function getLinkedOptions($permKey, $userID)
 {
 	global $config, $g_sec;
 
@@ -748,8 +754,10 @@ function getLinkedOptions($permKey)
 	{
 		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::write)) $g_sec->security_error_a();
 		
+		$sec = new security_a($userID);
+		
 		$permObj = permissions::getPermissionByKey($permKey);		
-		$typeID = $permObj[siteType];
+		$typeID = $permObj["siteType"];
 		
 		if (!$typeID)
 		{
@@ -785,13 +793,13 @@ function getLinkedOptions($permKey)
 							where disabled = 0
 							order by title asc";					
 					break;
-				case proteus_core::module_calendars:
+				case proteus_core::$module_calendars["siteType"]:
 					$qry = "select id, title 'name'
 							from calendars
 							where inactive = 0
 							order by title asc";
 					break;
-				case proteus_core::module_municipal:
+				case proteus_core::$module_municipal["siteType"]:
 					$qry = "select id, title 'name'
 							from pmm_entities
 							order by title asc";
@@ -810,20 +818,20 @@ function getLinkedOptions($permKey)
 				switch($typeID)
 				{
 					case proteus_core::module_categoryItems:
-						if ($g_sec->hasAccess(permissions::$modify_category_type, 0, $entry[id])) continue;
+						if ($sec->hasAccess(permissions::$modify_category_type, 0, $entry[id])) continue;
 					case proteus_core::module_showcase:
-						if ($g_sec->hasAccess(permissions::$modify_showcase, 0, $entry[id])) continue;
+						if ($sec->hasAccess(permissions::$modify_showcase, 0, $entry[id])) continue;
 					case proteus_core::module_blogs:
-						if ($g_sec->hasAccess(permissions::$modify_blog_category, 0, $entry[id])) continue;
+						if ($sec->hasAccess(permissions::$modify_blog_category, 0, $entry[id])) continue;
 					case proteus_core::module_customForms:
-						if ($g_sec->hasAccess(permissions::$modify_custom_form, 0, $entry[id])) continue;
-					case proteus_core::module_calendars:
-						if ($g_sec->hasAccess(permissions::$modify_calendar, 0, $entry[id])) continue;
-					case proteus_core::module_municipal:
-						if ($g_sec->hasAccess(permissions::$municipal_entity, 0, $entry[id])) continue;
+						if ($sec->hasAccess(permissions::$modify_custom_form, 0, $entry[id])) continue;
+					case proteus_core::$module_calendars["siteType"]:
+						if ($sec->is(permissions::$modify_calendar, $entry["id"])) continue 2;
+					case proteus_core::$module_municipal["siteType"]:						
+						if ($sec->is(permissions::$municipal_entity, $entry["id"])) continue 2;
 				}
 				
-				$ddlOpt->addListItem(new phpListItem(validation::prepForDisplay($entry[name], false), $entry[id]));
+				$ddlOpt->addListItem(new phpListItem(validation::prepForDisplay($entry["name"], false), $entry["id"]));
 			}
 			
 			$js->content = $ddlOpt->render();
@@ -855,13 +863,15 @@ function addPermissionEntry($userID, $permissionKey, $dataID)
 		if (!$g_sec->hasAccess(permissions::$manage_users, permissions::write)) $g_sec->security_error_a();
 		
 		$permObj = permissions::getPermissionByKey($permissionKey);
-		if (!$permObj[key]) throw new Exception("Error, a permission entry matching the one specified does not exist. Please try again.");
-				
+		if (!$permObj[key]) throw new Exception("Error, a permission entry matching the one specified does not exist. Please try again.");				
+		
 		$sec = new security($userID);
+		if ($sec->is($permObj, $dataID)) throw new Exception("Error, that user is already assigned to that entry.");
 		
 		$cv[dataID] = $dataID;
 		$cv[permissionKey] = "'$permissionKey'";
 		$cv[userID] = $userID;
+		$cv[bitValue] = 1;
 		
 		$d->qryInsertByArray("permissionsAssignment", $cv);
 		

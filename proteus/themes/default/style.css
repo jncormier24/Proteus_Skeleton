@@ -23,6 +23,10 @@ body .ui-widget-overlay
 {
 	box-shadow: 0px 0px 35px #333333
 }
+div.ui_tabPage.ui-tabs-panel
+{
+	padding: 5px;
+}
 /********************************/
 body > #container
 {
@@ -314,7 +318,7 @@ table.listTable th
 	padding: 8px 5px;
 	font-size: 12px;
 	
-	color: #dddddd;
+	color: #FFA65F;
 }
 table.listTable td.datestamp
 {
@@ -336,7 +340,7 @@ table.listTable th.sort
 	background-position: 0px -16px;
 }
 div.configWin form input, div.configWin form textarea, div.configWin form label, div.configWin form select, 
-div.configWin span.desc, div.configWin span.invSpecial
+div.configWin span.desc, div.configWin span.invSpecial, div.configWin form button
 {
 	float: left;	
 	margin: 0px 5px 8px 0px;				
@@ -360,6 +364,14 @@ div.configWin form select
 div.configWin form input[type=checkbox]
 {
 	margin-top: 10px;	
+}
+div.configWin form
+{
+	clear: both;
+}
+div.configWin table.listTable
+{
+	clear: both;
 }
 div.configWin div.tabContent
 {

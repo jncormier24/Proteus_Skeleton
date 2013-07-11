@@ -238,7 +238,7 @@ class panelBlock extends phpDIV
 	
 	public $overrideClass = "";
 
-	public function __construct($content='', $title='', $width='',$height='')
+	public function __construct($content="", $title="", $width="",$height="")
 	{
 		$this->header = new phpHeader(1, $title);
 		

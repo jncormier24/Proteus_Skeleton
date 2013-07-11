@@ -540,7 +540,7 @@ class pmm_entityPosting extends phpDataset implements entityChild
 }
 class pmm_entityFile extends phpDataset implements entityChild
 {
-	public function __construct($fileID)
+	public function __construct($fileID=0)
 	{
 		validation::ensureInt($fileID);		
 		parent::__construct("pmm_entityFiles", $fileID, $fileID ? true : false);		
@@ -605,7 +605,10 @@ class pmm_entityFile extends phpDataset implements entityChild
 	}	
 	public function delete()
 	{	
-		//if (!unlink($this->localFile)) throw new Exception("Sorry, but we were unable to delete that file from the file system. Please contact support at your convenience to have this issue resolved. Thank you!");
+		if (file_exists($this->localFile) && !unlink($this->localFile))
+		{ 
+			throw new Exception("Sorry, but we were unable to delete that file from the file system. Please contact support at your convenience to have this issue resolved. Thank you!");
+		}
 
 		return parent::delete();
 	}

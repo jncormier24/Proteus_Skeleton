@@ -19,10 +19,14 @@ function showEntities()
 	$a->addPageModule(new jqUploadModule());
 	$a->addPageModule(new jqRedactorModule());
 	$a->addPageModule(new jqFilterHelperModule());
+	$a->addPageModule(new jqTableSortModule());
+	$a->addPageModule(new jqClipboardModule());
+	
+	$a->addPostScriptObject(new javascriptControl("","proteus/pages/common/scripts/positionUpdate.js"));
 	
 	//$a->addPageModule(new jqWysiwygModule());	
 	//$a->addPageModule(new tabPageModule());
-	//$a->addPageModule(new jqTableSortModule());
+	
 	//$a->addPageModule(new jqDatePickerModule());	
 	
 	//$a->addScriptObject(new javaControl("", "includes/js/subscribers.js"));
@@ -41,16 +45,23 @@ function showEntities()
 	$eDiv->id = "entities";
 	
 	$eBlock = new panelBlock("", "Town Hall: Municipal Entities");
+	$eBlock->id = "entitiesBlock";
 	$eBlock->addControl($eDiv);
 	$eBlock->addControl(new jqLoader("getEntities(0)"));	
 	
 	if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write))
 	{
-		$btnSettings = new jqUI_button("btnSettings", "Municipal Settings", "", "ui-icon-wrench");
-		$btnSettings->onclick = "getSettingsEdit();";
-		$btnSettings->breakAfter = true;
+		$mnu = new jqPopupMenu();
 		
-		$eBlock->addWrapperControl($btnSettings);
+		$ctl = $mnu->addMenuItem("", "Municipal Settings", "", "ui-icon-wrench");
+		$ctl->onclick = "getSettingsEdit();";
+		
+		/* $btnSettings = new jqUI_button("btnSettings", "Municipal Settings", "", "ui-icon-wrench");
+		$btnSettings->onclick = "getSettingsEdit();";
+		$btnSettings->breakAfter = true; */
+		
+		$eBlock->header->addControl($mnu);
+		//$eBlock->addWrapperControl($mnu);
 	}	
 	
 	$a->addControl($eBlock);

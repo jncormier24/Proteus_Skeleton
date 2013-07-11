@@ -364,6 +364,7 @@ class customConfig
 class siteConfig extends customConfig
 {
 	public $options = array();
+	private $enabled_cache = array();
 	
 	public function __construct()
 	{
@@ -373,11 +374,18 @@ class siteConfig extends customConfig
 	{			
 		if (is_array($type)) $type = $type["siteType"];
 		
+		// Store / fetch from a local cache. This makes the code easier to understand within loops, without degrading performance
+		if ($this->enabled_cache[$type]) return true;
+		
 		$tmp = explode("::", $this->siteType);
 			
 		foreach($tmp as $val)
 		{
-			if ($val == $type) return true;
+			if ($val == $type) 
+			{
+				$this->enabled_cache[$type] = true;
+				return true;
+			}
 		}
 	
 		return false;
@@ -1126,7 +1134,8 @@ class upload
 			case "image/gif":
 				return "gif";
 			default:
-				throw new Exception("Unsupported MIME type detected.");
+				//throw new Exception("Unsupported MIME type detected.");
+				return false;
 		}
 	}
 	public function getMimeType($file = '')

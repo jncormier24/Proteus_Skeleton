@@ -220,8 +220,8 @@ function getSettingsEdit()
 		$settingsWin->addClass("configWin");
 		$settingsWin->setOption("autoOpen", true);
 		$settingsWin->setOption("autoResize", true);
-		$settingsWin->addButton("Save", "function() { saveSettings(); }");
-		$settingsWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
+		$settingsWin->addCloseButton();
+		$settingsWin->addButton("Save", "function() { saveSettings(); }");		
 		
 		$txtISize = new customText("cfg[iconDim]", $eObj->settings->config("iconDim"), 10, 7);
 		$txtISize->setLabel("Entity Icon Dimensions:");		
@@ -1077,26 +1077,11 @@ function uploadStaffIcon($staffID)
 		$dim = $eObj->settings->config("staffIconDim");
 		$tmp = explode("x",$dim);		
 		
-		//if (count($tmp) != 2) throw new Exception("Error, missing Dimension information. Please try again.");		
-		//Not needed at this time
-		
 		$u = new upload($_FILES['staffIcon_'.$staffID]);
 		
-		//get image dimensions, resize if too big.  Don't want to force dimensions, as some people use landscape, others portrait layout
-		$srcImg = $u->getSourceImageObject();			
-		$xD = ImageSX($srcImg);
-		$yD = ImageSY($srcImg);
-		while($xD > 600 )
-		{
-			$xD = $xD / 2;
-			$yD = $yD / 2;
-		}
-		$tmp[0] = $xD;
-		$tmp[1] = $yD;
-					
 		$u->convertImage("png", $tmp);		
 		
-		if (!$u->uploadFile($config[baseAppDir]."images/pmm_entities/$eObj->id/stafficon_$staffID.png")) throw new Exception($u->err);		
+		if (!$u->uploadFile($config["baseAppDir"]."assets/municipal/{$eObj->id}/stafficon_$staffID.png")) throw new Exception($u->err);		
 		
 		pageClass::setNotify("Staff Icon Successfully Uploaded");
 		
@@ -1197,8 +1182,9 @@ function getFaqWin($entityID)
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
 		
-		$faqWin = new jqUI_dialog("faqWin", true, 700, 600, validation::prepForDisplay($eObj->title, false)." FAQ Entries");
-		$faqWin->setOption("autoOpen", true);		
+		$faqWin = new jqUI_dialog("faqWin", true, 730, 600, validation::prepForDisplay($eObj->title, false)." FAQ Entries");
+		$faqWin->addClass("configWin");
+		$faqWin->setOption("autoOpen", true);			
 		
 		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
 			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
@@ -1327,7 +1313,11 @@ function getFaqEdit($faqEntryID, $entityID)
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();			
 			
 		$faqEditWin = new jqUI_dialog("faqEditWin", true, 800, 475, $faqEntryID ? "Modify Faq Entry" : "Add a new Faq Entry");
+		$faqEditWin->addClass("configWin");
+		$faqEditWin->setOption("modal", 0);
 		$faqEditWin->setOption("autoOpen", true);
+		
+		$faqEditWin->addCloseButton($faqEntryID ? "Close": "Cancel");
 		
 		if (($faqEntryID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
 			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) ||
@@ -1338,28 +1328,25 @@ function getFaqEdit($faqEntryID, $entityID)
 			$faqEditWin->addButton($faqEntryID ? "Save Changes" : "Add Faq Entry", "function() { saveFaqEntry($faqEntryID, $entityID); }");
 		}
 		
-		$faqEditWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
-		
 		if ($faqObj->updatedUserID)
 		{
 			$sec = new security($faqObj->updatedUserID);
 			$faqEditWin->addControl(new phpParagraph("Last edited by $sec->login on ".validation::parseMySqlDate($faqObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "", "left"));	
 		}
 		
-		$txtQuestion = new customText("faq[question]", validation::prepTextForInput($faqObj->question), 50, 255, "floating textBox");
-		$txtQuestion->setLabel("Question:", "longLabel floating");	
+		$txtQuestion = new customText("faq[question]", validation::prepTextForInput($faqObj->question), 50, 255);
+		$txtQuestion->setLabel("Question:");	
 		
-		$txtAnswer = new phpTextArea("faq[answer]", validation::prepTextForInput($faqObj->answer), 12, 103, "wysiwyg floating");
-		$txtAnswer->setLabel("Answer:","longLabel floating", true);
-		$txtAnswer->addAttribute("data-upload-dataid", $faqObj->entityID);
-		$txtAnswer->addAttribute("data-upload-typeid", 6);
+		$txtAnswer = new phpTextArea("faq[answer]", validation::prepTextForInput($faqObj->answer), 12, 103, "wysiwyg");
+		$txtAnswer->setLabel("Answer:", "", true);
 		
 		$frm = new phpForm("post", "faqEditForm");
 		$frm->addControl($txtQuestion);
 		$frm->addControl($txtAnswer);
 		
 		$faqEditWin->addControl($frm);
-		
+
+		$js->entityID = $entityID;
 		$js->addObject("content", $faqEditWin->render(), false);		
 	}
 	catch(Exception $ex)
@@ -1452,7 +1439,7 @@ function saveFaqEntry($faqEntryID, $faq, $entityID)
 }
 function deleteFaqEntry($faqEntryID)
 {
-	global $g_sec;
+	global $g_sec, $config;
 
 	$js = new json_a();
 	
@@ -1465,7 +1452,13 @@ function deleteFaqEntry($faqEntryID)
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $faqObj->entityID)) $g_sec->security_error_a();
 				
+		foreach(glob($config["baseAppDir"]."assets/municipal/{$faqObj->entityID}/faq/{$faqObj->id}/*") as $file)
+		{			
+			@unlink($file);
+		}
+				
 		$faqObj->delete();
+		
 		pageClass::setNotify("Faq Entry removed.");
 				
 		$js->entityID = $faqObj->entityID;
@@ -1661,7 +1654,9 @@ function getPostEntries($entityID, $typeID, $filter, $startPos)
 				$dDiv->addControl($btnStat);
 			}
 			
-			if (pageClass::checkSiteType(proteus_core::module_subscribers) && 
+			$conf = new siteConfig();
+			
+			if ($conf->moduleEnabled(proteus_core::module_subscribers) && 
 				($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
 				$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID) ||
 				$g_sec->hasAccess(permissions::$manage_subscribers, permissions::write)))
@@ -1995,23 +1990,22 @@ function getDocumentsWin($entityID)
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
 		
-		$docWin = new jqUI_dialog("docWin", true, 800, 665, validation::prepForDisplay($eObj->title, false)." Documents &amp; Links");
+		$docWin = new jqUI_dialog("docWin", true, 800, 665, validation::prepForDisplay($eObj->title, false)." Documents & Links");
+		$docWin->addClass("configWin");
 		$docWin->setOption("autoOpen", true);		
 		$docWin->addButton("Close", "function() { $(this).dialog('close'); }");
 
-		$tabs = new tabControl("postTabs");
-		$tabs->addClass("tabContainerNoHeader");		
+		$tabs = new jqUI_tabControl("postTabs", 0, "admin/municipal");
 		
 		$fDiv = new phpDiv();
 		$fDiv->id = "filesContainer";
 		
-		$tpContent = new tabPage("Custom Content", "#custom_content");
+		$tpContent = new jqUI_tabPage("custom_content", "Custom Content", "ui-icon-star");
 		$tpContent->addControl(new phpDIV());
 		
 		$tabs->addTabPage($tpContent);
 		
-		$tpDocs = new tabPage("Attached Documents", "#entity_docs");		
-		//$tpDocs->addControl(new phpParagraph("Listed below are the documents that are attached to this Entity."));
+		$tpDocs = new jqUI_tabPage("entity_docs", "Attached Documents", "ui-icon-document");		
 		$tpDocs->addControl($fDiv);
 		
 		$tabs->addTabPage($tpDocs);
@@ -2019,14 +2013,14 @@ function getDocumentsWin($entityID)
 		$lDiv = new phpDiv();
 		$lDiv->id = "linksContainer";
 		
-		$tpLinks = new tabPage("Link Resources", "#entity_links");		
-		//$tpLinks->addControl(new phpParagraph("Listed below are the links that are attached to this Entity."));
+		$tpLinks = new jqUI_tabPage("entity_links", "Link Resources", "ui-icon-extlink");
 		$tpLinks->addControl($lDiv);		
 		
 		$tabs->addTabPage($tpLinks);
 		
 		$docWin->addControl($tabs);
 		
+		$js->contentType = proteus_core::$module_municipal["siteType"];
 		$js->content = $docWin->render();
 	}
 	catch(Exception $ex)
@@ -2095,11 +2089,15 @@ function getFiles($dataID, $typeID)
 		
 		if ($insertAccess)
 		{
+			$frm = new phpForm("", "filesForm");
+			
 			$ulDiv = new jqUI_uploader("entityFile", $caption, "btnFileUpload", "Upload File", true);
 			$ulDiv->uploadButton->onclick = "return uploadFile($typeID, $dataID);";
 			$ulDiv->uploadButton->setIconClass("ui-icon-image");			
 			
-			$pc->addControl($ulDiv);
+			$frm->addControl($ulDiv);
+			
+			$pc->addControl($frm);
 		}
 		
 		$t = new tblBuilder("center", 0, 0, 5, '100%');
@@ -2117,35 +2115,36 @@ function getFiles($dataID, $typeID)
 			$t->addAttribute("data-table", "pmm_entityFiles");
 		}
 		
+		$conf = new siteConfig();
+		
 		foreach((array)$files as $fileObj)
 		{		
-			$ctlArray = array();
+			$mnu = new jqPopupMenu();
 			
-			if (pageClass::checkSiteType(proteus_core::module_subscribers))
+			$ctl = $mnu->addMenuItem($fileObj->file, "Download File", "", "ui-icon-arrowthickstop-1-s");
+			$ctl->target = "_blank";			
+			
+			if ($writeAccess)
+			{
+				$ctl = $mnu->addMenuItem("", "Edit File Caption", "", "ui-icon-pencil");
+				$ctl->onclick = "getFileEdit({$fileObj->id})";
+			}
+			
+			if ($conf->moduleEnabled(proteus_core::module_subscribers))
 			{
 				$optData = subscriberOption::getSubscriberOption(proteus_core::module_municipal, $entityID);
 				
 				if ($writeAccess && $optData[id])
 				{
-					$btnEmail = new jqUI_button("btnEmail_$fileObj->id", "", "actionControl", "ui-icon-mail-closed", true);
-					$btnEmail->onclick = "getSubscriptionSendWin($optData[id], 0, ".subscriber_core::type_municipal_file.", $fileObj->id, '#docWin')";
-					$btnEmail->title = "Email Subscribers";
-	
-					$ctlArray[] = $btnEmail;
+					$ctl = $mnu->addMenuItem("", "Email Subscribers", "", "ui-icon-mail-closed");
+					$ctl->onclick = "getSubscriptionSendWin({$optData["id"]}, 0, ".subscriber_core::type_municipal_file.", $fileObj->id, '#docWin')";				
 				}
-			}
-			
-			$btnEdit = new editControl();
-			$btnEdit->onclick = "getFileEdit($fileObj->id)";
-			
-			$ctlArray[] = $btnEdit;
+			}			
 			
 			if ($deleteAccess)
 			{
-				$btnDelete = new deleteControl();
-				$btnDelete->onclick = "deleteFile($fileObj->id)";
-				
-				$ctlArray[] = $btnDelete;
+				$ctl = $mnu->addMenuItem("", "Delete File", "ui-state-error", "ui-icon-trash");
+				$ctl->onclick = "deleteFile({$fileObj->id})";
 			}
 
 			if ($fileObj->localFile)
@@ -2165,7 +2164,7 @@ function getFiles($dataID, $typeID)
 			$r->addAttribute("data-id", $fileObj->id);			
 			$r->addCell(new tblCell(array($fileLink, $spnFName), "", "left"));			
 			$r->addCell(new tblCell($sizeDisp, "", "center"));
-			$r->addCell(new tblCell($ctlArray, "", "center", "", 150));
+			$r->addCell(new tblCell($mnu, "", "center", "", 150));
 		}
 		
 		if (!count($files))
@@ -2206,12 +2205,12 @@ function getFileEdit($fileID)
 		$fileEditWin = new jqUI_dialog("fileEditWin", true, 600, 200, "Modify File entry");
 		$fileEditWin->setOption("autoOpen", true);
 		
+		$fileEditWin->addCloseButton();
+		
 		if ($fileObj->hasAccess($g_sec, permissions::write, permissions::write))
 		{				
 			$fileEditWin->addButton("Save Changes", "function() { saveFile($fileID); }");
 		}
-		
-		$fileEditWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
 		
 		if ($fileObj->updatedUserID)
 		{
@@ -2500,15 +2499,17 @@ function getLinkEdit($linkID, $typeID, $dataID)
 		$eObj = $linkObj->getParentEntity();
 		if (!$eObj->id) throw new Exception("Error, that entity could not be found!");
 		
-		$linkEditWin = new jqUI_dialog("linkEditWin", true, 700, 225, "Modify Link Resource");
+		$linkEditWin = new jqUI_dialog("linkEditWin", true, 700, "", "Modify Link Resource");
+		$linkEditWin->addClass("configWin");
 		$linkEditWin->setOption("autoOpen", true);
+		$linkEditWin->setOption("autoResize", true);
+		
+		$linkEditWin->addCloseButton($linkObj->id ? "Close" : "Cancel");
 		
 		if ($linkObj->hasAccess($g_sec, permissions::write, permissions::write))
 		{				
 			$linkEditWin->addButton("Save Changes", "function() { saveLink($linkID, $linkObj->typeID, $linkObj->dataID); }");
 		}
-		
-		$linkEditWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
 		
 		if ($linkObj->updatedUserID)
 		{
@@ -2706,12 +2707,14 @@ function getAgendas($entityID, $filter)
 		$r->addHeader(new tblHeader("Date &amp; Time"));
 		$r->addHeader(new tblHeader("&nbsp;"));		
 		
+		$conf = new siteConfig();		
+		
 		$agendas = $eObj->getAgendas($filter);
 		foreach((array)$agendas as $agendaObj)
 		{		
 			$ctlArray = array();
 			
-			if (pageClass::checkSiteType(proteus_core::module_subscribers))
+			if ($conf->moduleEnabled(proteus_core::module_subscribers))
 			{
 				$optData = subscriberOption::getSubscriberOption(proteus_core::module_municipal, $entityID);
 					

@@ -1156,7 +1156,7 @@ class editControl extends jqUI_button
 	
 	function __construct($url='', $customGif=false, $format=false, $newWindow=false)
 	{
-		parent::__construct("btnEdit_".md5($url ? $url : pageClass::generateRandomString()),"","actionControl ui-state-highlight","ui-icon-pencil", true);
+		parent::__construct("btnEdit_".md5($url ? $url : proteus_core::generateRandomString()),"","actionControl ui-state-highlight","ui-icon-pencil", true);
 		$this->title = 'Edit';
 		
 		$this->origUrl = $url;		
@@ -1181,7 +1181,7 @@ class saveControl extends jqUI_button
 	
 	function __construct($url='', $customGif=false, $format=false, $newWindow=false)
 	{	
-		parent::__construct("btnSave_".md5($url ? $url : pageClass::generateRandomString()),"","actionControl saveControl ui-state-highlight","ui-icon-disk", true);
+		parent::__construct("btnSave_".md5($url ? $url : proteus_core::generateRandomString()),"","actionControl saveControl ui-state-highlight","ui-icon-disk", true);
 		$this->title = 'Save';
 		
 		$this->origUrl = $url;		

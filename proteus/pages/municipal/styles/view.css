@@ -1,3 +1,14 @@
+#entitiesBlock
+{
+	position: relative;
+}
+#entitiesBlock h1 div.jqPopupMenu
+{
+	position: absolute !important;
+	
+	top: 5px;
+	right: 4px;
+}
 .ui-dialog button.delete
 {
 	position: absolute;
@@ -77,7 +88,7 @@ div.entityContainer
 	border-style: solid;
 	border-color: #808080;
 	border-width: 1px 0px 0px 0px;
-	border-radius: 3px;	
+	/*border-radius: 3px;*/	
 	
 	/*background-color: #D8DFE7;*/
 	
@@ -174,7 +185,7 @@ div.entityContainer > div.functions button
 {
 	text-align: left !important;
 }
-#staffEditWin p, #faqEditWin p, #postEditWin p, #fileEditWin p, #linkEditWin p, #agendaEditWin p
+#staffEditWin p, #postEditWin p, #fileEditWin p, #linkEditWin p, #agendaEditWin p
 {
 	font-size: 10px;
 	color: #808080;
@@ -214,6 +225,9 @@ div.entityContainer > div.functions button
 }
 #btnNewLink
 {
+	float: right;
+	clear: both;
+	
 	margin-bottom: 8px;
 }
 span.fileName, span.fullUrl
@@ -226,4 +240,25 @@ span.fileName, span.fullUrl
 	font-style: italic;
 	
 	margin: 4px 0px 0px 0px;
+}
+#docWin .ui_tabPage
+{
+	min-height: 450px;
+}
+#filesForm
+{
+	float: right;
+	clear: both;
+}
+#filesForm label
+{
+	text-align: right;
+}
+#filesForm button
+{
+	float: right;
+}
+#filesForm button span.ui-button-text
+{
+	padding: 3px 10px 4px 28px
 }

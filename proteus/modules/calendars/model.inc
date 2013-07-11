@@ -1,7 +1,8 @@
 <?php
 class customCalendar_core
 {
-	public $files = array("calendar.php", "calendar.ajax");	
+	public $asset_folders = array("calendars");
+		
 	public $tables = array("calendarEntry"=>"CREATE TABLE `calendarEntry` (
 											 `id` int(11) NOT NULL AUTO_INCREMENT,
 											 `calendarID` int(11) NOT NULL,
