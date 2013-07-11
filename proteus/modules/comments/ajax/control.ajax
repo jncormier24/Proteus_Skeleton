@@ -1,6 +1,8 @@
 <?php
 	$g_sec = permissions::authenticateAjax(true);
 	
+	proteus_core::includeAllModules();
+	
 	switch($action)
 	{			
 		case "addComment":
@@ -23,8 +25,7 @@ function getComments($dataID, $typeID)
 	$js = new json_a();	
 	
 	try
-	{
-				
+	{				
 		$cObj = new customComments($dataID, $typeID);
 		if (!$cObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
 		

@@ -691,6 +691,7 @@ function getStaffWin($entityID)
 		
 		$staffWin = new jqUI_dialog("staffWin", true, 875, 665, validation::prepForDisplay($eObj->title, false)." Staff");
 		$staffWin->setOption("autoOpen", true);		
+		$staffWin->fitToViewport();
 		
 		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
 			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
@@ -1182,9 +1183,10 @@ function getFaqWin($entityID)
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
 		
-		$faqWin = new jqUI_dialog("faqWin", true, 730, 600, validation::prepForDisplay($eObj->title, false)." FAQ Entries");
+		$faqWin = new jqUI_dialog("faqWin", true, 730, "", validation::prepForDisplay($eObj->title, false)." FAQ Entries");
 		$faqWin->addClass("configWin");
 		$faqWin->setOption("autoOpen", true);			
+		$faqWin->fitToViewport();
 		
 		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
 			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
@@ -1990,10 +1992,11 @@ function getDocumentsWin($entityID)
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
 		
-		$docWin = new jqUI_dialog("docWin", true, 800, 665, validation::prepForDisplay($eObj->title, false)." Documents & Links");
+		$docWin = new jqUI_dialog("docWin", true, 800, "", validation::prepForDisplay($eObj->title, false)." Documents & Links");
 		$docWin->addClass("configWin");
 		$docWin->setOption("autoOpen", true);		
-		$docWin->addButton("Close", "function() { $(this).dialog('close'); }");
+		$docWin->fitToViewport();
+		$docWin->addButton("Close", "function() { $(this).dialog('close'); }");		
 
 		$tabs = new jqUI_tabControl("postTabs", 0, "admin/municipal");
 		

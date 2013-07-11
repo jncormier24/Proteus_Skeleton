@@ -1729,6 +1729,10 @@ class jqUI_dialog extends phpDIV
 		
 		$this->removeOnClose = $removeOnClose;
 	}
+	public function fitToViewport($percentOfViewport=.98)
+	{
+		$this->setOption("height", "function() { return $(window).height() * $percentOfViewport; }()");
+	}
 	public function setOption($option, $value)
 	{
 		$this->jsonData->addObject($option, $value);	

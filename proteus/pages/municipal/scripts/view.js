@@ -172,8 +172,7 @@ function getStaffWin(entityID)
 		{
 			$(output.content).appendTo("body");
 			
-			/*getStaff(entityID, 1);
-			getStaff(entityID, 2);*/
+			//$("#staffWin").dialog("option","height", $(window).height() * .98);
 		}
 	});	
 }

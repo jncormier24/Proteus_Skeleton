@@ -72,7 +72,7 @@
 			$config["pageIndex"] = array_shift($config["params"]);
 			if (!$config["pageIndex"]) die("No request specified.");
 			
-			@include("modules/{$config["pageIndex"]}/model.inc");
+			include_once("modules/{$config["pageIndex"]}/model.inc");
 			include("modules/{$config["pageIndex"]}/ajax/control.ajax");
 			
 			break;

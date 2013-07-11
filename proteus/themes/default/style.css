@@ -11,6 +11,8 @@ body
 	
 	font-family: Verdana, Helvetica, sans-serif;
 	font-size: 14px;
+	
+	z-index: 1;
 }
 /****** UI Theme Overrides ******/
 body .ui-widget-overlay
@@ -36,6 +38,7 @@ body > #container
 	width: 900px;
 	
 	overflow: hidden;
+	z-index: 2;
 }
 #container > #headerContent
 {
@@ -70,6 +73,12 @@ body > #container
 	background-color: #d0d0d0;
 		
 	overflow: hidden;
+	
+	z-index: 3;
+}
+#container > #navContent ul
+{
+	z-index: 10;
 }
 #container > #navContent li ul
 {
@@ -213,6 +222,27 @@ input.focused, textarea.focused
 {	
 	border-color: #dd6900;	
 	box-shadow: 2px 2px 3px #ffffff;
+}
+div.jqWorking
+{
+	background-image: url(images/ajax/loader_2.gif);
+	background-repeat: no-repeat;
+	background-position: top center;
+	
+	padding-top: 40px !important;
+	margin: 10px 0px; 
+	text-align: center;
+}
+div.jqWorking em
+{
+	font-size: 11px;
+	color: #808080;
+}
+div.jqWorkingDiv
+{	
+	margin: auto;
+	max-width: 400px;
+	text-align: center;	
 }
 div.panelBlockContainer > h1
 {
@@ -412,7 +442,7 @@ div.configWin.ui-dialog-content
 }
 div.configWin .ui-tabs
 {
-	min-height: 400px;
+	min-height: 98%;
 }
 a.ui-tabs-anchor .ui-icon
 {

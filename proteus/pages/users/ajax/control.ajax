@@ -175,7 +175,7 @@ function showEditUser($userID)
 		$uWin = new jqUI_dialog("userWin", true, 875, "", $sec->id ? "Modify existing user" : "Add a new user");
 		$uWin->addClass("configWin");
 		$uWin->setOption("autoOpen", 1);		
-		$uWin->setOption("autoResize", 1);
+		$uWin->fitToViewport();
 		
 		$uWin->addCloseButton($sec->id ? "Close" : "Cancel");
 		if (!$sec->id && $globInsert) $uWin->addButton("Add New User", "function() { updateUser(); }");

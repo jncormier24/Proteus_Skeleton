@@ -410,6 +410,7 @@ class pmm_entityStaff extends phpDataset implements entityChild
 		else
 		{
 			$iconObject = new phpDIV("<p>No Image Available<p>", "entityIcon");
+			$iconObject->style = "width: {$dimensions[0]}px; height: {$dimensions[1]}px;";
 		}		
 
 		return $iconObject;
