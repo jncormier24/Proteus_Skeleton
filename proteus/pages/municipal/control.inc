@@ -21,6 +21,7 @@ function showEntities()
 	$a->addPageModule(new jqFilterHelperModule());
 	$a->addPageModule(new jqTableSortModule());
 	$a->addPageModule(new jqClipboardModule());
+	$a->addPageModule(new jqUpdateHelperModule());
 	
 	$a->addPostScriptObject(new javascriptControl("","proteus/pages/common/scripts/positionUpdate.js"));
 	

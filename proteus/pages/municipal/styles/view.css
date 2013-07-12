@@ -85,14 +85,13 @@ div.entityContainer
 	padding: 15px 0px 15px 10px;
 	margin: 0px 2px 2px 2px;
 	
+	overflow: hidden;	
+}
+#entities > div.entityContainer
+{
 	border-style: solid;
 	border-color: #808080;
 	border-width: 1px 0px 0px 0px;
-	/*border-radius: 3px;*/	
-	
-	/*background-color: #D8DFE7;*/
-	
-	overflow: hidden;	
 }
 div.entityContainer div.functions
 {
@@ -185,25 +184,13 @@ div.entityContainer > div.functions button
 {
 	text-align: left !important;
 }
-#staffEditWin p, #postEditWin p, #fileEditWin p, #linkEditWin p, #agendaEditWin p
+#staffEditWin p, #fileEditWin p, #linkEditWin p, #agendaEditWin p
 {
 	font-size: 10px;
 	color: #808080;
 	
 	margin-bottom: 12px;
 	text-align: right;
-}
-#postWin div.tabContent, #docWin div.tabContent, #agendaWin div.tabContent, #staffWin div.tabContent
-{	
-	overflow: auto;	
-}
-#postWin div.tabContent
-{
-	height: 455px;	
-}
-#agendaWin div.tabContent, #staffWin div.tabContent, #docWin div.tabContent
-{
-	height: 500px;	
 }
 #postWin div.tabContent > p
 {

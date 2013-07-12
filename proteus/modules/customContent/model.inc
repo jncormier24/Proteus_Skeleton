@@ -115,6 +115,12 @@ class customContentData
 		
 		switch($typeID)
 		{
+			case -2:
+				// Municipal Post Entries
+				$data = new pmm_entityPosting($dataID);
+				$imgDir = "municipal/$dataID/postings/$contentID";
+				
+				break;
 			case -1:
 				// Municipal FAQ Entries
 				$data = new pmm_entityFaq($dataID);

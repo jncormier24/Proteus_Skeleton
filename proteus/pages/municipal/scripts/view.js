@@ -182,11 +182,11 @@ function getStaff(entityID)
 	var filterObj = $("#staffFilter");	
 	var ajaxOpts = { action: "getStaff", entityID: entityID };	
 	
-	cont.showLoading("Loading Staff Positions");
+	$.showLoading("Loading Staff Positions");
 	
 	$.getJSON("admin/ajax/municipal", filterObj.filterHelper("getFilterData", ajaxOpts)).then(function(output)
 	{	
-		if (!$.ajaxError(output, cont))
+		if (!$.ajaxError(output, $))
 		{		
 			cont.html(output.content).tableRowAlternate();
 			
@@ -339,11 +339,11 @@ function getFaqWin(entityID)
 function getFaqEntries(entityID)
 {
 	var cont = $("#faqWin div.faqContainer");
-	cont.showLoading("Loading FAQ Entries");
+	$.showLoading("Loading FAQ Entries");
 	
 	$.getJSON("admin/ajax/municipal", {action: "getFaqEntries", entityID: entityID}).then(function(output)
 	{
-		if (!$.ajaxError(output, cont))
+		if (!$.ajaxError(output, $))
 		{		
 			cont.html(output.content);
 			initTableSort();
@@ -435,68 +435,46 @@ function getPostsWin(entityID)
 		if (!$.ajaxError(output, $))
 		{		
 			$(output.content).appendTo("body");
-			refreshPostings(entityID);
+			//refreshPostings(entityID);
 		}
 	});	
 }
-function getPostEntries(startPos, entityID, filter)
+function getPostEntries(entityID)
 {
-	if (!startPos) startPos = 0;
-	var typeID = $("#postsFilter").val();	
-	var cont;
+	var cont = $("#postings");
+	var filterObj = $("#postsFilter");	
+	var ajaxOpts = { action: "getPostEntries", entityID: entityID };	
 	
-	switch(filter)
-	{
-		case 1:
-			cont = $("#active_posts");
-			break;
-		case 2:
-			cont = $("#pending_posts");
-			break;			
-		case 3:
-			cont = $("#expired_posts");
-			break;
-		case 4:
-			cont = $("#inactive_posts");
-			break;
-	}
+	$.showLoading("Loading Entries");
 	
-	
-	cont = $("> div", cont).setWorking("Loading Posts");
-	
-	$.getJSON("admin/ajax/municipal", {action: "getPostEntries", entityID: entityID, typeID: typeID, filter: filter, startPos: startPos}).then(function(output)
-	{
-		$.hideLoading();
-		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+	$.getJSON("admin/ajax/municipal", filterObj.filterHelper("getFilterData", ajaxOpts)).then(function(output)
+	{	
+		if (!$.ajaxError(output, $))
+		{		
+			cont.html(output.content).tableRowAlternate();
+			
+			initJqPopupMenus();
+			
+			filterObj.filterHelper("setPaging", { totalCount: output.count }).filterHelper("initAll");
 		}
-		
-		cont.html(output.content);		
-		$("#" + cont.parent().attr("data-tablink")).removeClass('tabLoading').find(".tabLoaderIcon").replaceWith("<span class='commentCount tabLoaderIcon'> (" + output.count + ")</span>");
 	});	
 }
-function savePostEntry(postEntryID, entityID)
+function savePostEntry()
 {
+	var frm = $("#postEditForm");
 	var win = $("#postEditWin");
-	win.showLoading(entityID ? "Saving Post" : "Adding Post");
 	
-	$.post("admin/ajax/municipal?action=savePostEntry&entityID=" + entityID + "&postEntryID=" + postEntryID, $("#postEditForm").serialize(), null, "json").then(function(output)
+	win.showLoading($("#entityID", frm).length ? "Saving Post" : "Adding Post");
+	
+	$.post("admin/ajax/municipal", frm.serialize(), null, "json").then(function(output)
 	{
-		win.hideLoading();
+		if (!$.ajaxError(output, win))
+		{		
+			getMessages();
+			getPostEntries(output.entityID);
 		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+			win.dialog('close');
 		}
-		
-		getMessages();
-		refreshPostings(output.entityID);
-		
-		win.dialog('close');
 	});
 }
 function getPostEdit(postEntryID, entityID)
@@ -506,19 +484,28 @@ function getPostEdit(postEntryID, entityID)
 	
 	$.getJSON("admin/ajax/municipal", {action: "getPostEdit", entityID: entityID, postEntryID: postEntryID}).then(function(output)
 	{
-		win.hideLoading();
+		if (!$.ajaxError(output, win))
+		{		
+			// Redactor no-modal support
+			$.hideDialogs(true);
 		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+			$(output.content).appendTo("body");			
+			
+			var opts = {				
+				imageUpload: "admin/module/customContent?action=assetUpload&contentID=" + postEntryID + "&dataID=" + output.entityID + "&typeID=-2",
+				imageUploadErrorCallback: function(output) { $.jqAlert(output.error); },
+				fileUpload: "admin/module/customContent?action=assetUpload&isFile=1&contentID=" + postEntryID + "&dataID=" + output.entityID + "&typeID=-2",
+				fileUploadErrorCallback: function(output) { $.jqAlert(output.error); }				
+			}
+			
+			$(".wysiwyg", "#postEditWin").redactor(postEntryID ? opts : {});
+			
+			$("#postEditWin").dialog("option", "close", function()
+			{
+				$.showDialogs(true);				
+				$(this).remove();
+			}).updateHelper(savePostEntry, {closeConfirmOnly: true, autoSave: false});
 		}
-		
-		$(output.content).appendTo("body");
-		
-		initWYSIWYG(".wysiwyg", "#postEditWin");
-		initProteusDatePickers();
-		
 	});	
 }function deletePostEntry(postEntryID)
 {
@@ -539,17 +526,7 @@ function getPostEdit(postEntryID, entityID)
 		}
 		
 		getMessages();		
-		refreshPostings(output.entityID);
-	});
-}
-function refreshPostings(entityID)
-{	
-	$(function()
-	{
-		getPostEntries(0, entityID, 1);
-		getPostEntries(0, entityID, 2);
-		getPostEntries(0, entityID, 3);
-		getPostEntries(0, entityID, 4);
+		getPostEntries(output.entityID);
 	});
 }
 function togglePostStatus(postEntryID)
@@ -599,7 +576,7 @@ function uploadPostIcon(postEntryID)
 			}			
 			
 			getMessages();
-			refreshPostings(data.entityID);
+			getPostEntries(data.entityID);
 		},
 		error : function(data, status, e)
 		{

@@ -100,7 +100,7 @@
 			break;
 			
 		case "getPostEntries":
-			getPostEntries($entityID, $typeID, $filter, $startPos);
+			getPostEntries($entityID, $paging, $sortData, $filterColumns, $customColumns);
 			break;
 			
 		case "getPostsWin":
@@ -691,15 +691,15 @@ function getStaffWin($entityID)
 		
 		$staffWin = new jqUI_dialog("staffWin", true, 875, 665, validation::prepForDisplay($eObj->title, false)." Staff");
 		$staffWin->setOption("autoOpen", true);		
-		$staffWin->fitToViewport();
+		$staffWin->fitToViewport("Close");
+		
+		$staffWin->addCloseButton();
 		
 		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
 			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
 		{
 			$staffWin->addButton("Add a new Staff Position", "function() { getStaffEdit(0, $entityID); }");
 		}
-		
-		$staffWin->addButton("Close", "function() { $(this).dialog('close'); }");
 		
 		$tblFilter = new tableFilter("staffFilter", "#staffTable", "function() { getStaff({$eObj->id}); }");
 		$tblFilter->addSortFilter("title", "th.title");
@@ -1188,13 +1188,13 @@ function getFaqWin($entityID)
 		$faqWin->setOption("autoOpen", true);			
 		$faqWin->fitToViewport();
 		
+		$faqWin->addCloseButton("Close");
+		
 		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
 			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
 		{
 			$faqWin->addButton("Add a new FAQ Entry", "function() { getFaqEdit(0, $entityID); }");
 		}
-		
-		$faqWin->addButton("Close", "function() { $(this).dialog('close'); }");
 
 		$faqDiv = new phpDIV();
 		$faqDiv->class = 'faqContainer';
@@ -1446,18 +1446,12 @@ function deleteFaqEntry($faqEntryID)
 	$js = new json_a();
 	
 	try
-	{	
-		
+	{			
 		$faqObj = new pmm_entityFaq($faqEntryID);
 		if (!$faqObj->id) throw new Exception("Error, that faq entry could not be found!");
 						
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $faqObj->entityID)) $g_sec->security_error_a();
-				
-		foreach(glob($config["baseAppDir"]."assets/municipal/{$faqObj->entityID}/faq/{$faqObj->id}/*") as $file)
-		{			
-			@unlink($file);
-		}
 				
 		$faqObj->delete();
 		
@@ -1488,64 +1482,37 @@ function getPostsWin($entityID)
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
 		
-		$postWin = new jqUI_dialog("postWin", true, 875, 665, validation::prepForDisplay($eObj->title, false)." News & Notices");
+		$postWin = new jqUI_dialog("postWin", true, 875, "", validation::prepForDisplay($eObj->title, false)." News & Notices");
 		$postWin->setOption("autoOpen", true);		
+		$postWin->fitToViewport();
+		
+		$postWin->addCloseButton("Close");
 		
 		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
 			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
 		{
 			$postWin->addButton("Add a new Post", "function() { getPostEdit(0, $entityID); }");
 		}
+
+		$tblFilter = new tableFilter("postsFilter", "#postsTable", "function() { getPostEntries({$eObj->id}); }");
+		$tblFilter->addSortFilter("title", "th.title");
+		$tblFilter->addSortFilter("publishDate", "th.published");
+		$tblFilter->addSortFilter("expireDate", "th.expires");
+		$tblFilter->setPaging(25);		
 		
-		$postWin->addButton("Close", "function() { $(this).dialog('close'); }");
-
-		$ddlFilter = new phpDDL("postsFilter");
-		$ddlFilter->class = 'floating';
-		$ddlFilter->setLabel("Show me: ", "longLabel floating");
-
+		$tblFilter->addCustomFilter("status", tableFilter::filter_dropdown, "User Status:", array("Active"=>1, "Pending"=>2, "Expired"=>3, "Inactive"=>4));
+		
 		$arr = pmm_core::getPostTypes(true, true);
+		$tblFilter->addCustomFilter("typeID", tableFilter::filter_dropdown, "Posting Type:", $arr);
 		
-		$ddlFilter->bindByArray($arr);		
-		$ddlFilter->onchange = "refreshPostings($entityID)";
+		$tblFilter->addCustomFilter("publishDate", tableFilter::filter_date_range, "Published Between:");
+		$tblFilter->addCustomFilter("expireDate", tableFilter::filter_date_range, "Expires Between:");
 		
-		$btnRefresh = new jqUI_button("btnRefreshPosts", "Refresh Posts", "", "ui-icon-refresh", true);
-		$btnRefresh->onclick = "refreshPostings($entityID)";
+		$dv = new phpDIV();
+		$dv->id = "postings";
 		
-		$tabs = new tabControl("postTabs");
-		$tabs->addClass("tabContainerNoHeader");		
-		
-		$tabs->addWrapperControl($ddlFilter);
-		$tabs->addWrapperControl($btnRefresh);
-		
-		$tpActive = new tabPage("Active Postings", "#active_posts");
-		$tpActive->showLoading = true;
-		$tpActive->addControl(new phpParagraph("Listed below are the postings that would appear live on the website at this moment."));
-		$tpActive->addControl(new phpDiv());		
-		
-		$tabs->addTabPage($tpActive);
-		
-		$tpPend = new tabPage("Pending Postings", "#pending_posts");
-		$tpPend->showLoading = true;
-		$tpPend->addControl(new phpParagraph("Listed below are the postings that are currently inactive, pending posting based on the publish date."));
-		$tpPend->addControl(new phpDiv());		
-		
-		$tabs->addTabPage($tpPend);
-		
-		$tpExp = new tabPage("Expired Postings", "#expired_posts");
-		$tpExp->showLoading = true;
-		$tpExp->addControl(new phpParagraph("Listed below are the postings that are currently expired, based on the expire date.."));
-		$tpExp->addControl(new phpDiv());		
-		
-		$tabs->addTabPage($tpExp);
-		
-		$tpInact = new tabPage("Inactive Posts", "#inactive_posts");
-		$tpInact->showLoading = true;
-		$tpInact->addControl(new phpParagraph("Listed below are the postings that have been manually deactivated."));
-		$tpInact->addControl(new phpDiv());		
-		
-		$tabs->addTabPage($tpInact);
-		
-		$postWin->addControl($tabs);
+		$postWin->addControl($tblFilter);
+		$postWin->addControl($dv);
 		
 		$js->content = $postWin->render();
 	}
@@ -1558,48 +1525,108 @@ function getPostsWin($entityID)
 	echo $js->render();
 	exit(0);
 }
-function getPostEntries($entityID, $typeID, $filter, $startPos)
+function getPostEntries($entityID, $paging, $sortData, $filterColumns, $customColumns)
 {
 	global $g_sec;
 	
+	$d = new DAL(true);
 	$js = new json_a();
 	
 	$pc = new pageContent();
 	
 	try
-	{
-		$limit = 15;
-		
+	{		
 		$eObj = new pmm_entity($entityID);
 		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
 		
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();			
+
+		$t = new tblBuilder("center", 0, 0, 10, "100%");
+		$t->class = "listTable";
+		$t->id = "postsTable";
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("Post Title", "title"));
+		$r->addHeader(new tblHeader("Publish Date", "published"));
+		$r->addHeader(new tblHeader("Expiration Date", "expires"));
+		
+		foreach((array)$customColumns as $cFilter)
+		{
+			if (!$cFilter["value"]) continue;
 				
-		$posts = $eObj->getPostEntries($typeID, $filter);
+			switch($cFilter["key"])
+			{
+				case "status":
+					switch($cFilter["value"])
+					{
+						case 1:
+							//Active Only
+							$wh[] = "inactive <> 1 and (publishDate is null or publishDate <= now()) and (expireDate is null or expireDate >= now())";
+							break;
+						case 2:
+							//Pending Only
+							$wh[] = "inactive <> 1 and publishDate is not null and publishDate > now()";
+							break;
+						case 3:
+							//Expired Only	
+							$wh[] = "inactive <> 1 and expireDate is not null and expireDate < now()";
+							break;
+						case 4:
+							$wh[] = "inactive = 1";
+							break;
+					}
+					
+					break;
+				case "typeID":
+					$wh[] = "pmm_entityPostings.typeID = {$cFilter["value"]}";
+					
+					break;					
+				case "publishDate":
+					$tmp = explode("_", $cFilter[value]);
+					if (count($tmp) != 2) break;
+						
+					$dt1 = validation::convertToMySqlDate($tmp[0]);
+					$dt2 = validation::convertToMySqlDate($tmp[1]);
 		
-		$totalPosts = count($posts);
+					$wh[] = "pmm_entityPostings.publishDate is not null && date(pmm_entityPostings.publishDate) between '$dt1' and '$dt2'";
+						
+					break;
+				case "expireDate":
+					$tmp = explode("_", $cFilter[value]);
+					if (count($tmp) != 2) break;
+						
+					$dt1 = validation::convertToMySqlDate($tmp[0]);
+					$dt2 = validation::convertToMySqlDate($tmp[1]);
 		
-		if ($totalPosts > $limit)
-		{
-			$nav = new navigationAJAX($startPos, $totalPosts, $limit, "getPostEntries",  true, "$entityID, $typeID, $filter");
-			$pc->addControl($nav);	
+					$wh[] = "pmm_entityPostings.publishDate is not null && date(pmm_entityPostings.publishDate) between '$dt1' and '$dt2'";
+						
+					break;
+			}
 		}
 		
-		if ($startPos)
-		{
-			$posts = array_slice($posts, $startPos, $limit);	
-		}
+		tableFilter::getWhereArray($filterColumns, $wh, $hv);
+		$whClause = tableFilter::getWhereClause($wh);		
 		
-		foreach((array)$posts as $postObj)
-		{				
+		$qry = "select pmm_entityPostings.id
+				from pmm_entityPostings
+				where 1 $whClause ".tableFilter::getHavingClause($hv)."
+				order by ".tableFilter::getOrderClause($sortData, "case publishDate when '0000-00-00' then updatedDateTime else publishDate end asc");
+		
+		$totalCt = $d->qryRow($qry);
+		$pQry = $d->qry($qry.tableFilter::getLimitClause($paging));
+		
+		while($post = $pQry->fetch_assoc())
+		{
+			$postObj = new pmm_entityPosting($post["id"]);
+			
 			unset($dateDisp);
 			
-			if ($postObj->publishDate != "0000-00-00")
+			if ($postObj->publishDate)
 			{
 				$dateDisp = "Publish on ".validation::parseMySqlDate($postObj->publishDate, "D, M d");	
 			}			
-			if ($postObj->expireDate != "0000-00-00")
+			if ($postObj->expireDate)
 			{
 				$dateDisp .= "Expire on ".validation::parseMySqlDate($postObj->expireDate, "D, M d");	
 			}
@@ -1677,19 +1704,21 @@ function getPostEntries($entityID, $typeID, $filter, $startPos)
 			$eDiv->addControl($iconDiv);
 			$eDiv->addControl($dDiv);	
 			if (!$typeID) $eDiv->addControl(new phpHeader(4, "Post Type: <strong>".$postObj->getTypeDisplay()."</strong>"));
-
-			$pc->addControl($eDiv);
+			
+			$r = $t->addRow();
+			$r->addCell(new tblCell($eDiv, "", "left", 3));
 		}
 		
-		if (!count($posts))
+		if (!$totalCt)
 		{
-			$pc->addControl(new phpParagraph("There are currently no posts in this category."));
-		}
+			$r = $t->addRow();
+			$r->addCell(new tblCell(new phpParagraph("There are currently no posts in this category.", "bold", "center"), "", "center", 3));			
+		}		
 		
-		if ($nav) $pc->addControl($nav);
+		$pc->addControl($t);
 		
 		$js->content = $pc->render();
-		$js->count = $totalPosts;
+		$js->count = $totalCt;
 	}
 	catch(Exception $ex)
 	{
@@ -1732,8 +1761,13 @@ function getPostEdit($postEntryID, $entityID)
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();			
 			
-		$postEditWin = new jqUI_dialog("postEditWin", true, 800, 675, $postEntryID ? "Modify Post" : "Add a new Post");
+		$postEditWin = new jqUI_dialog("postEditWin", true, 800, "", $postEntryID ? "Modify Post" : "Add a new Post");
+		$postEditWin->addClass("configWin");
+		$postEditWin->setOption("modal", 0);
 		$postEditWin->setOption("autoOpen", true);
+		$postEditWin->fitToViewport();
+		
+		$postEditWin->addCloseButton($postObj->id ? "Close" : "Cancel");
 		
 		if (($postEntryID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
 			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) ||
@@ -1741,10 +1775,8 @@ function getPostEdit($postEntryID, $entityID)
 			$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID)))
 		{	
 			//pseudo: if staffID && hasAccess GlobalWrite/EntityWrite || !staffID && hasAccess GlobalWrite/EntityInsert
-			$postEditWin->addButton($postEntryID ? "Save Changes" : "Add Post", "function() { savePostEntry($postEntryID, $entityID); }");
+			$postEditWin->addButton($postEntryID ? "Save Changes" : "Add Post", "function() { savePostEntry(); }");
 		}
-		
-		$postEditWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
 		
 		if ($postObj->updatedUserID)
 		{
@@ -1763,7 +1795,7 @@ function getPostEdit($postEntryID, $entityID)
 		$txtTitle = new customText("post[title]", validation::prepTextForInput($postObj->title), 75, 255, "floating textBox");
 		$txtTitle->setLabel("Post Title:", "longLabel floating");	
 		
-		$txtBlurb = new phpTextArea("post[blurb]", validation::prepTextForInput($postObj->blurb), 3, 75, "floating textBox");
+		$txtBlurb = new phpTextArea("post[blurb]", validation::prepTextForInput($postObj->blurb), 3, 74, "floating textBox");
 		$txtBlurb->setLabel("Blurb:", "longLabel floating");		
 		
 		$txtBody = new phpTextArea("post[body]", validation::prepTextForInput($postObj->body), 12, 103, "wysiwyg floating");
@@ -1786,6 +1818,9 @@ function getPostEdit($postEntryID, $entityID)
 		$frm->addControl($dtPub);
 		$frm->addControl($dtExp);
 		$frm->addControl($txtBody);		
+		$frm->addControl(new hiddenInput("action", "savePostEntry"));
+		$frm->addControl(new hiddenInput("postEntryID", $postObj->id));
+		$frm->addControl(new hiddenInput("entityID", $entityID));
 		
 		$postEditWin->addControl($frm);
 		
@@ -1827,11 +1862,11 @@ function savePostEntry($postEntryID, $post, $entityID, $cutOutBeforeExit = false
 			if (!$eObj->id) throw new Exception("Error, that entity could not be found! Please refresh the page and try again.");
 		}
 				
-		if (strlen($post[title]) < 3) throw new Exception("Error, Post title must be at least 3 characters.");
-		if (!strlen($post[body])) throw new Exception("Error, you must specify some content to save your post.");
+		if (strlen($post["title"]) < 3) throw new Exception("Error, Post title must be at least 3 characters.");
+		if (!strlen($post["body"])) throw new Exception("Error, you must specify some content to save your post.");
 		
-		$post[blurb] = validation::prepMultiLineForStorage($post[blurb]);
-		$post[body] = validation::prepMultiLineForStorage($post[body]);
+		$post["blurb"] = validation::prepMultiLineForStorage($post["blurb"]);
+		$post["body"] = validation::prepMultiLineForStorage($post["body"]);
 
 		foreach((array)$post as $key=>$value)
 		{
@@ -1840,8 +1875,8 @@ function savePostEntry($postEntryID, $post, $entityID, $cutOutBeforeExit = false
 		
 		$postObj->updatedUserID = $g_sec->id;
 		$postObj->updatedDateTime = "now()";
-		$postObj->publishDate = "'".($post[publishDate] ? validation::convertToMySqlDate($post[publishDate]) : "0000-00-00")."'";
-		$postObj->expireDate = "'".($post[expireDate] ? validation::convertToMySqlDate($post[expireDate]) : "0000-00-00")."'";
+		if ($post["publishDate"]) $postObj->publishDate = "'".validation::convertToMySqlDate($post["publishDate"])."'";
+		if ($post["expireDate"]) $postObj->expireDate = "'".validation::convertToMySqlDate($post["expireDate"])."'";
 		
 		if ($postEntryID)
 		{
@@ -1964,7 +1999,7 @@ function uploadPostIcon($postEntryID)
 		$u = new upload($_FILES['postIcon_'.$postEntryID]);		
 		$u->convertImage("png", $tmp);		
 		
-		if (!$u->uploadFile($config[baseAppDir]."images/pmm_entities/$eObj->id/posticon_$postEntryID.png")) throw new Exception($u->err);		
+		if (!$u->uploadFile($config["baseAppDir"]."assets/municipal/$eObj->id/posticon_$postEntryID.png")) throw new Exception($u->err);		
 		
 		pageClass::setNotify("Post Icon Successfully Uploaded");
 		

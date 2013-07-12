@@ -5,10 +5,11 @@
 		var parent = $(this);
 		
 		defaults = {
-			selector: "input,select,textarea",
+			selector: "input,select,textarea,.redactor_editor",
 			disableControls: false,
 			autoSave: true,
-			leftOffset: 0
+			leftOffset: 0,
+			closeConfirmOnly: 0
 		};
 		
 		var chFunc = function(evt)
@@ -179,11 +180,19 @@
 					}
 					
 					var dirtyFunc = function(evt)
-					{	
+					{							
 						var resetControlDirty = function() { obj.data("isDirty", false).next(".jqSaveIcon").fadeOut('normal'); };
 						
-						if (obj.prop("tagName").match(/textarea|input|select/i) && !options.autoSave)
+						if (options.closeConfirmOnly || (obj.prop("tagName").match(/textarea|input|select/i) && !options.autoSave))
 						{		
+							if (options.closeConfirmOnly)
+							{
+								if (obj.is(".redactor_editor")) obj = obj.next("textarea");
+								
+								obj.data("isDirty", true);
+								return;
+							}
+							
 							if (obj.attr("type") == "checkbox") 
 							{
 								if (obj.data("originalContent") == obj.is(":checked"))
@@ -276,13 +285,17 @@
 							//obj.datepicker("option","onSelect", dirtyFunc);							
 						}
 						else if (obj.attr("type") == "checkbox")
-						{
+						{							
 							obj.change(dirtyFunc);
 						}
 						else
 						{
 							obj.keyup(dirtyFunc);
 						}
+					}
+					else if (obj.is(".redactor_editor"))
+					{						
+						obj.keyup(dirtyFunc);
 					}
 					else
 					{

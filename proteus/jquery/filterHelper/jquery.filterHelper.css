@@ -136,3 +136,17 @@
 	
 	z-index: 50;
 }
+div.datePickerContainer input
+{
+	margin-right: 4px;	
+}
+div.datePickerContainer img.ui-datepicker-trigger
+{
+	float: left;
+	margin-top: 8px;
+}
+div.datePickerContainer img.ui-datepicker-clear
+{
+	float: left;
+	margin: 6px 0px 0px 2px;
+}

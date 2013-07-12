@@ -67,8 +67,8 @@ class pmm_core
 												 `title` varchar(255) CHARACTER SET utf8 NOT NULL,
 												 `blurb` text CHARACTER SET utf8 NOT NULL,
 												 `body` text CHARACTER SET utf8 NOT NULL,
-												 `publishDate` date NOT NULL,
-												 `expireDate` date NOT NULL,
+												 `publishDate` date NULL,
+												 `expireDate` date NULL,
 												 `inactive` tinyint(4) NOT NULL,
 												 `updatedUserID` int(11) NOT NULL,
 												 `updatedDateTime` datetime NOT NULL,
@@ -409,10 +409,11 @@ class pmm_entityStaff extends phpDataset implements entityChild
 		}
 		else
 		{
-			$iconObject = new phpDIV("<p>No Image Available<p>", "entityIcon");
-			$iconObject->style = "width: {$dimensions[0]}px; height: {$dimensions[1]}px;";
+			$iconObject = new phpDIV("<p>No Image Available<p>", "entityIcon");			
 		}		
 
+		$iconObject->style = "width: {$dimensions[0]}px; height: {$dimensions[1]}px;";
+		
 		return $iconObject;
 	}	
 	public function getParentEntity()
@@ -466,6 +467,21 @@ class pmm_entityFaq extends phpDataset implements entityChild
 				
 		return $d->qry($qry, false);	
 	}		
+	public function delete()
+	{
+		global $config;
+		
+		$baseLoc = $config["baseAppDir"]."assets/municipal/{$this->entityID}/faq/{$this->id}";
+		
+		foreach(glob($baseLoc."/*") as $file)
+		{
+			@unlink($file);
+		}
+		
+		rmdir($baseLoc);
+		
+		return parent::delete();
+	}
 }
 class pmm_entityPosting extends phpDataset implements entityChild
 {
@@ -538,6 +554,21 @@ class pmm_entityPosting extends phpDataset implements entityChild
 				return "Notice";				
 		}
 	}	
+	public function delete()
+	{
+		global $config;
+	
+		$baseLoc = $config["baseAppDir"]."assets/municipal/{$this->entityID}/postings/{$this->id}";
+	
+		foreach(glob($baseLoc."/*") as $file)
+		{
+			@unlink($file);
+		}
+	
+		rmdir($baseLoc);
+	
+		return parent::delete();
+	}
 }
 class pmm_entityFile extends phpDataset implements entityChild
 {
