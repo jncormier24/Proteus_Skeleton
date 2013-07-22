@@ -63,17 +63,9 @@ class fileParser extends contentParser
 		
 		$this->pFile = $file;
 		$this->absolute = $absolute;
-		$this->pushParam("scripturl", $config[scripturl]);		
 		
-		/* foreach($conf as $key=>$val)
-		{				
-			//Don't store any config params that are arrays! (very bad!!)
-			if (!is_array($val) && $key != "dbLink")
-			{
-				$this->pushParam($key, $val);				
-			}
-		} */
-		//parent::__construct(@file_get_contents($filename));
+		$this->pushParam("scripturl", $config["scripturl"]);		
+		$this->pushParam("theme", $config["theme"]);
 	}
 	function render()
 	{

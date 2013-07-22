@@ -184,13 +184,17 @@ div.entityContainer > div.functions button
 {
 	text-align: left !important;
 }
-#staffEditWin p, #fileEditWin p, #linkEditWin p, #agendaEditWin p
+#staffEditWin p, #fileEditWin p, #linkEditWin p, #agendaEditWin > p, #faqEditWin > p
 {
 	font-size: 10px;
 	color: #808080;
 	
 	margin-bottom: 12px;
 	text-align: right;
+}
+#staffWin table tr
+{
+	height: 235px;
 }
 #postWin div.tabContent > p
 {

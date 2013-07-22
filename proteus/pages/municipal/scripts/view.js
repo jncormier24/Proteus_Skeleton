@@ -23,25 +23,14 @@ function getEntityEdit(entityID)
 		{		
 			$(output.content).appendTo("body");
 			
-			$.blockContainer();
-			
-			var opts = null;
-			
-			if (entityID)
-			{
-				opts = 
-				{
-					imageUpload: "admin/ajax/common/upload.ajax?typeID=2&dataID=" + entityID,
-					fileUpload: "admin/ajax/common/upload.ajax?isFile=1&typeID=2&dataID=" + entityID
-				}
-			}
+			$.blockContainer();			
 			
 			$("#entityWin").dialog("option", "close", function() 
 			{  
 				$.unblockContainer();
 				
 				$(this).remove();
-			}).find("textarea.wysiwyg").redactor(opts);
+			}).find("textarea.wysiwyg").assetRedactor(-4, entityID, entityID);
 		}
 	});
 }
@@ -62,7 +51,7 @@ function updateEntity()
 		}
 		
 		getMessages();		
-		win.dialog('close');
+		win.dialog("close");
 		
 		getEntities(output.typeID);		
 	});
@@ -85,7 +74,7 @@ function deactivateEntity(entityID)
 		}
 		
 		getMessages();		
-		win.dialog('close');
+		win.dialog("close");
 		
 		getEntities(output.typeID);		
 	});
@@ -159,7 +148,7 @@ function saveSettings()
 		}
 		
 		getMessages();
-		win.dialog('close');
+		win.dialog("close");
 	});
 }
 function getStaffWin(entityID)
@@ -194,7 +183,7 @@ function getStaff(entityID)
 			
 			filterObj.filterHelper("setPaging", { totalCount: output.count }).filterHelper("initAll");
 			
-			//initTableSort(true);
+			initTableSort(true);
 		}
 	});	
 }
@@ -234,7 +223,7 @@ function saveStaff(staffID, entityID)
 		getMessages();
 		getStaff(output.entityID, output.filter);
 		
-		win.dialog('close');
+		win.dialog("close");
 	});
 }
 function uploadStaffIcon(staffID)
@@ -295,24 +284,20 @@ function toggleStaff(staffID)
 }
 function deleteStaff(staffID)
 {
-	if (!confirm("Are you SURE you want to permanently delete this staff member?\n\nThis cannot be undone!")) return;
-	
-	var win = $("#staffWin");
-	
-	win.showLoading("Removing Staff Entry");
-	
-	$.getJSON("admin/ajax/municipal", {action: "deleteStaff", staffID: staffID}).then(function(output)
-	{
-		win.hideLoading();
+	$.jqConfirm("Are you SURE you want to permanently delete this staff member?<br /><br />This cannot be undone!", function()
+	{	
+		var win = $("#staffWin");
 		
-		if (output.error)
+		win.showLoading("Removing Staff Entry");
+		
+		$.getJSON("admin/ajax/municipal", {action: "deleteStaff", staffID: staffID}).then(function(output)
 		{
-			$(output.error).appendTo("body");
-			return;
-		}
-		
-		getMessages();		
-		$("tr[data-id='" + staffID +"']").fadeOut("normal", function() { $(this).remove(); });
+			if (!$.ajaxError(output, win))
+			{			
+				getMessages();		
+				$("tr[data-id='" + staffID +"']").fadeOut("normal", function() { $(this).remove(); });
+			}
+		});
 	});
 }
 function getFaqWin(entityID)
@@ -350,26 +335,32 @@ function getFaqEntries(entityID)
 		}
 	});	
 }
-function saveFaqEntry(faqEntryID, entityID)
+function saveFaqEntry()
 {
+	var dfd = new $.Deferred();
 	var win = $("#faqEditWin");
-	win.showLoading(faqEntryID ? "Saving Faq Entry" : "Adding Faq Entry");
+	var frm = $("#frmFaq");
 	
-	$.post("admin/ajax/municipal?action=saveFaqEntry&entityID=" + entityID + "&faqEntryID=" + faqEntryID, $("#faqEditForm").serialize(), null, "json").then(function(output)
+	$.showLoading(faqEntryID ? "Saving Faq Entry" : "Adding Faq Entry");
+	
+	$.post("admin/ajax/municipal", frm.serialize(), null, "json").then(function(output)
 	{
-		win.hideLoading();
+		if (!$.ajaxError(output, $))
+		{		
+			getMessages();
+			getFaqEntries(output.entityID);
 		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+			dfd.resolve();
+			
+			win.updateHelper("reset").dialog("close");
 		}
-		
-		getMessages();
-		getFaqEntries(output.entityID);
-		
-		win.dialog('close');
+		else
+		{
+			dfd.reject();
+		}
 	});
+	
+	return dfd.promise();
 }
 function getFaqEdit(faqEntryID, entityID)
 {
@@ -383,29 +374,22 @@ function getFaqEdit(faqEntryID, entityID)
 			// Redactor no-modal support
 			$.hideDialogs(true);
 			
-			$(output.content).appendTo("body");
+			$(output.content).appendTo("body");			
 			
-			var opts = {				
-				imageUpload: "admin/module/customContent?action=assetUpload&contentID=" + faqEntryID + "&dataID=" + output.entityID + "&typeID=-1",
-				imageUploadErrorCallback: function(output) { $.jqAlert(output.error); },
-				fileUpload: "admin/module/customContent?action=assetUpload&isFile=1&contentID=" + faqEntryID + "&dataID=" + output.entityID + "&typeID=-1",
-				fileUploadErrorCallback: function(output) { $.jqAlert(output.error); }				
-			}
+			var frm = $("#faqEditWin");
+			$(".wysiwyg", frm).assetRedactor(-1, output.entityID, faqEntryID);
 			
-			$(".wysiwyg", "#faqEditWin").redactor(faqEntryID ? opts : {});
-			
-			$("#faqEditWin").dialog("option", "close", function()
+			frm.dialog("option", "close", function()
 			{
 				$.showDialogs(true);				
 				$(this).remove();
-			});
-			
+			}).updateHelper(saveFaqEntry, {closeConfirmOnly: true, autoSave: false, disableControls: parseInt(output.disabled)});;			
 		}
 	});	
 }
 function deleteFaqEntry(faqEntryID)
 {
-	$.jqConfirm("Are you SURE you want to permanently delete this Faq Entry?\n\nThis cannot be undone and will permanently remove all support file and images associated with this content!", function()
+	$.jqConfirm("Are you SURE you want to permanently delete this Faq Entry?<br /><br />This cannot be undone and will permanently remove all support file and images associated with this content!", function()
 	{	
 		var win = $("#faqWin");
 		
@@ -463,6 +447,7 @@ function savePostEntry()
 {
 	var frm = $("#postEditForm");
 	var win = $("#postEditWin");
+	var dfd = new $.Deferred();
 	
 	win.showLoading($("#entityID", frm).length ? "Saving Post" : "Adding Post");
 	
@@ -473,9 +458,18 @@ function savePostEntry()
 			getMessages();
 			getPostEntries(output.entityID);
 		
-			win.dialog('close');
+			$("#postEditWin").updateHelper("reset");
+			win.dialog("close");
+			
+			dfd.resolve();
+		}
+		else
+		{
+			dfd.reject();
 		}
 	});
+	
+	return dfd.promise();
 }
 function getPostEdit(postEntryID, entityID)
 {
@@ -491,14 +485,7 @@ function getPostEdit(postEntryID, entityID)
 		
 			$(output.content).appendTo("body");			
 			
-			var opts = {				
-				imageUpload: "admin/module/customContent?action=assetUpload&contentID=" + postEntryID + "&dataID=" + output.entityID + "&typeID=-2",
-				imageUploadErrorCallback: function(output) { $.jqAlert(output.error); },
-				fileUpload: "admin/module/customContent?action=assetUpload&isFile=1&contentID=" + postEntryID + "&dataID=" + output.entityID + "&typeID=-2",
-				fileUploadErrorCallback: function(output) { $.jqAlert(output.error); }				
-			}
-			
-			$(".wysiwyg", "#postEditWin").redactor(postEntryID ? opts : {});
+			$(".wysiwyg", "#postEditWin").assetRedactor(-2, output.entityID, postEntryID);
 			
 			$("#postEditWin").dialog("option", "close", function()
 			{
@@ -509,24 +496,20 @@ function getPostEdit(postEntryID, entityID)
 	});	
 }function deletePostEntry(postEntryID)
 {
-	if (!confirm("Are you SURE you want to permanently delete this Posting?\n\nThis cannot be undone!")) return;
-	
-	var win = $("#postWin");
-	
-	win.showLoading("Removing Post");
-	
-	$.getJSON("admin/ajax/municipal", {action: "deletePostEntry", postEntryID: postEntryID}).then(function(output)
-	{
-		win.hideLoading();
+	$.jqConfirm("Are you SURE you want to permanently delete this Posting?<br /><br />This cannot be undone!", function()
+	{	
+		var win = $("#postWin");
 		
-		if (output.error)
+		win.showLoading("Removing Post");
+		
+		$.getJSON("admin/ajax/municipal", {action: "deletePostEntry", postEntryID: postEntryID}).then(function(output)				
 		{
-			$(output.error).appendTo("body");
-			return;
-		}
-		
-		getMessages();		
-		getPostEntries(output.entityID);
+			if (!$.ajaxError(output, win))
+			{			
+				getMessages();		
+				getPostEntries(output.entityID);
+			}
+		});
 	});
 }
 function togglePostStatus(postEntryID)
@@ -548,7 +531,7 @@ function togglePostStatus(postEntryID)
 		getMessages();			
 		refreshPostings(output.entityID);
 		
-		win.dialog('close');
+		win.dialog("close");
 	});
 }
 function uploadPostIcon(postEntryID)
@@ -596,7 +579,7 @@ function getDocumentsWin(entityID)
 		{			
 			$(output.content).appendTo("body");
 			
-			getContentEntries(output.contentType, entityID, '#custom_content > div');			
+			//getContentEntries(output.contentType, entityID, '#custom_content > div');			
 			getFiles(1, entityID);
 			getLinks(1, entityID);
 		}
@@ -671,7 +654,7 @@ function saveLink(linkID, typeID, dataID)
 		getMessages();
 		getLinks(output.typeID, output.dataID);		
 		
-		win.dialog('close');
+		win.dialog("close");
 	});
 }
 function deleteLink(linkID, container)
@@ -747,7 +730,7 @@ function saveFile(fileID)
 		getMessages();
 		getFiles(output.typeID, output.dataID);		
 		
-		win.dialog('close');
+		win.dialog("close");
 	});
 }
 function uploadFile(typeID, dataID, container)
@@ -824,87 +807,106 @@ function getAgendaWin(entityID)
 		$(output.content).appendTo("body");
 	});	
 }
-function getAgendas(entityID, filter)
+function getAgendas(entityID)
 {
-	var cont = filter ? $("#past_meetings") : $("#upcoming_meetings");
-	cont.setWorking("Loading Agenda Entries");
+	var cont = $("#agendas");
+	var filterObj = $("#agendasFilter");	
+	var ajaxOpts = { action: "getAgendas", entityID: entityID };	
 	
-	$.getJSON("admin/ajax/municipal", {action: "getAgendas", entityID: entityID, filter: filter}).then(function(output)
-	{
-		if (!$.ajaxError(output, cont))
+	$.showLoading("Loading Agenda Entries");
+	
+	$.getJSON("admin/ajax/municipal", filterObj.filterHelper("getFilterData", ajaxOpts)).then(function(output)
+	{	
+		if (!$.ajaxError(output, $))
 		{		
-			cont.html(output.content);
+			cont.html(output.content).tableRowAlternate();
 			
-			getAgendas(entityID, 0);
-			getAgendas(entityID, 1);
+			filterObj.filterHelper("setPaging", { totalCount: output.count }).filterHelper("initAll");
+			
+			initJqPopupMenus();
 		}
 	});	
 }
 function getAgendaEdit(agendaID, entityID)
 {
 	var win = $("#agendaWin");
-	win.showLoading("Loading Faq Edit Interface");
+	
+	$.showLoading("Loading Faq Edit Interface");
 	
 	$.getJSON("admin/ajax/municipal", {action: "getAgendaEdit", entityID: entityID, agendaID: agendaID}).then(function(output)
 	{
-		win.hideLoading();
-		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, $))
+		{	
+			// Redactor no-modal support
+			$.hideDialogs(true);
+			
+			$(output.content).appendTo("body");			
+			
+			var win = $("#agendaEditWin");
+			
+			$("textarea.wysiwyg", win).assetRedactor(-3, output.entityID, agendaID);
+			
+			win.dialog("option", "close", function() 
+			{  
+				$.showDialogs(true);				
+				$(this).remove();
+			}).updateHelper(saveAgenda, {closeConfirmOnly: true, autoSave: false, disableControls: parseInt(output.disabled)});
 		}
-		
-		$(output.content).appendTo("body");
-		initWYSIWYG(".wysiwyg", "#agendaEditWin");
 	});	
 }
-function saveAgenda(agendaID, entityID)
+function saveAgenda(addNotice)
 {
-	var win = $("#agendaEditWin");
-	win.showLoading(agendaID ? "Saving Agenda" : "Adding Agenda");
+	var dfd = new $.Deferred();
+	var frm = $("#agendaEditForm");
+	var win = $("#agendaEditWin");	
 	
-	$.post("admin/ajax/municipal?action=saveAgenda&entityID=" + entityID + "&agendaID=" + agendaID, $("#agendaEditForm").serialize(), null, "json").then(function(output)
+	if (addNotice) $("#addNotice", frm).val("1");
+	
+	$.showLoading(agendaID ? "Saving Agenda" : "Adding Agenda");
+	
+	$.post("admin/ajax/municipal", frm.serialize(), null, "json").then(function(output)
 	{
-		win.hideLoading();
+		if (!$.ajaxError(output, $))
+		{		
+			getMessages();			
+			getAgendas(output.entityID);			
 		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+			win.updateHelper("reset").dialog("close");
+			
+			dfd.resolve();
 		}
-		
-		getMessages();
-		getAgendas(output.entityID, 0);
-		getAgendas(output.entityID, 1); //need to update both the upcoming and past meetings tabs
-		
-		win.dialog('close');
+		else
+		{
+			dfd.reject();
+		}
 	});
+	
+	return dfd.promise();
 }
 function deleteAgenda(agendaID)
 {
-	if (!confirm("Are you SURE you want to permanently delete this Agenda?\n\nThis cannot be undone, and any associated Meeting Minutes will also be removed!")) return;
-	
-	var win = $("#agendaWin");
-	
-	win.showLoading("Removing Agenda");
-	
-	$.getJSON("admin/ajax/municipal", {action: "deleteAgenda", agendaID: agendaID}).then(function(output)
-	{
-		win.hideLoading();
+	$.jqConfirm("Are you SURE you want to permanently delete this Agenda?<br /><br />This cannot be undone, and any associated Meeting Minutes will also be removed!", function()
+	{	
+		var win = $("#agendaWin");
 		
-		if (output.error)
+		win.showLoading("Removing Agenda");
+		
+		$.getJSON("admin/ajax/municipal", {action: "deleteAgenda", agendaID: agendaID}).then(function(output)
 		{
-			$(output.error).appendTo("body");
-			return;
-		}
-		
-		getMessages();		
-		getAgendas(output.entityID, 0);
-		getAgendas(output.entityID, 1);
+			win.hideLoading();
+			
+			if (output.error)
+			{
+				$(output.error).appendTo("body");
+				return;
+			}
+			
+			getMessages();		
+			getAgendas(output.entityID, 0);
+			getAgendas(output.entityID, 1);
+		});
 	});
 }
-
 function getEventsWin(entityID)
 {
 	$.showLoading("Loading Events Interface");

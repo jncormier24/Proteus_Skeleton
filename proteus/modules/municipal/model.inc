@@ -20,7 +20,7 @@ class pmm_core
 												 `title` varchar(255) CHARACTER SET utf8 NOT NULL,
 												 `location` text CHARACTER SET utf8 NOT NULL,
 												 `body` text CHARACTER SET utf8 NOT NULL,
-												 `meetingDateTime` datetime NOT NULL,
+												 `meetingDateTime` datetime NULL,
 												 `updatedUserID` int(11) NOT NULL,
 												 `updatedDateTime` datetime NOT NULL,
 												 PRIMARY KEY (`id`)
@@ -95,7 +95,7 @@ class pmm_core
 	
 	public static function getConfigObject()
 	{
-		return new customConfig(11, 0, array("iconDim"=>"250x150", "staffIconDim"=>"250x150", "postIconDim"=>"150x100", "defaultMeetingTime"=>"19:00"));
+		return new customConfig(proteus_core::$module_municipal["siteType"] , 0, array("iconDim"=>"250x150", "staffIconDim"=>"250x150", "postIconDim"=>"150x100", "defaultMeetingTime"=>"19:00"));
 	}
 	public static function getEntityTypes($plural = false, $showAll = false)
 	{
@@ -179,7 +179,7 @@ class pmm_entity extends phpDataset
 			
 		$file = "icon.png";		
 
-		$dimensions = explode("x", $this->settings->config("iconDim"));
+		$dimensions = explode("x", $this->settings->iconDim);
 		
 		if (file_exists($absFolder.$file))
 		{			
@@ -204,6 +204,8 @@ class pmm_entity extends phpDataset
 				return "Department";
 			case 2:
 				return "Board / Commission";
+			case 3:
+				return "Committee"; 
 			default:
 				return "Unknown Type";
 		}
@@ -401,7 +403,7 @@ class pmm_entityStaff extends phpDataset implements entityChild
 		$file = "stafficon_{$this->id}.png";
 		
 		$cfg = pmm_core::getConfigObject();
-		$dimensions = explode("x", $cfg->config("staffIconDim"));
+		$dimensions = explode("x", $cfg->staffIconDim);
 		
 		if (file_exists($absFolder.$file))
 		{
@@ -503,7 +505,7 @@ class pmm_entityPosting extends phpDataset implements entityChild
 		$file = "posticon_{$this->id}.png";
 		
 		$cfg = pmm_core::getConfigObject();
-		$dimensions = explode("x", $cfg->config("postIconDim"));
+		$dimensions = explode("x", $cfg->postIconDim);
 		
 		if (file_exists($absFolder.$file))
 		{			
@@ -771,12 +773,23 @@ class pmm_entityAgenda extends phpDataset implements entityChild
 	}
 	public function delete()
 	{
+		global $config;
+		
 		$files = $this->getFiles();
 		
 		foreach((array)$files as $fileObj)
 		{
 			$fileObj->delete();	
 		}
+		
+		$baseLoc = $config["baseAppDir"]."assets/municipal/{$this->entityID}/agendas/{$this->id}";
+		
+		foreach(glob($baseLoc."/*") as $file)
+		{
+			@unlink($file);
+		}
+		
+		rmdir($baseLoc);
 		
 		return parent::delete();	
 	}

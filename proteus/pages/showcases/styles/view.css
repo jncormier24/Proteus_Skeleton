@@ -1,0 +1,138 @@
+#showcases
+{
+	min-height: 500px;
+}
+div.panelBlockContainer h1 div.jqPopupMenu
+{
+	position: absolute !important;
+	
+	top: 5px;
+	right: 4px;
+}
+img.showcaseIcon, div.showcaseIcon
+{
+	float: left;
+	
+	border: 1px solid #808080;
+	box-shadow: 2px 2px 3px #333333;
+	border-radius: 3px;
+	
+	max-width: 280px !important;	
+	max-height: 250px;	
+}
+div.showcaseIcon
+{
+	background-color: #8398AF;
+}
+div.showcaseIcon p
+{
+	text-align: center;
+	padding: 15px 0px;	
+}
+div.showcaseLeft
+{
+	float: left;	
+}
+div.showcaseLeft div.uploadDiv
+{
+	float: left;
+	clear: left;
+	
+	margin: 5px 0px 0px 0px;
+}
+div.showcaseLeft div.uploadDiv label
+{
+	top: 0px;
+	
+	font-size: 10px;
+	text-align: left;
+	
+	color: #808080;	
+}
+div.showcaseLeft div.uploadDiv button
+{
+	float: left;
+	clear: left;
+	
+	margin-top: 3px !important;
+	
+	width: 222px;	
+}
+div.showcaseLeft .fileinput-wrapper
+{
+	float: left;
+}
+div.showcaseLeft div.uploadDiv .ui-button .ui-button-text
+{
+	line-height: 15px;	
+}
+div.showcaseContainer
+{
+	position: relative;
+	clear: left;	
+	
+	padding: 15px 0px 15px 10px;
+	margin: 0px 2px 2px 2px;
+	
+	overflow: hidden;	
+}
+#entities > div.showcaseContainer
+{
+	border-style: solid;
+	border-color: #808080;
+	border-width: 1px 0px 0px 0px;
+}
+div.showcaseContainer div.functions
+{
+	float: right;
+	
+	margin: 0px 8px 0px 0px;
+	
+	width: 500px;	
+}
+div.functions h2, div.functions h3, div.showcaseContainer h4, div.functions h5
+{
+	float: right;
+	clear: right;
+
+	margin: -10px 0px 12px 0px;
+	
+	width: 95%;
+	
+	text-align: right;
+}
+div.functions h2
+{
+	font-size: 15px;	
+}
+div.functions h3
+{
+	font-size: 11px;
+	font-style: italic;
+	
+	color: #4b4b4b;	
+}
+div.showcaseContainer > h4
+{
+	position: absolute;
+	
+	bottom: -10px;
+	right: 10px;
+	
+	font-size: 11px;	
+	color: #808080;
+	
+	width: 200px;
+}
+div.functions h5
+{	
+	font-size: 9px;	
+	color: #9999aa;	
+}
+div.showcaseContainer > div.functions button
+{
+	float: right;
+	
+	margin: 2px 0px 3px 5px;
+	width: 200px;
+}

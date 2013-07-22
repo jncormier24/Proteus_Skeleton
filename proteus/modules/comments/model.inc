@@ -129,26 +129,22 @@ class customComments
 		
 		switch($this->typeID)
 		{
-			case customComments::comment_user:
-				$perm = permissions::$manage_users;		
-				if ($accessLevel == permissions::insert) $accessLevel = permissions::read;
-				if ($accessLevel == permissions::delete) $accessLevel = permissions::write;		
-				break;					
-			
-			/*
-			 * SWB: Left this as an example of how to do permission checking by a particular dataID
-			 *
-			 case lri_comments::comment_internship:
-				$perm = permissions::$manage_internships;				
+			case customComments::comment_blog_entry:
+				$perm = permissions::$manage_blogs;
 				if ($accessLevel == permissions::insert) $accessLevel = permissions::read;
 				if ($accessLevel == permissions::delete) $accessLevel = permissions::write;
 				
 				if ($sec->hasAccess($perm, $accessLevel, 0)) return true;
 				
-				$iObj = new lri_internship($this->dataID);
+				$iObj = new customBlogEntry($this->dataID);
 								
-				return $sec->is(permissions::$employer_employee, $iObj->employerID); 
-			*/				
+				return $sec->is(permissions::$modify_blog_category, $iObj->blogID); 
+				
+			case customComments::comment_user:
+				$perm = permissions::$manage_users;		
+				if ($accessLevel == permissions::insert) $accessLevel = permissions::read;
+				if ($accessLevel == permissions::delete) $accessLevel = permissions::write;		
+				break;
 				
 			default:
 				throw new Exception("Error, invalid comment type specified.");		

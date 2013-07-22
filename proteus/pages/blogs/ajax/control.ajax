@@ -1,0 +1,2391 @@
+<?php
+	$g_sec = permissions::getAuthorizedUser();
+
+	proteus_core::includeAllModules();
+	
+	switch($action)
+	{
+		case "getBlogEntries":
+			getBlogEntries($blogID, $paging, $sortData, $filterColumns, $customColumns);
+			break;
+			
+		case "updateBlogCategory":
+			updateBlogCategory($blogID, $blog);
+			break;
+			
+		case "getBlogCategoryEdit":
+			getBlogCategoryEdit($blogID);
+			break;
+			
+		case "getBlogEntryEdit":
+			getBlogEntryEdit($entryID, $blogID, $idx);
+			break;
+			
+		case "saveSettings":
+			saveSettings($cfg);
+			break;
+			
+		case "getSettingsEdit":
+			getSettingsEdit();
+			break;
+			
+		case "getBlogs":
+			getBlogs($paging, $sortData, $filterColumns, $customColumns);
+			break;
+			
+		case "uploadBlogEntryIcon":
+			uploadBlogEntryIcon($entryID);
+			break;
+			
+		case "uploadBlogIcon":
+			uploadBlogIcon($blogID);
+			break;
+		
+		case "activateBlogEntry":
+			activateBlogEntry($entryID);
+			break;
+			
+		case "activateBlog":
+			activateBlog($blogID);
+			break;
+			
+		case "deleteBlogEntry":
+			deleteBlogEntry($entryID);
+			break;
+			
+		case "deleteBlog":
+			deleteBlog($blogID);
+			break;
+		
+		case "getBlogEntryWin":
+			getBlogEntryWin($blogID);
+			break;
+			
+		case "unlinkFeed":
+			unlinkFeed($linkID);
+			break;
+			
+		case "linkFeed":
+			linkFeed($entryID, $feedID);
+			break;
+			
+		case "getLinkedFeeds":
+			getLinkedFeeds($entryID);
+			break;
+			
+		case "deleteBlogFeed":
+			deleteBlogFeed($feedID);
+			break;
+			
+		case "getBlogFeedEdit":
+			getBlogFeedEdit($feedID);
+			break;
+			
+		case "updateBlogFeed":
+			updateBlogFeed($feedID, $feed);
+			break;
+			
+		case "getBlogFeeds":
+			getBlogFeeds($paging, $sortData, $filterColumns, $customColumns);
+			break;
+			
+		case "updateBlogEntry":
+			updateBlogEntry($entryID, $entry, $blogID);
+			break;
+			
+		case "updateBlog":
+			updateBlog($blogID, $fields);
+			break;
+			
+		case "removeTag":
+			removeTag($tagID);
+			break;
+			
+		case "addTag":
+			addTag($entryID, $tag, $weight);
+			break;
+			
+		case "getTagCloud":
+			getTagCloud($entryID);
+			break;
+				
+		case "generateTagCloud":
+			generateTagCloud($entryID, $body);
+			break;
+			
+		case "getLinkedBlogTypes":
+			getLinkedBlogTypes($itemID);
+			break;
+			
+		case "unlinkTopic":
+			unlinkTopic($linkID);
+			break;
+			
+		case "linkTopic":
+			linkTopic($entryID, $topicID, $customTopic);
+			break;
+			
+		case "getLinkedTopics":
+			getLinkedTopics($entryID);
+			break;
+			
+		case "uploadBlogImage":
+			uploadBlogimage($blogID);
+			break;
+				
+		case "clearBlogIcon":
+			clearBlogIcon($blogID);
+			break;	
+
+		case "clearBlogEntryIcon":
+			clearBlogEntryIcon($entryID);
+			break;
+		default:
+			die("Unauthorized");
+	}
+function getBlogs($paging, $sortData, $filterColumns, $customColumns)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		$globRead = $g_sec->hasAccess(permissions::$manage_blogs, permissions::read);
+		$globWrite = $g_sec->hasAccess(permissions::$manage_blogs, permissions::write);
+		
+		if (!$globRead && !$g_sec->is(permissions::$modify_blog_category)) $g_sec->security_error_a();
+			
+		$t = new tblBuilder('center',0,0,0,'100%');	
+		$t->class = "listTable hoverTable";
+		$t->id = "blogCatTable";
+		$t->addAttribute("data-sort-type", tableSorter_core::$sort_blog_category["sortType"]);		
+		
+		foreach((array)$customColumns as $cFilter)
+		{
+			if (!strlen($cFilter["value"])) continue;
+				
+			switch($cFilter["key"])
+			{					
+				case "status":
+					if (!$cFilter["value"]) $t->addClass("sortable");
+					
+					$wh[] = "blogs.inactive = {$cFilter["value"]}";
+					
+					break;
+			}
+		}		
+		
+		tableFilter::getWhereArray($filterColumns, $wh, $hvArr);
+		$whClause = tableFilter::getWhereClause($wh);
+		
+		$qry = "select blogs.*
+				from blogs						   
+				where 1 $whClause
+				".tableFilter::getHavingClause($hvArr)."
+				order by ".tableFilter::getOrderClause($sortData, "position asc");
+		
+		$totalCt = $d->qryRow($qry);
+		$bQry = $d->qry($qry.tableFilter::getLimitClause($paging));
+		
+		while($blog = $bQry->fetch_assoc())
+		{				
+			if (!$globRead && !$g_sec->hasAccess(permissions::$modify_blog_category, permissions::read, $blog["id"])) continue;
+				
+			$bObj = new customBlog($blog["id"]);
+				
+			$bDiv = new phpDIV();
+			$bDiv->class = "blogContainer";
+
+			$iObj = $bObj->getIconObject($iconLoc, $iconDim);
+			
+			$iconDiv = new phpDIV();
+			$iconDiv->class = "blogLeft";
+			$iconDiv->addControl($iObj);				
+			
+			if ($globWrite || $g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $bObj->id))
+			{					
+				$ulDiv = new jqUI_uploader("blogCatIcon_".$bObj->id, "Upload new Icon ({$iconDim[0]}x{$iconDim[1]}):", "btnIcon_".$bObj->id, "Upload Icon", true);
+				$ulDiv->uploadButton->onclick = "return uploadBlogIcon({$bObj->id});";
+				$ulDiv->uploadButton->setIconClass("ui-icon-image");				
+
+				$iconDiv->addControl($ulDiv);
+				
+				if(get_class($iObj) == "image")
+				{
+					//we have an image, add a clear btn
+					$btnClear = new jqUI_button("", "Clear Image", "clearIcon", "ui-icon-trash", true);
+					$btnClear->onclick = "clearBlogIcon({$bObj->id})";
+					
+					$iconDiv->addControl($btnClear);
+				}
+			}
+				
+			$dDiv = new phpDIV();
+			$dDiv->class = "functions";
+			$dDiv->addControl(new phpHeader(2, validation::prepForDisplay($bObj->title, false)));				
+
+			$lEntry = $d->qryArray("select * from blogEntry where blogID={$bObj->id} order by addedDateTime desc limit 1");
+			
+			if ($lEntry[id])
+			{
+				$sec = new security($lEntry[updatedUserID]);
+				$dDiv->addControl(new phpHeader(5, "Last entry posted by $sec->login on ".validation::parseMySqlDate($lEntry[addedDateTime], "D, M d Y \a\\t h:ia")));	
+			}
+				
+			$btnEdit = new jqUI_button("", "Configure Blog", "", "ui-icon-wrench", true);
+			$btnEdit->onclick = "getBlogCategoryEdit({$bObj->id})";
+				
+			$btnEntries = new jqUI_button("", "Manage Entries", "", "ui-icon-folder-open", true);
+			$btnEntries->onclick = "getBlogEntryWin({$bObj->id})";			
+				
+			$dDiv->addControl($btnEdit);
+			$dDiv->addControl($btnEntries);
+			
+			if ($g_sec->hasAccess(permissions::$manage_blogs, permissions::delete))
+			{		
+				$btnDelete = new jqUI_button("", ($bObj->inactive ? "Delete" : "Deactivate")." Blog", "ui-state-error", "ui-icon-trash", true);
+				$btnDelete->onclick = "deleteBlog($bObj->inactive, {$bObj->id})";
+				
+				$dDiv->addControl($btnDelete);
+			}
+			
+			if ($bObj->inactive && $globWrite)
+			{
+				$btnAct = new jqUI_button("btnActivate_$blog[id]", "Re-Activate Blog", "ui-state-highlight", "ui-icon-refresh", true);
+				$btnAct->onclick = "activateBlog({$bObj->id})";
+				
+				$dDiv->addControl($btnAct);				
+			}
+			
+			$bDiv->addControl($iconDiv);
+			$bDiv->addControl($dDiv);
+			
+			$r = $t->addRow();
+			$r->addAttribute("data-id", $blog[id]);
+
+			$r->addCell(new tblCell($bDiv));
+			
+			$eCt++;
+		}		
+
+		if (!$eCt)
+		{
+			$r = $t->addRow();
+			$r->addCell(new tblCell(new phpParagraph("There are no blogs in this category."), "strong", "center"));
+		}
+		
+		$js->count = $totalCt;
+		$js->content = $t->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+}
+function uploadBlogImage($blogID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();	
+	
+	try
+	{	
+		$blog = new customBlog($blogID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $blogID)) $g_sec->security_error_a();
+		
+		$u = new upload($_FILES['fileToUpload'], true);
+		
+		$fExt = $u->getFileExtension($u->p_Name);
+		$fName = str_replace(".$fExt", time().".$fExt", $u->p_Name);
+		
+		//Turn whitespaces into _ and everything non-alpha-numeric into nothing		
+		$fName = preg_replace("/\s/","_", $fName);
+		$fName = preg_replace("/[^a-zA-Z0-9\.\_]/","", $fName);
+		
+		$baseLoc = "blogs/$blogID";
+		
+		$fLoc = $config[baseAppDir]."images/$baseLoc/";
+		
+		if (!file_exists($fLoc)) mkdir($fLoc, 0770, true);
+		
+		$fLoc .= $fName;
+		
+		if (!$u->uploadFile($fLoc, array("jpg","jpeg","png","gif"), true)) throw new Exception($u->err);
+
+		$cv[image] = "'$fName'";
+		$d->qryUpdateByArray("blogs",$cv,"id=$blogID");
+		
+		$js->image = $config[scripturl]."images/$baseLoc/$fName";
+		
+		pageClass::setNotify("Successfully uploaded blog image.");
+	}
+	catch(Exception $ex)
+	{		
+		$js->clear();
+		$js->error = $ex->getMessage();
+	}
+	
+	echo $js->render();
+}
+function clearBlogIcon($blogID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();	
+	
+	try
+	{	
+		$blog = new customBlog($blogID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $blog->id)) $g_sec->security_error_a();
+		
+		@unlink($config["baseAppDir"]."assets/blogs/{$blog->id}/icon.png");		
+		
+		pageClass::setNotify("Successfully cleared Blog Icon.");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getLinkedTopics($entryID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);	
+	$js = new json_a();
+	
+	$pc = new pageContent();		
+	
+	try
+	{
+		$entry = new customBlogEntry($entryID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::read, $entry->blogID)) $g_sec->security_error_a();
+		
+		$writeAccess = $g_sec->hasAccess(permissions::$manage_blogs, permissions::write) ||
+					   $g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $entry->blogID);
+			
+		$t = new tblBuilder('center', 0, 0, 5, '100%');
+		$t->class = 'listTable';
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("Topic"));
+		$r->addHeader(new tblHeader("Associated Entries"));
+		$r->addHeader(new tblHeader("&nbsp;"));
+		
+		$linkedTopics = $entry->getLinkedTopics();
+		
+		foreach($linkedTopics as $topic)
+		{
+			$entryCount = $d->qryCount("select count(id) from blogEntryLink where dataID=$topic[id] and typeID=2");
+			
+			if ($writeAccess)
+			{
+				$dCtl = new deleteControl();
+				$dCtl->onclick = "unlinkTopic({$topic["linkID"]})";				
+			}
+			else
+			{
+				$dCtl = new phpFiller();
+			}
+			
+			$r = $t->addRow();
+			$r->addCell(new tblCell(validation::prepForDisplay($topic[title]), "evenCell", "left"));
+			$r->addCell(new tblCell($entryCount, "oddCell", "center"));
+			$r->addCell(new tblCell($dCtl, "evenCell", "center"));	
+		}
+		
+		$pc->addControl($t);
+		
+		if ($writeAccess)
+		{
+			$dvLink = new phpDIV();
+			$dvLink->id = 'topicLink';
+			
+			$btnLink = new jqUI_button("btnLink", "Link Blog Topic", "", "ui-icon-link", true);
+			$btnLink->onclick = "doLinkTopic($entryID)";
+			
+			$linkDDL = new phpDDL("linkTopic");
+			$linkDDL->setLabel("Link a Blog Topic:", "longLabel");
+			$linkDDL->onchange = "checkLinkTopic()";
+			$linkDDL->addListItem(new phpListItem("New Blog Topic", 0));
+			
+			$qry = "select blogTopics.*
+					from blogTopics
+					where not exists(select id from blogEntryLink where typeID=2 and dataID=blogTopics.id and blogEntryID=$entryID)
+					order by blogTopics.title asc";
+			$tQry = $d->qry($qry);
+			
+			while($topic = $tQry->fetch_assoc())
+			{
+				$linkDDL->addListItem(new phpListItem(validation::prepForDisplay($topic[title], false), $topic[id]));	
+			}
+			
+			$txtTopic = new customText("newTopic", "", 25, 255, "textBox");
+			
+			$dvLink->addControl($linkDDL);
+			$dvLink->addControl($txtTopic);
+			$dvLink->addControl($btnLink);
+			
+			$frm = new phpForm();
+			$frm->addControl($dvLink);
+			
+			$pc->addControl($frm);
+		}
+		
+		$js->topicCount = count($linkedTopics);
+		$js->content = $pc->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();	
+}
+function linkTopic($entryID, $topicID, $customTopic)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);	
+	$js = new json_a();		
+	
+	try
+	{
+		validation::ensureInt($topicID);
+		
+		$entry = new customBlogEntry($entryID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $entry->blogID)) $g_sec->security_error_a();
+		
+		if (!$topicID && !$customTopic) throw new Exception("Error, no custom blog topic specified!");
+		if (isset($entry->p_linkedTopics[$topicID])) throw new Exception("Error, this topic is already linked to this blog entry!");
+		
+		if (!$topicID)
+		{
+			$cv[title] = "'$customTopic'";
+			$topicID = $d->qryInsertByArray("blogTopics", $cv);
+			
+			if (!$topicID) throw new Exception("Error creating custom topic. Please try again.");
+		}
+		
+		unset($cv);
+		
+		$topic = $d->qryArray("select * from blogTopics where id=$topicID");
+		if (!$topic[id]) throw new Exception("Error, that topic cannot be found!");
+		
+		$cv[dataID] = $topicID;
+		$cv[typeID] = 2;
+		$cv[blogEntryID] = $entryID;
+		
+		$d->qryInsertByArray("blogEntryLink", $cv);
+
+		pageClass::setNotify("Successfully linked Blog Topic");		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();	
+}
+function unlinkTopic($linkID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);	
+	$js = new json_a();		
+	
+	try
+	{
+		validation::ensureInt($linkID);
+		if (!$linkID) throw new Exception("Error, no topic link specified.");
+		
+		$link = $d->qryArray("select * from blogEntryLink where id=$linkID");
+		if (!$link["id"]) throw new Exception("Error, that topic link could not be found!");
+		
+		$entry = new customBlogEntry($link["blogEntryID"]);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $entry->blogID)) $g_sec->security_error_a();
+		
+		$d->qry("delete from blogEntryLink where id=$linkID");
+		
+		if (!$d->qryCount("select count(*) from blogEntryLink where typeID=2 and dataID={$link["dataID"]}"))
+		{
+			$conf = new siteConfig();
+			
+			if ($conf->moduleEnabled(proteus_core::$module_customCategories))
+			{
+				$fQry = $d->qry("select categoryFeatureLookup.* 
+							     from categoryFeatureLookup inner join categoryFeature on categoryFeature.id = categoryFeatureLookup.categoryFeatureID 
+							     where categoryFeature.featureType = ".customCategoryTypes::blog_topic);
+				while($feature = $fQry->fetch_assoc())
+				{
+					$arr = ($feature[value] ? explode("::", $feature[value]) : array());
+					
+					foreach($arr as $topicID)
+					{
+						if ($topicID == $link[dataID]) $found = true;
+					}
+				}
+			}
+			
+			//Remove the blog topic entirely if no links are found			
+			if (!$found) $d->qry("delete from blogTopics where id={$link["dataID"]}");
+		}
+		
+		$js->entryID = $link["blogEntryID"];
+		
+		pageClass::setNotify("Successfully removed Blog Topic link");		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();	
+}
+function getLinkedBlogTypes($itemID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);	
+	$js = new json_a();
+
+	$pc = new pageContent();
+	
+	try
+	{
+		$item = new categoryItem($itemID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_category_types, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$manage_category_items, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$modify_category_type, permissions::read, $item->categoryTypeID))
+		{
+			$g_sec->security_error_a();
+		}
+		
+		$writeAccess = $g_sec->hasAccess(permissions::$manage_category_types, permissions::write) ||
+					   $g_sec->hasAccess(permissions::$manage_category_items, permissions::write) ||
+					   $g_sec->hasAccess(permissions::$modify_category_type, permissions::write, $item->categoryTypeID);
+		
+		foreach((array)$item->features as $feature)
+		{			
+			$t = new tblBuilder('center', 0, 0, 5, '100%');
+			$t->class = 'listTable';
+			
+			$lDiv = new phpFiller();
+			
+			$spnLbl = new phpSpan(validation::prepForDisplay($feature->fieldName, false), "label");
+			
+			switch($feature->featureType)
+			{
+				case customCategoryTypes::blog_topic:
+					//Topic
+					$spnLbl->addControl(new phpSpan(" (Blog Topic)", "featureType"));
+					
+					if (count($feature->value))
+					{
+						$wh = array();
+						
+						$r = $t->addRow();
+						$r->addHeader(new tblHeader("Topic:"));
+						$r->addHeader(new tblHeader("Linked Blogs"));
+						$r->addHeader(new tblHeader("&nbsp;"));
+												
+						foreach($feature->value as $topicID)
+						{						
+							if ($writeAccess)
+							{
+								$dCtl = new deleteControl("javascript:removeFeatureLink($feature->featureLookupID, $topicID)");
+								$dCtl->setVerifyMessage("Are you sure you want to unlink this Blog Topic? This will remove the topic permanently if there are no blog entries in it.");
+							}
+							else
+							{
+								$dCtl = new phpFiller();
+							}
+							
+							$topic = $d->qryArray("select * from blogTopics where id=$topicID");
+							if (!$topic[id])
+							{
+								//Remove linked topics that have been removed (precautionary cleanup)
+								//$d->qry("delete from categoryFeatureLookup where id=$feature->featureLookupID");
+								continue 2;
+							}
+							
+							$blogCt = $d->qryCount("select count(blogEntry.id)
+													from blogEntry inner join blogEntryLink on blogEntryLink.blogEntryID = blogEntry.id
+													where blogEntryLink.typeID = 2 and dataID = $topicID");
+							
+							$r = $t->addRow();
+							$r->addCell(new tblCell(validation::prepForDisplay($topic[title], false), "evenCell", "left"));
+							$r->addCell(new tblCell($blogCt, "oddCell", "center"));
+							$r->addCell(new tblCell($dCtl, "evenCell", "center"));
+							
+							$wh[] = $topicID;
+						}
+						
+						//This is not the prettiest thing ever, but it works.
+						$whCl = "where id <> ".implode(" and id <> ", $wh);						
+					}					
+						
+					$ddl = new phpDDL("blogTopic_$feature->id");
+					$ddl->setLabel("Select a Blog Topic:", "longLabel");
+					$ddl->dataOrdinal = "id";
+					$ddl->displayOrdinal = "title";
+					$ddl->bind($d->qry("select * 
+										from blogTopics
+										$whCl
+										order by title asc"));						
+					
+					$btnBind = new jqUI_button("btnLinkTopic_$feature->id", "Link Blog Topic", "", "ui-icon-link", true);
+					$btnBind->onclick = "linkFeatureData($itemID, $feature->id, this)";
+					
+					if ($writeAccess && count($ddl->listItems))
+					{
+						$lDiv = new phpDIV();
+						$lDiv->class = 'blogLinkDiv';
+					
+						$lDiv->addControl($ddl);
+						$lDiv->addControl($btnBind);
+					}
+					else
+					{
+						$lDiv = new phpFiller();
+					}
+					
+					break;
+				case customCategoryTypes::blog_category:
+					//Category
+					$spnLbl->addControl(new phpSpan(" (Blog Category)", "featureType"));
+					
+					if (count($feature->value))
+					{
+						$wh = array();
+						
+						$r = $t->addRow();
+						$r->addHeader(new tblHeader("Category:"));
+						$r->addHeader(new tblHeader("Linked Blogs"));
+						$r->addHeader(new tblHeader("&nbsp;"));
+												
+						foreach($feature->value as $categoryID)
+						{			
+							if ($writeAccess)
+							{			
+								$dCtl = new deleteControl("javascript:removeFeatureLink($feature->featureLookupID, $categoryID)");
+								$dCtl->setVerifyMessage("Are you sure you want to unlink this Blog Category?");
+							}
+							else
+							{
+								$dCtl = new phpFiller();
+							}
+							
+							$category = $d->qryArray("select * from blogs where id=$categoryID");
+							if (!$category[id])
+							{
+								//Remove linked topics that have been removed (precautionary cleanup)
+								//$d->qry("delete from categoryFeatureLookup where id=$feature->featureLookupID");
+								continue 2;
+							}
+							
+							$blogCt = $d->qryCount("select count(blogEntry.id)
+													from blogEntry inner join blogs on blogs.id = blogEntry.blogID
+													where blogs.id=$categoryID");
+							
+							$r = $t->addRow();
+							$r->addCell(new tblCell(validation::prepForDisplay($category[title], false), "evenCell", "left"));
+							$r->addCell(new tblCell($blogCt, "oddCell", "center"));
+							$r->addCell(new tblCell($dCtl, "evenCell", "center"));
+							
+							$wh[] = $categoryID;
+						}
+						
+						//This is not the prettiest thing ever, but it works.
+						$whCl = "where id <> ".implode(" and id <> ", $wh);
+						error_log($whCl);
+					}					
+						
+					$ddl = new phpDDL("blogCategory_$feature->id");
+					$ddl->setLabel("Select a Blog Category:", "longLabel");
+					$ddl->dataOrdinal = "id";
+					$ddl->displayOrdinal = "title";
+					$ddl->bind($d->qry("select * 
+										from blogs
+										$whCl
+										order by title asc"));						
+					
+					$btnBind = new jqUI_button("btnLinkCategory_$feature->id", "Link Blog Category", "", "ui-icon-link", true);
+					$btnBind->onclick = "linkFeatureData($itemID, $feature->id, this)";
+					
+					if ($writeAccess && count($ddl->listItems))
+					{
+						$lDiv = new phpDIV();
+						$lDiv->class = 'blogLinkDiv';
+					
+						$lDiv->addControl($ddl);
+						$lDiv->addControl($btnBind);
+					}
+					else
+					{
+						$lDiv = new phpFiller();
+					}
+					break;
+				default:
+					continue 2;
+			}
+			
+			$pc->addControl($spnLbl);
+			$pc->addControl($t);
+			$pc->addControl($lDiv);
+		}
+		
+		$js->content = $pc->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+}
+function generateTagCloud($entryID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+
+	try
+	{		
+		$entry = new customBlogEntry($entryID);	
+
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $entry->blogID)) $g_sec->security_error_a();
+		
+		$body = $entry->body;
+		$body .= $entry->title;
+		
+		$qry = "select *
+				from blogTopics inner join blogEntryLink on blogEntryLink.dataID = blogTopics.id
+				where typeID = 2 and blogEntryID = $entryID";		
+		$cpQry = $d->qry($qry);		
+		
+		while($topic = $cpQry->fetch_assoc())
+		{
+			$body .= $topic[title];
+		}
+		
+		$body = str_replace("\\n", " ", $body);
+		
+		if (!$body) throw new Exception("There should probably be some content in there before we try auto generating a tag cloud.");
+		
+		//Parse through the HTML to get relevant content
+		//preg_match("/\<[^\>]+\>(.*)\</", $body, $matches);
+		$body = preg_replace(array("/\<[^\>]+\/?\>/","/\'s/","/[^a-zA-Z0-9\s\\n]/"), " ", $body);		
+		$body = stripslashes($body);		
+		
+		//Have to include "the" here since it's often capitalized (which gives it more weight)
+		$exclusions = array("the", "with", "then", "that", "this", "when", "where", "while", "here", "there", 
+							"will", "went", "nbsp", "want", "would", "image", "like", "alot", "who", "what", 
+							"you", "your", "have", "had", "each", "http");
+		
+		$body = str_ireplace($exclusions, "", $body);
+		
+		//Get an array of words
+		$wordsArr = explode(" ", $body);
+
+		//Loop through, create a new weighted array
+		foreach($wordsArr as $word)
+		{			
+			$firstIsUC = preg_match("/[A-Z]{1,}/", $word);
+			$wordLen = strlen($word);
+			
+			$isExcluded = $d->qryCount("select * from blogTagCloud where blogEntryID=$entryID and tag='$word' and excluded=1");
+			
+			if (($wordLen >= 4 || ($firstIsUC && $wordLen > 1)) && !$isExcluded)
+			{
+				//Give words with a capital first letter a weight of 3 each time it occurs - excludes 3 letter words
+				$weightedArr[$word] += $firstIsUC && $wordLen > 3 ? 3 : 1;
+			}	
+		}		
+		
+		//Get any user-defined tags and add them here so it'll randomize (looks better)
+		$qry = "select *
+				from blogTagCloud
+				where blogEntryID=$entryID and excluded=0 and userAdded=1";		
+		$tQry = $d->qry($qry);
+		
+		while($tag = $tQry->fetch_assoc())
+		{
+			$weightedArr[$tag[tag]] += $tag[weight];
+			$customTags[] = $tag[tag];
+		}
+		
+		arsort($weightedArr);
+		$weightedArr = array_slice($weightedArr, 0, 20);
+		
+		$keys = array_keys($weightedArr);
+   		shuffle($keys);
+   		
+   		$weightedArr = array_merge(array_flip($keys), $weightedArr);
+		
+		//Remove the auto-generated tags
+		$d->qry("delete from blogTagCloud where blogEntryID=$entryID and excluded=0");
+		
+		foreach($weightedArr as $word=>$weight)
+		{
+			$cv[blogEntryID] = $entryID;
+			$cv[tag] = "'$word'";
+			$cv[weight] = $weight;
+			$cv[userAdded] = 0;
+
+			if (in_array($word, (array)$customTags)) $cv[userAdded] = 1;
+			
+			$d->qryInsertByArray("blogTagCloud", $cv);
+		}
+		
+		pageClass::setNotify("Successfully generated Tag Cloud.");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+	
+}
+function getTagCloud($entryID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+
+	$pc = new pageContent();
+	
+	try
+	{		
+		$entry = new customBlogEntry($entryID);
+
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::read, $entry->blogID)) $g_sec->security_error_a();
+		
+		$writeAccess = $g_sec->hasAccess(permissions::$manage_blogs, permissions::write) ||
+					   $g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $entry->blogID);
+			
+		$cap = 150;
+		$start = 100;
+		
+		$tagDiv = new phpDIV();
+		$tagDiv->class = 'tagDisplay';
+		
+		$tagDiv->addControl(new phpHeader(1, "Configured Tags","topHeader"));
+		
+		$qry = "select *
+				from blogTagCloud
+				where blogEntryID=$entryID and excluded=0";
+		$totalCt = $d->getTotalCount($qry);
+
+		$tQry = $d->qry($qry);
+		
+		while($tag = $tQry->fetch_assoc())
+		{
+			$fontSize = $tag[weight]*5;
+			if ($fontSize > $cap) $fontSize = $cap;
+			
+			$fontSize += $start;
+			
+			$spn = new phpSpan($tag[tag], "tag");
+			$spn->style = "font-size: {$fontSize}%";
+			$spn->addAttribute("data-tagid", $tag[id]);
+			
+			$tagDiv->addControl($spn);
+		}		
+		
+		if ($writeAccess)
+		{
+			$txtTag = new customText("txtTag","",25, 50, "textBox");
+			$txtTag->setLabel("Add a Tag:");
+			
+			$ddlWeight = new phpDDL("tagWeight");
+			$ddlWeight->setLabel("Tag Weight:");
+			
+			for($i=5; $i <= 20; $i++)
+			{
+				$ddlWeight->addListItem(new phpListItem($i, $i));
+			}
+			
+			$btnAdd = new jqUI_button("btnAddTag", "Add Tag", "", "ui-icon-tag", true);
+			$btnAdd->onclick = "addTag($entryID)";
+			
+			$btnGenerate = new jqUI_button("btnGenerate", "Generate Tag Cloud", "wrapperButtonFloatRight", "ui-icon-lightbulb", true);
+			$btnGenerate->onclick = "generateTagCloud($entryID)";
+			
+			$mDiv = new phpDIV();
+			$mDiv->id = 'tagMaint';
+			
+			$mDiv->addControl($txtTag);
+			$mDiv->addControl($ddlWeight);
+			$mDiv->addControl($btnAdd);
+			$mDiv->addControl($btnGenerate);
+			
+			$pc->addControl($mDiv);
+		}
+		
+		$tagDiv->addControl(new phpHeader(1, "Excluded Tags","topHeader"));
+		
+		$qry = "select *
+				from blogTagCloud
+				where blogEntryID=$entryID and excluded=1";
+		$tQry = $d->qry($qry);
+		
+		$eCt = 0;
+		while($tag = $tQry->fetch_assoc())
+		{
+			$spn = new phpSpan($tag[tag], "tag");			
+			$spn->addAttribute("data-tagid", $tag[id]);
+			
+			$tagDiv->addControl($spn);
+			$eCt++;
+		}		
+		
+		if (!$eCt) $tagDiv->addControl(new phpParagraph("<em>No excluded tags</em>"));
+		
+		$pc->addControl($tagDiv);
+		
+		$js->content = $pc->render();
+		if (!$writeAccess) $js->locked = 1;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+function addTag($entryID, $tag, $weight)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+
+	$pc = new pageContent();
+	
+	try
+	{				
+		$entry = new customBlogEntry($entryID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $entry->blogID)) $g_sec->security_error_a();
+		
+		validation::ensureInt($weight, 5);
+		if (strlen($tag) < 3) throw new Exception("Tags must be at least 3 characters in length. Please try again.");
+		
+		$tag = preg_replace("/[^a-z0-9\s\-\_]/i", "", $tag);
+		
+		//Housekeeping
+		$d->qry("delete from blogTagCloud where blogEntryID=$entryID and tag='$tag'");
+		
+		$cv[blogEntryID] = $entryID;
+		$cv[tag] = "'$tag'";
+		$cv[weight] = $weight;
+		$cv[userAdded] = 1;
+		
+		$d->qryInsertByArray("blogTagCloud", $cv);
+		
+		pageClass::setNotify("Successfully Added Custom Tag");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function removeTag($tagID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($tagID);
+		if (!$tagID) throw new Exception("Error, no tag specified.");
+		
+		$tag = $d->qryArray("select * from blogTagCloud where id=$tagID");
+		if (!$tag[id]) throw new Exception("Error, that tag cannot be found! Please try again.");
+		
+		$entry = new customBlogEntry($tag[blogEntryID]);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $entry->blogID)) $g_sec->security_error_a();
+		
+		//User added it, or it's already been excluded (remove from exclusion list)
+		if ($tag[userAdded] || $tag[excluded])
+		{	
+			$d->qry("delete from blogTagCloud where id=$tagID");
+
+			if ($tag[userAdded]) pageClass::setNotify("Successfully Removed Custom Tag");
+			if ($tag[excluded]) pageClass::setNotify("Successfully Removed Excluded Tag. Regenerate tag cloud to have it included automatically again.");
+		}
+		else
+		{
+			$cv[excluded] = 1;
+			$d->qryUpdateByArray("blogTagCloud", $cv, "id=$tagID");
+
+			if ($tag[userAdded]) pageClass::setNotify("Successfully Excluded Tag");
+		}
+		
+		$js->entryID = $tag[blogEntryID];
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function updateBlog($blogID, $fields)
+{
+	global $config, $g_sec;
+	
+	$d = new DAL(true);
+
+	validation::ensureInt($blogID);
+	
+	$js = new json_a();	
+	
+	try
+	{
+		foreach((array)$fields as $field)
+		{
+			$blog[$field[name]] = $field[value];
+		}
+		
+		if (strlen($blog[title]) < 3) throw new Exception("Error, blog title must be at least 3 characters!");
+		
+		if (!$blog[inactive]) $blog[inactive] = 0;
+		
+		$blog[description] = validation::prepMultiLineForStorage($blog[description]);
+		
+		$qCV = validation::quotedArray($blog);
+		
+		if (!$blogID)
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::insert)) $g_sec->security_error_a();
+			
+			$pos = $d->qryCount("select max(position) from blogs")+1;
+			
+			$qCV[addedDateTime] = "now()";
+			$qCV[position] = $pos;
+			
+			$blogID = $d->qryInsertByArray("blogs", $qCV);			
+			
+			pageClass::setNotify("Successfully added Blog Category");			
+		}
+		else
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+				!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $blogID)) $g_sec->security_error_a();
+			
+			$d->qryUpdateByArray("blogs", $qCV,"id=$blogID");
+			
+			pageClass::setNotify("Successfully updated Blog Category");
+		}
+	}
+	catch(Exception $ex)
+	{	
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+	
+	echo $js->render();	
+}
+function getBlogFeeds($paging, $sortData, $filterColumns, $customColumns)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+
+	$pc = new phpDIV();
+	
+	try
+	{				
+		validation::ensureInt($status);
+		if (!$status) $status = 0;
+		
+		// Let users with manage_blogs access see the list (but not write)
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$manage_blog_feeds, permissions::read)) $g_sec->security_error_a();
+		
+		// Don't give users without explicit blog_feed permissions access to write (sort)
+		$writeAccess = $g_sec->hasAccess(permissions::$manage_blog_feeds, permissions::write);
+		
+		$t = new tblBuilder("center", 0, 0, 5, '100%');
+		$t->class = "listTable hoverTable feedTable";
+		$t->addAttribute("data-sort-type", tableSorter_core::$sort_blog_feed["sortType"]);		
+		
+		$r = $t->addRow();
+	
+		$r->addHeader(new tblHeader('Feed Name'));
+		$r->addHeader(new tblHeader('Linked Entries'));
+		$r->addHeader(new tblHeader('&nbsp;'));	
+		
+		foreach((array)$customColumns as $cFilter)
+		{
+			if (!strlen($cFilter["value"])) continue;
+				
+			switch($cFilter["key"])
+			{					
+				case "status":
+					if (!$cFilter["value"] && $writeAccess) $t->addClass("sortable");
+					
+					$wh[] = "blogFeeds.inactive = {$cFilter["value"]}";
+					
+					break;
+			}
+		}		
+		
+		tableFilter::getWhereArray($filterColumns, $wh, $hvArr);
+		$whClause = tableFilter::getWhereClause($wh);
+		
+		$qry = "select blogFeeds.*
+				from blogFeeds				   
+				where 1 $whClause
+				".tableFilter::getHavingClause($hvArr)."
+				order by ".tableFilter::getOrderClause($sortData, "position asc");
+		
+		$totalCt = $d->qryRow($qry);
+		$fQry = $d->qry($qry.tableFilter::getLimitClause($paging));
+		
+		while($feed = $fQry->fetch_assoc())
+		{		
+			$eCtl = $dCtl = new phpFiller();
+			
+			if ($writeAccess)
+			{
+				$eCtl = new editControl();
+				$eCtl->onclick = "getBlogFeedEdit($feed[id])";	
+			}
+
+			if ($feed["inactive"] && $g_sec->hasAccess(permissions::$manage_blog_feeds, permissions::delete))
+			{
+				//Only allow deleting after it's been marked as inactive!				
+				$dCtl = new deleteControl();	
+				$dCtl->onclick = "deleteBlogFeed($feed[id])";				
+			}
+			
+			$entryCt = $d->qryCount("select count(*) from blogEntryLink where typeID=1 and dataID={$feed["id"]}");
+			
+			$r = $t->addRow();
+			if (!$feed["inactive"]) $r->addAttribute("data-id", $feed["id"]);
+			
+			$r->addCell(new tblCell(validation::prepForDisplay($feed["name"]), "evenCell", "left"));
+			$r->addCell(new tblCell($entryCt, "oddCell", "center"));	
+			$r->addCell(new tblCell(array($eCtl, $dCtl), "evenCell", "center", "", 80));
+			
+			$ct++;
+		}
+		
+		if (!$totalCt)
+		{
+			$r = $t->addRow();
+			$r->addCell(new tblCell(new phpParagraph("No Blog Feeds Found"), "strong", "center", 3));			
+		}
+		
+		$pc->addControl($t);
+		
+		$js->content = $pc->render();
+		$js->count = $ct;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+function updateBlogFeed($feedID, $feed)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{			
+		validation::ensureInt($feed["inactive"], 0);
+		if (strlen($feed["name"]) < 5) throw new Exception("Error, Blog Feed Name must be at least 5 characters.");
+		
+		$feedObj = new customBlogFeed($feedID);		
+		$feedObj->name = "'{$feed["name"]}'";		
+		
+		if ($feedObj->id)
+		{						
+			if (!$g_sec->hasAccess(permissions::$manage_blog_feeds, permissions::write)) $g_sec->security_error_a();			
+			
+			$feedObj->inactive = $feed["inactive"];
+			$feedObj->save();			
+			
+			pageClass::setNotify("Successfully saved Blog Feed");
+		}
+		else
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_blog_feeds, permissions::insert)) $g_sec->security_error_a();			
+			
+			$feedObj->insert();
+			
+			pageClass::setNotify("Successfully Added new Blog Feed");
+		}
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+function getBlogFeedEdit($feedID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		if (!$g_sec->hasAccess(permissions::$manage_blog_feeds, permissions::write)) $g_sec->security_error_a();
+		
+		$feed = new customBlogFeed($feedID);
+		
+		if (!$feed->id)
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_blog_feeds, permissions::insert)) $g_sec->security_error_a();
+		}
+		
+		$editWin = new jqUI_dialog("feedEditWin", true, 500, "", $feed->id ? "Modify Blog Feed" : "Add a new Blog Feed");
+		$editWin->addClass("configWin");
+		$editWin->setOption("autoOpen", true);		
+		$editWin->setOption("autoResize", true);
+		
+		$editWin->addCloseButton($feed->id ? "Close" : "Cancel");
+		$editWin->addButton($feed->id ? "Save Blog Feed" : "Add new Blog Feed", "updateBlogFeed");
+				
+		$txtName = new customText("feed[name]", validation::prepTextForInput($feed->name), 25, 50);
+		$txtName->setLabel("Feed Name:");				
+			
+		$chkInactive = new phpCheckbox("feed[inactive]", 1, $feed->inactive);
+		$chkInactive->setLabel("Inactive?");		
+		
+		$frm = new phpForm("post", "frmFeed");
+		$frm->addControl($txtName);
+		if ($feed->id) $frm->addControl($chkInactive);
+		$frm->addControl(new hiddenInput("action", "updateBlogFeed"));
+		$frm->addControl(new hiddenInput("feedID", $feed->id));
+		
+		$editWin->addControl($frm);
+		
+		$js->content = $editWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+function deleteBlogFeed($feedID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		if (!$g_sec->hasAccess(permissions::$manage_blog_feeds, permissions::delete)) $g_sec->security_error_a();
+		
+		$feed = new customBlogFeed($feedID);
+		
+		$d->qry("delete from blogEntryLink where typeID=1 and dataID=$feedID");
+		$d->qry("delete from blogFeeds where id=$feedID");
+		
+		pageClass::setNotify("Successfully removed Blog Feed");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+function getLinkedFeeds($entryID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);	
+	$js = new json_a();
+	
+	$pc = new pageContent();		
+	
+	try
+	{
+		$entry = new customBlogEntry($entryID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::read, $entry->blogID)) $g_sec->security_error_a();
+		
+		$writeAccess = $g_sec->hasAccess(permissions::$manage_blogs, permissions::write) ||
+					   $g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $entry->blogID);
+			
+		$t = new tblBuilder('center', 0, 0, 5, '100%');
+		$t->class = 'listTable';
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("Blog Feed"));
+		$r->addHeader(new tblHeader("Associated Entries"));
+		$r->addHeader(new tblHeader("&nbsp;"));
+		
+		$linkedFeeds = $entry->getLinkedFeeds();
+		
+		foreach($linkedFeeds as $feed)
+		{
+			$entryCount = $d->qryCount("select count(id) from blogEntryLink where dataID=$feed[id] and typeID=1");
+			
+			if ($writeAccess)
+			{
+				$dCtl = new deleteControl();
+				$dCtl->onclick = "unlinkFeed({$feed["linkID"]})";				
+			}
+			else
+			{
+				$dCtl = new phpFiller();
+			}
+			
+			$r = $t->addRow();
+			$r->addCell(new tblCell(validation::prepForDisplay($feed[name], false), "evenCell", "left"));
+			$r->addCell(new tblCell($entryCount, "oddCell", "center"));
+			$r->addCell(new tblCell($dCtl, "evenCell", "center"));	
+		}
+		
+		$pc->addControl($t);
+		
+		if ($writeAccess)
+		{
+			$dvLink = new phpDIV();
+			$dvLink->id = 'feedLink';
+			
+			$btnLink = new jqUI_button("btnLink", "Link Blog Feed", "", "ui-icon-link", true);
+			$btnLink->onclick = "doLinkFeed($entryID)";
+			
+			$linkDDL = new phpDDL("linkFeed");
+			$linkDDL->setLabel("Link a Blog Feed:", "longLabel");			
+			
+			$qry = "select blogFeeds.*
+					from blogFeeds
+					where not exists(select id from blogEntryLink where typeID=1 and dataID=blogFeeds.id and blogEntryID=$entryID)
+					order by blogFeeds.name asc";
+			$fQry = $d->qry($qry);
+			
+			while($feed = $fQry->fetch_assoc())
+			{
+				$linkDDL->addListItem(new phpListItem(validation::prepForDisplay($feed[name], false), $feed[id]));	
+			}			
+			
+			$dvLink->addControl($linkDDL);		
+			$dvLink->addControl($btnLink);
+			
+			$frm = new phpForm();
+			$frm->addControl($dvLink);
+			
+			if (count($linkDDL->listItems))
+			{
+				$pc->addControl($frm);
+			}
+		}
+		
+		$js->feedCount = count($linkedFeeds);
+		$js->content = $pc->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();	
+}
+function linkFeed($entryID, $feedID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);	
+	$js = new json_a();		
+	
+	try
+	{	
+		$entry = new customBlogEntry($entryID);
+		$feed = new customBlogFeed($feedID, false);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $entry->blogID)) $g_sec->security_error_a();
+				
+		if (isset($entry->p_linkedFeeds[$feedID])) throw new Exception("Error, this Feed is already linked to this blog entry!");
+				
+		$cv[dataID] = $feedID;
+		$cv[typeID] = 1;
+		$cv[blogEntryID] = $entryID;
+		
+		$d->qryInsertByArray("blogEntryLink", $cv);
+
+		pageClass::setNotify("Successfully linked Blog Feed");		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();	
+}
+function unlinkFeed($linkID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);	
+	$js = new json_a();		
+	
+	try
+	{
+		validation::ensureInt($linkID);
+		if (!$linkID) throw new Exception("Error, no topic link specified.");
+		
+		$link = $d->qryArray("select * from blogEntryLink where id=$linkID");
+		if (!$link[id]) throw new Exception("Error, that feed link could not be found!");
+		
+		$entry = new customBlogEntry($link["blogEntryID"]);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $entry->blogID)) $g_sec->security_error_a();
+		
+		$d->qry("delete from blogEntryLink where id=$linkID");
+		
+		$js->entryID = $link["blogEntryID"];
+		
+		pageClass::setNotify("Successfully removed Blog Feed link");		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();	
+}
+function getBlogEntryWin($blogID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();	
+	
+	try
+	{	
+		$bObj = new customBlog($blogID, true);
+		if (!$bObj->id) throw new Exception("Error, that blog could not be found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::read, $bObj->id)) $g_sec->security_error_a();
+			
+		$writePermissions = $g_sec->hasAccess(permissions::$manage_blogs, permissions::write) || $g_sec->hasAccess(permissions::$manage_blog_category, permissions::write, $bObj->id);
+		$deletePermissions = $g_sec->hasAccess(permissions::$manage_blogs, permissions::delete) || $g_sec->hasAccess(permissions::$modify_blog_category, permissions::delete, $bObj->id);	
+		
+		$eWin = new jqUI_dialog("entriesWin", true, 875, "", validation::prepForDisplay($bObj->title, false)." Blog Entries");
+		$eWin->addClass("configWin");
+		$eWin->setOption("autoOpen", true);				
+		$eWin->fitToViewport();
+		
+		$eWin->addCloseButton("Close");
+		
+		if ($writePermissions)
+		{
+			$eWin->addButton("Add a new Blog Entry", "function() { getBlogEntryEdit(0, {$bObj->id}); }");
+		}		
+
+		$tblFilter = new tableFilter("blogEntryFilter", "#blogEntryTable", "function() { getBlogEntries({$bObj->id}); }");			
+		$tblFilter->setPaging(25);	
+	
+		$tblFilter->addCustomFilter("status", tableFilter::filter_dropdown, "Status:", array("Active"=>0, "Pending"=>1, "Expired"=>2, "Inactive"=>3));	
+		$tblFilter->addCustomFilter("addedDateTime", tableFilter::filter_date_range, "Added between: ");
+		$tblFilter->addCustomFilter("publishDate", tableFilter::filter_date_range, "Published between: ");
+		$tblFilter->addCustomFilter("expireDate", tableFilter::filter_date_range, "Expires between: ");
+		
+		$dv = new phpDIV();
+		$dv->id = "blogEntries";		
+		
+		$eWin->addControl($tblFilter);
+		$eWin->addControl($dv);
+		
+		$js->content = $eWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+}
+function getBlogEntries($blogID, $paging, $sortData, $filterColumns, $customColumns)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		$bObj = new customBlog($blogID);
+		if (!$bObj->id) throw new Exception("Error, that blog could not be found!");
+		
+		if (!$g_sec->is(permissions::$manage_blogs) && !$g_sec->is(permissions::$modify_blog_category, $bObj->id)) $g_sec->security_error_a();
+		
+		$writeAccess = $g_sec->hasAccess(permissions::$manage_blogs, permissions::write) || $g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $bObj->id);
+		
+		$t = new tblBuilder("center",0,0,0,"100%");
+		$t->class = "listTable";
+		$t->id = "blogEntryTable";	
+		
+		foreach((array)$customColumns as $cFilter)
+		{
+			if (!strlen($cFilter["value"])) continue;
+				
+			switch($cFilter["key"])
+			{					
+				case "status":
+					switch($cFilter["value"])
+					{
+						case 0:
+							$wh[] = "((publishDate is null or publishDate < now()) and (expireDate is null or expireDate > now()))";
+							break;
+						case 1:
+							$wh[] = "(publishDate is not null and publishDate > now())";
+							break;
+						case 2:
+							$wh[] = "(expireDate is not null and expireDate < now())";
+							break;
+						case 3:
+							$wh[] = "inactive = 1";
+							break;
+					}
+					
+					if ($cFilter["value"] != 3) $wh[] = "inactive = 0";
+					
+					break;
+				case "addedDateTime":
+				case "publishDate":					
+				case "expireDate":
+					$wh[] = tableFilter::getDateBetweenClause($cFilter["key"], $cFilter["value"]);
+					break;
+			}			
+		}		
+		
+		tableFilter::getWhereArray($filterColumns, $wh, $hvArr);
+		$whClause = tableFilter::getWhereClause($wh);
+		
+		$qry = "select blogEntry.*
+				from blogEntry						   
+				where blogEntry.blogID = {$bObj->id} $whClause
+				".tableFilter::getHavingClause($hvArr)."
+				order by ".tableFilter::getOrderClause($sortData, "if(publishDate IS NULL, updatedDateTime, publishDate) desc");
+		
+		$totalCt = $d->qryRow($qry);
+		$eQry = $d->qry($qry.tableFilter::getLimitClause($paging));
+		
+		while($entry = $eQry->fetch_assoc())
+		{			
+			$entry = new customBlogEntry($entry["id"]);			
+				
+			$bDiv = new phpDIV();
+			$bDiv->class = 'blogContainer';
+			
+			$iconDiv = new phpDIV();
+			$iconDiv->class = "blogLeft";
+			
+			$iconObject = $entry->getIconObject($iconLoc, $iconDim); // save for checking if need clear btn			
+			$iconDiv->addControl($iconObject);
+				
+			if ($writeAccess)
+			{					
+				$ulDiv = new jqUI_uploader("entryIcon_{$entry->id}", "Upload new Icon ({$iconDim[0]}x{$iconDim[1]}):", "btnEntryIcon_{$entry->id}", "Upload Icon", true);
+				$ulDiv->uploadButton->onclick = "return uploadBlogEntryIcon({$entry->id});";
+				$ulDiv->uploadButton->setIconClass("ui-icon-image");				
+
+				$iconDiv->addControl($ulDiv);
+				if(get_class($iconObject) == "image")
+				{
+					//we have an image, add a clear btn
+					$btnClear = new jqUI_button("btnClear_".$entry->id, "Clear Image", "clearIcon", "ui-icon-trash", true);
+					$btnClear->onclick = "clearBlogEntryIcon({$entry->id})";
+					$iconDiv->addControl($btnClear);
+				}
+			}
+			
+			$cpObj = new customComments($entry->id, 1, 0);
+			
+			$pendCount = $cpObj->getCommentCount();			
+			$pending = ($pendCount ? " (<span class='redColor'>$pendCount</span>)" : "");
+			
+			unset($entrySpan);
+			
+			if ($entry->publishDate)
+			{
+				$entrySpan[] = "Active on ".validation::parseMySqlDate($entry->publishDate, "m-d-Y"); 	
+			}
+			
+			if ($entry->expireDate)
+			{
+				$entrySpan[] = "Expires on ".validation::parseMySqlDate($entry->expireDate, "m-d-Y");
+			}
+			
+			$spanDisp = implode(", ", (array)$entrySpan);
+			
+			$dDiv = new phpDIV();
+			$dDiv->class = 'functions';
+			$dDiv->addControl(new phpHeader(2, validation::prepForDisplay($entry->title, false)));
+						
+			if ($entry->publishDate || $entry->expireDate) $dDiv->addControl(new phpHeader(3, $spanDisp));
+			
+			if ($pending) $dDiv->addControl(new phpHeader(5, "There are currently $pending comment(s) waiting to be approved."));
+			
+			if ($entry->updatedUserID)
+			{
+				$sec = new security($entry->updatedUserID);
+				$dDiv->addControl(new phpHeader(5, "Last edited by $sec->login on ".validation::parseMySqlDate($entry->addedDateTime, "D, M d Y \a\\t h:ia")));	
+			}
+				
+			$btnEdit = new jqUI_button("", "Edit Blog Entry", "", "ui-icon-pencil", true);
+			$btnEdit->onclick = "getBlogEntryEdit($entry->id);";				
+				
+			$dDiv->addControl($btnEdit);			
+			
+			if ($deletePermissions)
+			{		
+				$btnDelete = new jqUI_button("", ($entry->inactive ? "Delete" : "Deactivate")." Entry", "ui-state-error", "ui-icon-trash", true);
+				$btnDelete->onclick = "deleteBlogEntry($entry->inactive, $entry->id)";
+				
+				$dDiv->addControl($btnDelete);
+			}
+			
+			if ($entry->inactive && $writePermissions)
+			{
+				$btnAct = new jqUI_button("", "Re-Activate Entry", "ui-state-highlight", "ui-icon-refresh", true);
+				$btnAct->onclick = "activateBlogEntry($entry->id)";
+				
+				$dDiv->addControl($btnAct);				
+			}
+			
+			$bDiv->addControl($iconDiv);
+			$bDiv->addControl($dDiv);			
+			
+			$r = $t->addRow();
+			$r->addCell(new tblCell($bDiv));
+		} 
+
+		if (!$totalCt)
+		{
+			$r = $t->addRow();
+			$r->addCell(new tblCell(new phpParagraph("No Blog Entries found"), "strong", "center"));
+		}
+		
+		$js->content = $t->render();	
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();	
+}
+function deleteBlog($blogID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		$blog = new customBlog($blogID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::delete)) $g_sec->security_error_a();
+		
+		if ($blog->inactive)
+		{
+			$blog->delete();
+			
+			pageClass::setNotify("Successfully deleted Blog and all Entries.");	
+		}
+		else
+		{		
+			$blog->inactive = 1;
+			$blog->save();
+			
+			pageClass::setNotify("Successfully deactivated blog.");
+		}
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function deleteBlogEntry($entryID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		$entry = new customBlogEntry($entryID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::delete) && 
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::delete, $entry->blogID)) $g_sec->security_error_a();
+		
+		if ($entry->inactive)
+		{
+			$entry->delete();			
+			pageClass::setNotify("Successfully deleted Blog Entry.");	
+		}
+		else
+		{		
+			$entry->inactive = 1;
+			$entry->save();
+			
+			pageClass::setNotify("Successfully deactivated Blog Entry.");
+		}
+		
+		$js->blogID = $entry->blogID;		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+}
+function activateBlog($blogID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		$blog = new customBlog($blogID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write)) $g_sec->security_error_a();
+		
+		$blog->inactive = 0;
+		$blog->save();
+			
+		pageClass::setNotify("Successfully Activated blog.");		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+}
+function activateBlogEntry($entryID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		$entry = new customBlogEntry($entryID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) && 
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::insert, $entry->blogID)) $g_sec->security_error_a();
+		
+		$entry->inactive = 0;
+		$entry->save();
+			
+		pageClass::setNotify("Successfully Activated Blog Entry.");
+
+		$js->blogID = $entry->blogID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+}
+function uploadBlogIcon($blogID)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		$bObj = new customBlog($blogID);
+		if (!$bObj->id) throw new Exception("Error, that blog could not be found.");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $bObj->id)) $g_sec->security_error_a();
+				
+		$dim = $bObj->settings->blogIconDim;
+		$tmp = explode("x",$dim);		
+		
+		if (count($tmp) != 2) throw new Exception("Error, missing Dimension information. Please try again.");
+		
+		$u = new upload($_FILES['blogCatIcon_'.$bObj->id]);		
+		$u->convertImage("png", $tmp);		
+		
+		$file = "assets/blogs/{$bObj->id}/icon.png";
+		
+		if (!$u->uploadFile($config["baseAppDir"].$file)) throw new Exception($u->err);		
+		
+		pageClass::setNotify("Blog Icon Successfully Uploaded");
+		
+		$js->success = 1;		
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);
+}
+function uploadBlogEntryIcon($entryID)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		$eObj = new customBlogEntry($entryID);
+		if (!$eObj->id) throw new Exception("Error, that blog entry could not be found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $eObj->blogID)) $g_sec->security_error_a();
+				
+		$sObj = customBlog_core::getConfigObject();
+		
+		$dim = $sObj->entryIconDim;
+		$tmp = explode("x",$dim);		
+		
+		if (count($tmp) != 2) throw new Exception("Error, missing Dimension information. Please try again.");
+		
+		$u = new upload($_FILES['entryIcon_'.$eObj->id]);		
+		$u->convertImage("png", $tmp);		
+		
+		$file = "assets/blogs/{$eObj->blogID}/{$eObj->id}/icon.png";
+		if (!$u->uploadFile($config["baseAppDir"].$file)) throw new Exception($u->err);		
+		
+		pageClass::setNotify("Blog Entry Icon Successfully Uploaded");
+		
+		$js->success = 1;
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);
+}
+function clearBlogEntryIcon($entryID)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		$eObj = new customBlogEntry($entryID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $eObj->blogID)) $g_sec->security_error_a();
+						
+		
+		$file = $config["baseAppDir"]."assets/blogs/{$eObj->blogID}/{$eObj->id}/icon.png";
+		@unlink($file);		
+		
+		pageClass::setNotify("Successfully removed Blog Entry Icon");
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);
+}
+function getSettingsEdit()
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write)) $g_sec->security_error_a();
+		
+		$sObj = customBlog_core::getConfigObject();
+		
+		$settingsWin = new jqUI_dialog("settingsWin", true, 600, "", "Modify Blog Settings");
+		$settingsWin->setOption("autoOpen", true);
+		$settingsWin->setOption("autoResize", true);
+		$settingsWin->addClass("configWin");
+		$settingsWin->addCloseButton("Cancel");
+		
+		$settingsWin->addButton("Save", "function() { saveSettings(); }");		
+		
+		$txtCSize = new customText("cfg[blogIconDim]", $sObj->blogIconDim, 10, 7);
+		$txtCSize->setLabel("Category Icon Dimensions:");		
+		$txtCSize->setRequired("&nbsp; Format: 99x99", "desc");
+		
+		$txtESize = new customText("cfg[entryIconDim]", $sObj->entryIconDim, 10, 7);
+		$txtESize->setLabel("Entry Icon Dimensions:");		
+		$txtESize->setRequired("&nbsp; Format: 99x99", "desc");		
+			
+		$frm = new phpForm("post", "settingsForm");
+		$frm->addControl($txtCSize);
+		$frm->addControl($txtESize);
+		
+		$settingsWin->addControl($frm);
+		
+		$js->content = $settingsWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}	
+function saveSettings($cfg)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write)) $g_sec->security_error_a();
+		
+		$dimArr = array("blogIconDim", "entryIconDim");
+		
+		foreach($dimArr as $idx)
+		{		
+			$cfg[$idx] = preg_replace("/\s/", "", $cfg[$idx]);		
+			if (!preg_match("/[0-9]{1,3}x[0-9]{1,3}/", $cfg[$idx])) throw new Exception("Error, Icon dimensions ($idx) are not in the proper format (99x99). Please correct and try again.");
+			
+			$tmp = explode("x", $cfg[$idx]);
+			if ($tmp[0] > 280) throw new Exception("Error, width cannot exceed 280px");
+		}
+		
+		$settings = customBlog_core::getConfigObject();
+		
+		foreach((array)$cfg as $key=>$value)
+		{
+			$settings->config($key, $value);
+		}
+		
+		pageClass::setNotify("Successfully saved Configuration settings.");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getBlogEntryEdit($entryID, $blogID, $idx=0)
+{
+	global $config, $g_sec;	
+	
+	$js = new json_a();
+	
+	try
+	{
+		$entry = new customBlogEntry($entryID);
+		
+		if ($entry->id)
+		{			
+			$blogID = $entry->blogID;
+		}
+		
+		$blog = new customBlog($blogID);
+		if (!$blog->id) throw new Exception("Error, parent blog not found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::read, $blog->id)) $g_sec->security_error_a();
+	
+		$writeAccess = $g_sec->hasAccess(permissions::$manage_blogs, permissions::write) ||
+				 	   $g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $blog->id);
+				 	   
+		$eWin = new jqUI_dialog("entryWin", true, 885, "", $entryID ? "Modify Blog Entry" : "Add new Blog Entry");
+		$eWin->addClass("configWin");
+		$eWin->setOption("autoOpen", true);		
+		$eWin->fitToViewport();
+
+		$eWin->addCloseButton($entry->id ? "Close" : "Cancel");
+		
+		if ($writeAccess)
+		{
+			$eWin->addButton($entry->id ? "Save Blog Entry" : "Add New Blog Entry", "function() { updateBlogEntry(); }");
+		}		
+				 	   
+		$tabs = new jqUI_tabControl("blogEditTabs", 0, "admin/blogs");
+		
+		$txtTitle = new customText("entry[title]", validation::prepTextForInput($entry->title), 50, 255);	
+		$txtTitle->setLabel("Blog Title: ");		
+
+		$txtAuthor = new customText("entry[author]", validation::prepTextForInput($entry->author), 50, 255);	
+		$txtAuthor->setLabel("Author (optional): ");			
+	
+		$txtBody = new phpTextArea("entry[body]", validation::prepTextForInput($entry->body), 20, 115, "wysiwyg");			
+		
+		$dtPub = new jqUI_datepicker("entry[publishDate]", validation::parseMySqlDate($entry->publishDate, "m-d-Y"), "Date to Publish:", true);		
+		$dtExp = new jqUI_datepicker("entry[expireDate]", validation::parseMySqlDate($entry->expireDate, "m-d-Y"), "Date to Expire:", true);
+				
+		$aForm = new phpForm("post", "entryForm");
+		$aForm->addControl($txtTitle);
+		$aForm->addControl($txtAuthor);
+		$aForm->addControl($dtPub);
+		$aForm->addControl($dtExp);
+		$aForm->addControl($txtBody);			
+		$aForm->addControl(new hiddenInput("action","updateBlogEntry"));
+		$aForm->addControl(new hiddenInput("blogID", $blogID));
+		$aForm->addControl(new hiddenInput("entryID", $entry->id));		
+		
+		$tpDetail = new jqUI_tabPage("blog_entry", "Blog Entry", "ui-icon-document");
+		$tpDetail->addControl($aForm);
+		
+		$tabs->addTabPage($tpDetail);
+		
+		if ($entry->id)
+		{
+			$tpFeeds = new jqUI_tabPage("linked_feeds", "Linked Feeds", "ui-icon-signal-diag");			
+			$tabs->addTabPage($tpFeeds);
+			
+			$tpTopics = new jqUI_tabPage("linked_topics", "Linked Topics", "ui-icon-link");			
+			$tabs->addTabPage($tpTopics);
+			
+			$tpTagCloud = new jqUI_tabPage("tag_cloud", "Tag Cloud", "ui-icon-tag");				
+			$tabs->addTabPage($tpTagCloud);		
+			
+			$tpComm = new jqUI_tabPage("comments_all", "Comments", "ui-icon-comment");
+			
+			$commTabs = new jqUI_tabControl("commentTabs", 0, "admin/blogs");
+			
+			$tpComments = new jqUI_tabPage("blog_approved_comments", "Approved Comments","ui-icon-comment");			
+			$commTabs->addTabPage($tpComments);
+			
+			$tpUComments = new jqUI_tabPage("blog_pending_comments", "Pending Comments","ui-icon-comment");
+			$commTabs->addTabPage($tpUComments);
+			
+			$tpComm->addControl($commTabs);
+			
+			$tabs->addTabPage($tpComm);
+		}
+		else
+		{
+			$msg = "<strong>NOTE:</strong> Some editor features (file uploads, tag cloud, feed links, etc) are unavailable until the blog 
+					entry has been added.<br /><br />
+					Please fill out the basic information, then click the add button to enable all editor features.";
+			
+			$eWin->insertControl(new jqUI_dismissableMessage($g_sec, "new_blog_entry", $msg));	
+		}
+		
+		$eWin->addControl($tabs);
+		
+		$js->blogID = $blogID;
+		$js->content = $eWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex->getMessage());
+		$js->error = $eWin->render();	
+	}	
+
+	echo $js->render();
+	exit(0);
+}
+function updateBlogEntry($entryID, $entry, $blogID='')
+{
+	global $config, $g_sec;
+	
+	$d = new DAL(true);	
+	$js = new json_a();	
+	
+	try
+	{
+		$entryObj = new customBlogEntry($entryID);
+		
+		if ($entryObj->id)
+		{
+			$blogID = $entryObj->id;
+		}
+		
+		$blog = new customBlog($blogID);
+		if (!$blog->id) throw new Exception("Error, blog not found.");		
+
+		if (strlen($entry["title"]) < 3) throw new Exception("Error, entry title must be at least 3 characters!");
+		if (strlen($entry["body"]) < 3 && $entryID) throw new Exception("Error, entry description must be at least 3 characters!");
+		
+		if (!$entry["inactive"]) $entry["inactive"] = 0;
+		$entry["body"] = validation::prepMultiLineForStorage($entry["body"]);
+		
+		if ($entry["publishDate"] && $entry["expireDate"])
+		{
+			$publishTS = validation::convertToUnixTimestamp($entry["publishDate"]);
+			$expireTS = validation::convertToUnixTimestamp($entry["expireDate"]);
+		
+			if ($expireTS < $publishTS) throw new Exception("Error, the entry expiration date must not be less than the publish date.");
+		}
+		
+		foreach((array)$entry as $key=>$value)
+		{
+			$entryObj->$key = "'{$value}'";
+		}	
+				
+		$entryObj->publishDate = ($entry["publishDate"] ? "'".validation::convertToMySqlDate($entry["publishDate"])."'" : "null");
+		$entryObj->expireDate = ($entry["expireDate"] ? "'".validation::convertToMySqlDate($entry["expireDate"])."'" : "null");
+		$entryObj->updatedUserID = $g_sec->id;
+		$entryObj->updatedDateTime = "now()";
+		
+		if (!$entryObj->id)
+		{			
+			if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::insert) &&
+				!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::insert, $blog->id)) $g_sec->security_error_a();
+			
+			$entryObj->blogID = $blogID;
+			$entryObj->addedDateTime = "now()";						
+			
+			$entryID = $entryObj->insert();			
+			
+			pageClass::setNotify("Successfully added Blog Entry");			
+		}
+		else
+		{			
+			if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
+				!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $blog->id)) $g_sec->security_error_a();
+	
+			$entryObj->save();
+			
+			pageClass::setNotify("Successfully saved Blog Entry");			
+		}
+		
+		$js->entryID = $entryID;
+		$js->blogID = $blogID;
+	}
+	catch(Exception $ex)
+	{	
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();		
+	}
+	
+	echo $js->render();
+	exit(0);	
+}
+function getBlogCategoryEdit($blogID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::read) && !$g_sec->is(permissions::$modify_blog_category)) $g_sec->security_error();
+	
+		$globWrite = $g_sec->hasAccess(permissions::$manage_blogs, permissions::write);
+		
+		$blogObj = new customBlog($blogID);
+		
+		if ($blogObj->id)
+		{
+			$writeAccess = $globWrite || $g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $blogObj->id);	
+		}
+		else
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::insert)) $g_sec->security_error_a();
+			
+			$writeAccess = $globWrite;
+		}		
+		
+		$blogWin = new jqUI_dialog("blogCategoryWin", true, 875, "", $blogObj->id ? "Modify Blog Category" : "Add new Blog Category");
+		$blogWin->addClass("configWin");
+		$blogWin->setOption("autoOpen", true);
+		$blogWin->fitToViewport();
+		
+		// Redactor will not function properly inside a modal window.
+		$blogWin->setOption("modal", 0);
+		
+		$blogWin->addCloseButton($blogObj->id ? "Close" : "Cancel");
+		
+		$blogWin->addButton($blogObj->id ? "Save Blog Category" : "Add new Blog Category", "function() { updateBlogCategory(); }");		
+		
+		$txtTitle = new customText("blog[title]", validation::prepTextForInput($blogObj->title), 70, 75);
+		$txtTitle->setLabel("Blog Category Title:");		
+		
+		$txtDesc = new phpTextArea("blog[description]", validation::prepTextForInput($blogObj->description), 12, 103, "wysiwyg");
+		$txtDesc->setLabel("Description:","", true);		
+		
+		$frmBlog = new phpForm("post","blogForm");
+		$frmBlog->addControl($txtTitle);	
+		$frmBlog->addControl($txtDesc);			
+		$frmBlog->addControl(new hiddenInput("action", "updateBlogCategory"));
+		$frmBlog->addControl(new hiddenInput("blogID", $blogObj->id));
+		
+		$blogWin->addControl($frmBlog);
+		
+		if (!$blogObj->id)
+		{
+			$msg = "<strong>NOTE:</strong> Some editor features (file uploads, etc) are unavailable until the blog category has been added.<br /><br />
+					Please fill out the basic information, then click the add button to enable all editor features.";
+			
+			$eWin->insertControl(new jqUI_dismissableMessage($g_sec, "new_blog_category", $msg));	
+		}		
+		
+		// use addObject so that the strip format parameter can be set
+		$js->addObject("content", $blogWin->render(), false);
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function updateBlogCategory($blogID, $blog)
+{
+	global $config, $g_sec;
+	
+	$d = new DAL(true);
+
+	validation::ensureInt($blogID);
+	
+	$js = new json_a();	
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::read) && !$g_sec->is(permissions::$modify_blog_category)) $g_sec->security_error();
+	
+		$globWrite = $g_sec->hasAccess(permissions::$manage_blogs, permissions::write);
+		
+		$blogObj = new customBlog($blogID);
+		
+		if ($blogObj->id)
+		{
+			if (!$globWrite && !$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $blogObj->id)) $g_sec->security_error_a();	
+		}
+		else
+		{
+			if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::insert)) $g_sec->security_error_a();			
+		}
+		
+		if (strlen($blog["title"]) < 3) throw new Exception("Error, blog title must be at least 3 characters!");
+		
+		if (!$blog["inactive"]) $blog["inactive"] = 0;		
+		
+		$blogObj->title = "'{$blog["title"]}'";
+		$blogObj->description = "'".validation::prepMultiLineForStorage($blog["description"])."'";
+		$blogObj->inactive = $blog["inactive"];
+		
+		if (!$blogID)
+		{	
+			$pos = $d->qryCount("select max(position) from blogs")+1;
+			
+			$blogObj->addedDateTime = "now()";
+			$blogObj->position = $pos;
+			
+			$blogID = $blogObj->insert();			
+			
+			$js->blogID = $blogID;
+			
+			pageClass::setNotify("Successfully added Blog Category");			
+		}
+		else
+		{
+			$blogObj->save();
+			pageClass::setNotify("Successfully updated Blog Category");
+		}
+	}
+	catch(Exception $ex)
+	{	
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+	
+	echo $js->render();	
+}
+?>

@@ -470,9 +470,9 @@ class phpForm extends webControl
 		$this->useFieldset = $useFieldset;
 		
 		if ($id) $this->id = $id;
-		if (!$action) $action = $_SERVER['PHP_SELF'];
+		//if (!$action) $action = $_SERVER['PHP_SELF'];
 		
-		$this->action = $action;
+		if ($action) $this->action = $action;
 		
 		$this->controlTag = "form";
 		$this->controlCloseTag = true;
@@ -1805,6 +1805,43 @@ class jqUI_dialog extends phpDIV
 		return parent::render();		
 	}
 }
+class jqUI_dismissableMessage extends jqUI_dialog
+{
+	private $p_sec;
+	private $p_key;
+
+	public function __construct(security $sec, $messageKey, $message, $title="")
+	{
+		parent::__construct("dismissableMessageWin", true, 550, "", $title ? $title : "System Message");
+		
+		$this->setOption("autoOpen", true);
+		$this->setOption("autoResize", true);
+		$this->setOption("modal", 1);
+		
+		$this->setOption("focus", "function() { $(this).closest('.ui-dialog').css('z-index', 999999); }");
+				
+		$this->addAttribute("data-key", $messageKey);
+		
+		$this->chooseIcon(1);
+		
+		$this->p_sec = $sec;		
+		$this->p_key = $messageKey;
+		
+		$this->addControl(new phpParagraph($message));
+	}
+	public function render()
+	{
+		$sObj = $this->p_sec->notification_settings;
+		$key = $this->p_key;
+		
+		if ($sObj->$key) return "";
+		
+		$this->addCloseButton("Ok");
+		if ($this->p_sec->id) $this->addButton("Don`t Tell me Again", "function() { dismiss(); }");
+		
+		return parent::render();
+	}
+}
 class jqUI_confirm extends jqUI_dialog
 {	
 	public function __construct($id, $caption, $show_warn=false, $defaultCancel=true)
@@ -2445,7 +2482,7 @@ class tableFilter extends phpDIV
 		{
 			case tableFilter::filter_text_having:
 			case tableFilter::filter_text:
-				$ctl = new customText($ctlColumn, $default, 25, 50,"filter");
+				$ctl = new customText($ctlColumn, $default, 10, 50,"filter");
 				break;
 			case tableFilter::filter_date:
 				$ctl = new phpFiller();				
@@ -2498,6 +2535,7 @@ class tableFilter extends phpDIV
 				$dCtl2 = new jqUI_datepicker("dates[{$key}_2]", "", "and");
 				$dCtl2->setOption("minDate", "");
 				$dCtl2->label->addClass('range');				
+				$dCtl2->container->addClass("between");
 				
 				$ctl->addControl($dCtl1);
 				$ctl->addControl($dCtl2);
@@ -2513,7 +2551,7 @@ class tableFilter extends phpDIV
 				{
 					$ctl->bindByArray($filterQuery);	
 				}
-				else
+				elseif ($filterQuery)
 				{
 					$ctl->bind($filterQuery);
 				}
@@ -2642,6 +2680,16 @@ class tableFilter extends phpDIV
 		if (!$pagingData[startPos] && !$pagingData[perPage]) return;
 
 		return "\nlimit $pagingData[startPos], $pagingData[perPage]";
+	}
+	public static function getDateBetweenClause($column, $filterValue)
+	{
+		$tmp = explode("_", $filterValue);
+		if (count($tmp) != 2) return "";
+					
+		$dt1 = validation::convertToMySqlDate($tmp[0]);
+		$dt2 = validation::convertToMySqlDate($tmp[1]);
+
+		return "date($column) between '$dt1' and '$dt2'";
 	}
 }
 class jqPopupMenu extends phpDIV 

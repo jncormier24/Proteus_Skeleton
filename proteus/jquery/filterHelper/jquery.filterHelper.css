@@ -47,11 +47,20 @@
 	
 	text-align: right;	
 }
-.tableFilterDiv input, .tableFilterDiv select, .tableFilterDiv textarea, .tableFilterDiv label
+.tableFilterDiv input, .tableFilterDiv select, .tableFilterDiv textarea, .tableFilterDiv label, .tableFilterDiv div.datePickerContainer
 {
 	float: left;
 	
 	margin: 0px 5px 3px 0px;	
+}
+.tableFilterDiv div.datePickerContainer
+{
+	clear: left;
+	overflow: hidden;
+}
+.tableFilterDiv div.datePickerContainer.between
+{
+	clear: none;
 }
 .tableFilterDiv label
 {
@@ -136,17 +145,22 @@
 	
 	z-index: 50;
 }
-div.datePickerContainer input
+.tableFilterDiv div.datePickerContainer input
 {
 	margin-right: 4px;	
 }
-div.datePickerContainer img.ui-datepicker-trigger
+.tableFilterDiv div.datePickerContainer img.ui-datepicker-trigger
 {
 	float: left;
 	margin-top: 8px;
 }
-div.datePickerContainer img.ui-datepicker-clear
+.tableFilterDiv div.datePickerContainer img.ui-datepicker-clear
 {
 	float: left;
 	margin: 6px 0px 0px 2px;
+}
+.sortControl
+{
+	float: right;
+	cursor: pointer;	
 }

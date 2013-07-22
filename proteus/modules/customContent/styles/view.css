@@ -35,5 +35,6 @@
 }
 #btnNewContent
 {
-	margin-bottom: 10px;
+	float: right;
+	margin: 5px 0px 8px 0px;
 }

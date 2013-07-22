@@ -1,0 +1,12 @@
+#contentPages div.actual
+{
+	padding-top: 10px;
+	min-height: 500px;
+}
+div.panelBlockContainer h1 div.jqPopupMenu
+{
+	position: absolute !important;
+	
+	top: 5px;
+	right: 4px;
+}

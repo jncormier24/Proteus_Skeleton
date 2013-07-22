@@ -17,8 +17,12 @@ function show()
 		
 	if (!$g_sec->hasAccess(permissions::$site_configuration, permissions::read)) $g_sec->security_error();
 	
+	$writeAccess = $g_sec->hasAccess(permissions::$site_configuration, permissions::write) ? 1 : 0;
+	
 	$conf = new siteConfig();
-				
+
+	$tabs = new jqUI_tabControl("configTabs", 0, "admin/config");
+	
 	$frm = new phpForm("post", "frmConfig");	
 	$frm->addControl(new hiddenInput("action","updateConfig"));
 			
@@ -31,29 +35,45 @@ function show()
 	$txtAddr = new phpTextArea("data[businessAddr]", validation::prepTextForInput($conf->businessAddr), 3, 45);
 	$txtAddr->setLabel("Business Address:");
 		
-	$txtPhone = new customText("data[contactPhone]", validation::prepTextForInput($conf->contactPhone), 14, 14);
+	$txtPhone = new customText("data[contactPhone]", validation::prepTextForInput($conf->contactPhone), 18, 14);
 	$txtPhone->setLabel("Contact Phone:");		
 		
-	jqMaskedInputModule::setMask($txtPhone, "'phone-us'");
+	jqMaskedInputModule::setMask($txtPhone, jqMaskedInputModule::mask_phone);
 		
 	$txtEmail = new customText("data[sitemail]", validation::prepTextForInput($conf->sitemail), 50, 255);
 	$txtEmail->setLabel("Site Email:");		
+	
+	$ddlTemplate = new phpDDL("data[defaultEmailTemplate]");
+	$ddlTemplate->selected = $conf->defaultEmailTemplate;
+	$ddlTemplate->setLabel("System Email Template:");
+	
+	$ddlTemplate->addListItem(new phpListItem());
+	
+	$baseDir = $config["baseAppDir"]."themes/".$config["frontend_theme"]."/emails";
+	
+	foreach(glob($baseDir."/*.tpl") as $file)
+	{
+		$fName = basename($file);
+		$ddlTemplate->addListItem(new phpListItem($fName, $fName));
+	}
 		
-	$fsGen = new phpFormFieldset("General Options", "standard");
+	$fsGen = new phpFormFieldset("Site Detail", "standard");
 	$fsGen->addControl($txtTitle);
 	$fsGen->addControl($txtBusName);
 	$fsGen->addControl($txtAddr);
 	$fsGen->addControl($txtPhone);
 	$fsGen->addControl($txtEmail);		
-		
-	$frm->addControl($fsGen);		
-		
-	$writeAccess = $g_sec->hasAccess(permissions::$site_configuration, permissions::write) ? 1 : 0;
+
+	$fsSys = new phpFormFieldset("System", "standard");
+	$fsSys->addControl($ddlTemplate);
 	
-	$configBlock = new panelBlock("", "System Settings &amp; Options");
-	$configBlock->addClass("configWin");
-	$configBlock->addControl($frm);
-	$configBlock->addControl(new jqLoader("initConfig()"));
+	$frm->addControl($fsGen);		
+	$frm->addControl($fsSys);
+
+	$tpGeneral = new jqUI_tabPage("general_options", "General Options", "ui-icon-wrench");
+	$tpGeneral->addControl($frm);
+	
+	$tabs->addTabPage($tpGeneral);
 	
 	$modArr = proteus_core::getModulesArray();
 	
@@ -95,7 +115,15 @@ function show()
 		$ct++;
 	}
 	
-	$configBlock->addControl($fsMods);
+	$tpMods = new jqUI_tabPage("modules", "Module Configuration", "ui-icon-tag");
+	$tpMods->addControl($fsMods);
+	
+	$tabs->addTabPage($tpMods);
+	
+	$configBlock = new panelBlock("", "System Settings &amp; Options");
+	$configBlock->addClass("configWin");
+	$configBlock->addControl($tabs);
+	$configBlock->addControl(new jqLoader("initConfig()"));
 	
 	$a->addControl($configBlock);
 	$a->render();

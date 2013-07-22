@@ -1,0 +1,682 @@
+<?php 
+	$g_sec = permissions::getAuthorizedUser();
+	proteus_core::includeAllModules();
+	
+	switch($action)
+	{
+		case "deleteDraft":
+			deleteDraft($histID);
+			break;
+			
+		case "getHistory":
+			getHistory($type);
+			break;			
+			
+		case "deactivateSubscriber":
+			deactivateSubscriber($subID);
+			break;
+			
+		case "getSubscribers":
+			getSubscribers($paging, $sortData, $filterColumns, $customColumns);
+			break;
+			
+		case "deleteSubscriptionOption":
+			deleteSubscriptionOption($optionID);
+			break;
+		
+		case "addSubscriptionOption":
+			addSubscriptionOption($typeID, $dataID);
+			break;
+			
+		case "getSubscriberOptions":
+			getSubscriberOptions();
+			break;
+			
+		case "getLinkedOptions":
+			getLinkedOptions($typeID);
+			break;
+			
+		case "getEmailTemplates":
+			getEmailTemplates();
+			break;
+			
+		case "selectEmailTemplate":
+			selectEmailTemplate($path);
+			break;
+			
+		default:
+			die("Unauthorized request");
+			break;	
+	}
+	
+function getSubscriberOptions()
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	$pc = new pageContent();
+	
+	try
+	{
+		validation::ensureInt($typeID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_subscribers, permissions::write)) $g_sec->security_error_a();
+		
+		$ddlType = new phpDDL("subTypeID");
+		$ddlType->addClass("floating");
+		$ddlType->setLabel("Add new Subscription Channel:", "floating");
+		$ddlType->onchange = "getLinkedOptions()";
+		$ddlType->addListItem(new phpListItem("",""));
+		
+		$conf = new siteConfig();
+		
+		if ($conf->moduleEnabled(proteus_core::$module_blogs)) $ddlType->addListItem(new phpListItem("Blog", proteus_core::$module_blogs["siteType"]));
+		if ($conf->moduleEnabled(proteus_core::$module_customCategories)) $ddlType->addListItem(new phpListItem("Custom Category", proteus_core::$module_customCategories["siteType"]));
+		if ($conf->moduleEnabled(proteus_core::$module_municipal)) $ddlType->addListItem(new phpListItem("Municipal Entity", proteus_core::$module_municipal["siteType"]));
+			
+		$btnAdd = new jqUI_button("btnAddChannel", "Add Channel", "", "ui-icon-key", true);		
+		$btnAdd->onclick = "addSubscriptionOption()";
+	
+		$dvOpt = new phpDIV();		
+		$dvOpt->class = "channelOptions";
+		$dvOpt->id = "newChannelOptions";
+		
+		$secDiv = new phpDIV();
+		$secDiv->class = "optionsContainer";
+		$secDiv->addControl($ddlType);
+		$secDiv->addControl($dvOpt);
+		$secDiv->addControl($btnAdd);
+		
+		$pc->addControl($secDiv);
+		
+		$t = new tblBuilder("center",0,0,5,"100%");
+		$t->class = "listTable";
+
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("Channel"));
+		$r->addHeader(new tblHeader("Type"));
+		$r->addHeader(new tblHeader("Subscribers (opted out)"));
+		$r->addHeader(new tblHeader("&nbsp;"));
+		
+		$opts = subscriber_core::getSubscriberOptions();
+		foreach($opts as $optObj)
+		{
+			$sCt = $d->qryCount("select count(*) 
+								 from subscriberOptionLink inner join subscribers on subscribers.id = subscriberOptionLink.subscriberID 
+								 where optionID=$optObj->id and inactive = 0");
+							
+			$soCt = $d->qryCount("select count(*) 
+							 	  from subscriberOptionLink inner join subscribers on subscribers.id = subscriberOptionLink.subscriberID 
+							 	  where optionID=$optObj->id and inactive = 1");
+			
+			switch($optObj->typeID)
+			{
+				case proteus_core::$module_blogs["siteType"]:
+					$chType = "Blog";
+					break;
+				case proteus_core::$module_customCategories["siteType"]:
+					$chType = "Category Type";
+					break;
+				case proteus_core::$module_municipal["siteType"]:
+					$chType = "Municipal Entity";
+					break;	
+			}
+			
+			$mnu = new jqPopupMenu();
+			
+			$ctl = $mnu->addMenuItem("", "Email Subscribers", "", "ui-icon-mail-closed");
+			$ctl->onclick = "getSubscriptionSendWin($optObj->id, 0)";
+			
+			$ctl = $mnu->addMenuItem("", "Delete Subscription Channel", "ui-state-error", "ui-icon-trash");
+			$ctl->onclick = "deleteSubscriptionOption($optObj->id)";
+			
+			$chTitle = validation::truncateText($optObj->title, 50);
+			
+			$r = $t->addRow();
+			$r->addCell(new tblCell($chTitle, "evenCell", "left"));
+			$r->addCell(new tblCell($chType, "oddCell", "left"));
+			$r->addCell(new tblCell("$sCt ($soCt)", "evenCell", "center"));
+			$r->addCell(new tblCell($mnu, "oddCell", "center"));
+		}
+		
+		if (!count($opts))
+		{
+			$r = $t->addRow();
+			$r->addCell(new tblCell("<em>There are currently no configured Subscriber Channels.<br />Please use the options above to add a new Channel.</em>", "evenCell","center", 4));	
+		}
+		
+		$pc->addControl($t);
+		
+		$js->content = $pc->render();
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+function getLinkedOptions($typeID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		validation::ensureInt($typeID);
+		
+		if (!$g_sec->hasAccess(permissions::$manage_subscribers, permissions::write)) $g_sec->security_error_a();		
+		
+		if (!$typeID)
+		{
+			$js->content = "";
+		}
+		else
+		{
+			$ddlOpt = new phpDDL("linkData");
+		
+			switch($typeID)
+			{
+				case proteus_core::module_categoryItems:
+					$qry = "select id, name
+							from categoryTypes
+							where inactive = 0
+							order by name asc";										
+					break;
+				case proteus_core::module_blogs:
+					$qry = "select id, title 'name'
+							from blogs
+							where inactive = 0
+							order by title asc";					
+					break;
+				case proteus_core::module_municipal:
+					$qry = "select id, title 'name'
+							from pmm_entities
+							order by title asc";
+					break;
+				default:
+					throw new Exception("Error, invalid subscription type specified!");
+			}
+			
+			$qry = $d->qry($qry);
+			
+			while($entry = $qry->fetch_assoc())
+			{
+				validation::truncateText($entry[name], 30);
+				
+				//Limit entries that already exist
+				if ($d->qryCount("select id from subscriberOptions where dataID=$entry[id] and typeID=$typeID and inactive = 0")) continue;
+				
+				$ddlOpt->addListItem(new phpListItem(validation::prepForDisplay($entry[name], false), $entry[id]));
+			}
+			
+			if (count($ddlOpt))
+			{
+				$js->content = $ddlOpt->render();
+			}
+			else
+			{
+				$js->content = "<em>No available options to select</em>";	
+			}
+		}		
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+function addSubscriptionOption($typeID, $dataID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		validation::ensureInt($typeID);
+		validation::ensureInt($dataID);
+		
+		if (!$dataID || !$typeID) throw new Exception("Please select a valid option to create a new Subscription Channel.");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_subscribers, permissions::insert)) $g_sec->security_error_a();
+		
+		$data = $d->qryArray("select id from subscriberOptions where dataID=$dataID and typeID=$typeID");
+		
+		$obj = new subscriberOption($data[id]);
+		
+		if ($data[id])
+		{
+			if (!$obj->inactive) throw new Exception("Error, that Subscription Channel already exists!");
+			
+			//Re-activate
+			$obj->inactive = 0;
+			$obj->save();
+			
+			pageClass::setNotify("Subscription Channel Activated");
+		}
+		else
+		{		
+			$obj->typeID = $typeID;
+			$obj->dataID = $dataID;
+			$obj->createdDateTime = "now()";
+		
+			$obj->insert();
+			
+			pageClass::setNotify("Successfully added Subscription Channel");
+		}
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+function deleteSubscriptionOption($optionID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		if (!$g_sec->hasAccess(permissions::$manage_subscribers, permissions::delete)) $g_sec->security_error_a();
+		
+		$obj = new subscriberOption($optionID);				
+		$obj->inactive = 1;
+		$obj->save();
+		
+		pageClass::setNotify("Successfully Deactivated Subscription Channel");
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+function getSubscribers($paging, $sortData, $filterColumns, $customColumns)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	$pc = new pageContent();
+	
+	try
+	{
+		validation::ensureInt($filter, 0);
+		validation::ensureInt($startPos, 0);
+		validation::ensureInt($inactive, 0);
+		$perPage = 50;
+		
+		if (!$g_sec->hasAccess(permissions::$manage_subscribers, permissions::read)) $g_sec->security_error_a();		
+		
+		$t = new tblBuilder("center",0,0,5,"100%");
+		$t->class = "listTable";
+		$t->id = "subscribersTable";
+
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("Email", "email"));
+		$r->addHeader(new tblHeader("Account", "login"));
+		$r->addHeader(new tblHeader("Channels"));
+		$r->addHeader(new tblHeader("Joined"));
+		$r->addHeader(new tblHeader("&nbsp;"));
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader());
+		$r->addHeader(new tblHeader());
+		$r->addHeader(new tblHeader());
+		$r->addHeader(new tblHeader());
+		$r->addHeader(new tblHeader());
+		
+		foreach((array)$customColumns as $cFilter)
+		{
+			if (!strlen($cFilter["value"])) continue;
+				
+			switch($cFilter["key"])
+			{					
+				case "subscriber_status":
+					$wh[] = "(subscribers.inactive = {$cFilter["value"]} or users.inactive = {$cFilter["value"]})";
+					
+					break;
+					
+				case "channel":
+					$wh[] = "subscriberOptionLink.optionID = {$cFilter["value"]}";
+					
+					break;
+			}
+		}		
+		
+		tableFilter::getWhereArray($filterColumns, $wh, $hvArr);
+		$whClause = tableFilter::getWhereClause($wh);
+		
+		$qry = "select subscribers.*, if(subscribers.userID, users.email, subscribers.email) as 'sub_email', 
+					   if(users.id and users.inactive, users.inactive, subscribers.inactive) as 'sub_inactive', users.login
+				from subscribers left outer join users on users.id = subscribers.userID						
+								 left outer join subscriberOptionLink on subscriberOptionLink.subscriberID = subscribers.id   
+				where 1 $whClause
+				group by users.id".
+				tableFilter::getHavingClause($hvArr)."
+				order by ".tableFilter::getOrderClause($sortData, "fullName asc");
+		
+		$totalCt = $d->qryRow($qry);
+		$uQry = $d->qry($qry.tableFilter::getLimitClause($paging));
+		
+		while($subscr = $uQry->fetch_assoc())
+		{
+			$mnu = new jqPopupMenu();
+
+			$ctl = $mnu->addMenuItem("", "Edit Subscriptions", "", "ui-icon-tag");
+			$ctl->onclick = "showSubscribe(0, {$subscr["id"]})";
+						
+			$ctl = $mnu->addMenuItem("mailto: {$subscr["sub_email"]}", "Direct Email", "", "ui-icon-mail-closed");
+			
+			if (!$subscr["sub_inactive"])
+			{
+				$ctl = $mnu->addMenuItem("", "Deactivate Subscriber", "ui-state-error", "ui-icon-trash");
+				$ctl->onclick = "deactivateSubscriber({$subscr["id"]})";				
+			}		
+			
+			$chCount = $d->qryCount("select count(*) from subscriberOptionLink where subscriberID=$subscr[id]");
+			if (!$subscr[optoutGeneral]) $chCount++;
+			
+			$r = $t->addRow();
+			$r->addCell(new tblCell($subscr["sub_email"], "evenCell", "left"));
+			$r->addCell(new tblCell(($subscr["login"] ? $subscr["login"] : "Anonymous"), "evenCell", "left"));
+			$r->addCell(new tblCell($chCount, "oddCell", "center"));
+			$r->addCell(new tblCell(validation::parseMySqlDate($subscr[createdDateTime], "m-d-Y"), "evenCell", "left"));
+			$r->addCell(new tblCell($mnu, "oddCell", "center"));
+		}		
+		
+		if (!$totalCt)
+		{
+			$r = $t->addRow();
+			$r->addCell(new tblCell("There are no subscribers found using the filters specified.", "evenCell", "center", 5));	
+		}
+		
+		$pc->addControl($t);
+		$js->content = $pc->render();
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+function deactivateSubscriber($subID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		if (!$g_sec->hasAccess(permissions::$manage_subscribers, permissions::delete)) $g_sec->security_error_a();
+		
+		validation::ensureInt($subID);
+		if (!$subID) throw new Exception("Error, no subscriber information provided.");
+		
+		$sObj = new subscriber($subID);
+		$sObj->inactive = 1;
+		$sObj->save();
+		
+		pageClass::setNotify("Successfully Deactivated Subscriber.");
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+function getHistory($typeID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		if (!$g_sec->hasAccess(permissions::$manage_subscribers, permissions::read)) $g_sec->security_error_a();		
+		
+		$deleteAccess = $g_sec->hasAccess(permissions::$manage_subscribers, permissions::delete);
+		$writeAccess = $g_sec->hasAccess(permissions::$manage_subscribers, permissions::write);
+		
+		$t = new tblBuilder("center", 0, 0, 5, "100%");
+		$t->class = 'listTable';
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("Subject"));
+		$r->addHeader(new tblHeader($typeID == 1 ? "Last Updated" : "Date Sent"));
+		$r->addHeader(new tblHeader("Channels"));
+		$r->addHeader(new tblHeader("&nbsp;"));
+		
+		$qry = "select *
+				from subscriptionHistory
+				where completed = ".($typeID == 1 ? 0 : 1)."
+				order by ".($typeID == 1 ? "updatedDateTime" : "lastSentDateTime")." desc
+				limit 100";
+		$hQry = $d->qry($qry);
+		
+		$ct = 0;
+		while($hist = $hQry->fetch_assoc())
+		{
+			$ctlArray = array();
+			
+			if ($writeAccess)
+			{
+				$btnEmail = new jqUI_button("btnEmailHist_$hist[id]", "", "actionControl", "ui-icon-mail-closed", true);
+				$btnEmail->onclick = "getSubscriptionSendWin(0, $hist[id])";
+				$btnEmail->title = "Email Subscribers";
+				
+				$ctlArray[] = $btnEmail;
+			}
+			
+			if ($deleteAccess && $typeID == 1)
+			{
+				$btnDelete = new deleteControl();
+				$btnDelete->onclick = "deleteDraft($hist[id])";
+
+				$ctlArray[] = $btnDelete;
+			}
+
+			validation::truncateText($hist[subject], 75);
+			
+			$optCt = $hist[options] ? count(explode("::", $hist[options])) : 0;			
+			
+			$dateDisp = validation::parseMySqlDate($typeID == 1 ? $hist[updatedDateTime] : $hist[lastSentDateTime], "D, M d Y \a\\t h:ia");
+			
+			$r = $t->addRow();
+			$r->addCell(new tblCell(validation::prepForDisplay($hist[subject], false), "evenCell", "left"));
+			$r->addCell(new tblCell($dateDisp, "oddCell", "left"));
+			$r->addCell(new tblCell($optCt, "evenCell", "center"));
+			$r->addCell(new tblCell($ctlArray, "oddCell", "center"));
+			
+			$ct++;
+		}			
+		
+		if (!$ct)
+		{
+			$r = $t->addRow();
+			$r->addCell(new tblCell("<em>There are no entries to display.</em>", "evenCell", "center", 4));	
+		}
+		
+		$js->content = $t->render();
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+function deleteDraft($histID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		if (!$g_sec->hasAccess(permissions::$manage_subscribers, permissions::delete)) $g_sec->security_error_a();
+		
+		validation::ensureInt($histID);
+		if (!$histID) throw new Exception("Error, no draft information provided.");
+		
+		$hist = $d->qryArray("select * from subscriptionHistory where id=$histID");
+		if (!$hist[id]) throw new Exception("Error, that draft entry could not be found. Please try again.");
+		
+		$d->qry("delete from subscriptionHistory where id=$histID");
+		
+		pageClass::setNotify("Successfully Deleted Subscription Draft.");
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+function getEmailTemplates()
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	$path = "$config[baseAppDir]/themes/$config[defaultTheme]/admin/subscriptionTemplates";
+	
+	try
+	{		
+		if (!$g_sec->hasAccess(permissions::$manage_subscribers, permissions::read)) $g_sec->security_error_a();	
+			
+		if (!is_dir($path)) throw new Exception("Email templates folder not found!");
+		
+		$templates = new phpDIV();
+		
+		//SHOW SELECTED TEMPLATE IF EXISTS
+		if(file_exists("$config[baseAppDir]/themes/$config[defaultTheme]/admin/subscription.html"))
+		{
+			
+			$templates->addControl(new phpHeader(2, "Selected Template"));
+			$itemLnk = "$config[scripturl]themes/$config[defaultTheme]/admin/subscription.html";
+			
+			$p = new parser($itemLnk, true);
+			$templates->addControl( $p );
+			$templates->addControl(new phpLiteral('<br style = "clear: both;"/>'));
+			
+		}
+		
+		//GET ALL THE TEMPLATES IN THE SUBSCRIPTIONTEMPLATES FOLDER & DISPLAY THEM
+		$templates->addControl(new phpHeader(2, "Available Templates"));
+		$ul = new phpUnOrderedList(); 
+		$ul->id = "emailTemplatesList";
+		$dir = opendir($path);
+		$count = 0;
+		while($file = readdir($dir))
+		{ 
+			if($file == '' || $file == '.' || $file == '..') continue;
+		
+			if(is_dir($path.'/'.$file)) 
+			{
+				//if is directory, do nothing
+			}
+			else
+			{
+				// for files
+				$parts = explode(".", $file);
+	    		$ext = strtolower($parts[count($parts)-1]);
+				
+				if($ext == "htm" || $ext == "html")
+				{
+					$count++;
+					$li = new htmlListItem();
+					$btn = new jqUI_button("selectTemplate$count", "Select this Template", '', "ui-icon-circle-check", true);
+					$itemLnk = $config[scripturl].'themes/'.$config[defaultTheme].'/admin/subscriptionTemplates/'.$file;
+					$loc = $config[baseAppDir].'themes/'.$config[defaultTheme].'/admin/subscriptionTemplates/'.$file;
+					$btn->addAttribute("onclick","selectEmailTemplate('$loc')");
+					$li->addControl($btn);
+					/*
+					$li->addControl(new phpLiteral('
+						<iframe width = "625" height = "250" src = "'.$itemLnk.'" />
+					'));*/
+								
+					$p = new parser($itemLnk, true);
+					$li->addControl( $p );
+					$ul->addControl($li);
+				}
+			
+			}
+		}
+		$templates->addControl($ul);
+		
+		$js->content = $templates->render();
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+
+function selectEmailTemplate($path)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		if (!$g_sec->hasAccess(permissions::$manage_subscribers, permissions::read)) $g_sec->security_error_a();	
+			
+		if (!file_exists($path)) throw new Exception("Email template not found! Path: $path");
+		$writeAccess = $g_sec->hasAccess(permissions::$manage_subscribers, permissions::write);
+		if(!$writeAccess) $g_sec->security_error_a();	
+		
+		$contents = file_get_contents($path);
+		if( false === file_put_contents("$config[baseAppDir]/themes/$config[defaultTheme]/admin/subscription.tpl", $contents) ) throw new Exception("Failed to copy template file during activation!");
+		if( false === file_put_contents("$config[baseAppDir]/themes/$config[defaultTheme]/admin/subscription.html", $contents) ) throw new Exception("Failed to copy template file during activation!");
+
+		pageClass::setNotify("Successfully set the email template!");
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+?>

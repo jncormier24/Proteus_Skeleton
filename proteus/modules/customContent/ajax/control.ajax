@@ -14,17 +14,18 @@
 			break;
 			
 		case "updateContentEntry":
-			updateContentEntry($contentID, $typeID, $dataID, $fields);
+			updateContentEntry($contentID, $content, $dataID, $typeID);
 			break;
 			
 		case "getContentWin":
-			getContentWin($contentID);
+			getContentWin($contentID, $dataID, $typeID);
 			break;
 			
 		case "getContentEntries":
 			getContentEntries($typeID, $dataID);
 			break;	
 	}
+	
 function getContentEntries($typeID, $dataID)
 {
 	global $g_sec;
@@ -60,29 +61,20 @@ function getContentEntries($typeID, $dataID)
 				throw new Exception("Error, unsupported custom content type!");
 		}		
 		
-		if ($insertAccess)
-		{			
-			$txtPage = new customText('pageName','',25, 255, 'textBox');	
-			$txtPage->setLabel("Add new Content Page: ", 'longLabel');
-			$txtPage->addAttribute('style','margin-right: 10px;');
-		
-			$cmdAdd = new jqUI_button('btnNewContent','Add New', "", "ui-icon-document", true);
-			$cmdAdd->onclick = "updateContentEntry(0, $typeID, $dataID)";
-		
-			$aForm = new phpForm('post', 'contentForm_new');
-			$aForm->addControl($txtPage);
-			$aForm->addControl($cmdAdd);
+		if ($insertAccess && $typeID <> proteus_core::$module_customContent["siteType"])
+		{	
+			$cmdAdd = new jqUI_button('btnNewContent','Add New', "addNewContent", "ui-icon-document", true);
+			$cmdAdd->onclick = "getContentWin(0, $dataID, $typeID)";		
 			
-			$pc->addControl($aForm);
+			$pc->addControl($cmdAdd);
 		}		
 		
 		$t = new tblBuilder('center',0,0,4,'100%');	
 		$t->class = "listTable hoverTable";	
-		if ($writeAccess) $t->addClass('sortable');
-	
-		$t->breakAfter = true;
-		$t->addAttribute("data-table", "customContent");
-	
+		$t->addAttribute("data-sort-type", tableSorter_core::$sort_content_page["sortType"]);
+		
+		if ($writeAccess) $t->addClass('sortable');	
+		
 		$r = $t->addRow();
 	
 		$r->addHeader(new tblHeader('Caption'));
@@ -140,47 +132,70 @@ function getContentEntries($typeID, $dataID)
 	echo $js->render();
 	exit(0);	
 }
-function getContentWin($contentID)
+function getContentWin($contentID, $dataID, $typeID)
 {
 	global $g_sec;
 
 	$js = new json_a();
 	
 	try
-	{
-		$cpObj = new customContentData($contentID);
-
-		if (!customContent_core::checkPermission($g_sec, $cpObj->typeID, $cpObj->dataID, permissions::read)) $g_sec->security_error_a();
+	{	
+		validation::ensureInt($dataID);
+		validation::ensureInt($typeID);
 		
-		$dataObj = customContentData::getDataObject($cpObj->typeID, $cpObj->dataID);
+		$cpObj = new customContentData($contentID);
+		
+		if (!$cpObj->id)
+		{
+			if (!customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::write, permissions::insert)) $g_sec->security_error_a();						
+		}		
+		else
+		{
+			if (!customContent_core::checkPermission($g_sec, $cpObj->typeID, $cpObj->dataID, permissions::read)) $g_sec->security_error_a();
+			
+			$dataID = $cpObj->dataID;
+			$typeID = $cpObj->typeID;
+		}
+		
+		$dataObj = customContentData::getDataObject($typeID, $dataID, $cpObj->id);
 		$uploadType = $dataObj->module["siteType"];
 		
-		$writeAccess = customContent_core::checkPermission($g_sec, $cpObj->typeID, $cpObj->dataID, permissions::write);		
+		$writeAccess = customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::write);		
 		
-		$cWin = new jqUI_dialog("contentWin", true, 875, 650, "Modify Custom Content");
+		$cWin = new jqUI_dialog("contentWin", true, 875, "", "Modify Custom Content");
 		$cWin->addClass("configWin");
 		$cWin->setOption("autoOpen", true);	
-		$cWin->setOption("modal", 0);			
+		$cWin->setOption("modal", 0);
+				
+		$cWin->fitToViewport();	
 		
 		$cWin->addCloseButton();
 		
 		if ($writeAccess)
 		{			
-			$cWin->addButton("Save Content", "function() { updateContentEntry($contentID); }");
+			$cWin->addButton("Save Content", "updateContentEntry");
 		}		
+		else
+		{
+			$js->disabled = 1;
+		}
 		
-		$txtCaption = new customText("caption",validation::prepTextForInput($cpObj->caption),50, 255);	
+		$txtCaption = new customText("content[caption]",validation::prepTextForInput($cpObj->caption),50, 255);	
 		$txtCaption->setLabel("Caption: ");					
 	
-		$txtTitle = new customText("pageName",validation::prepTextForInput($cpObj->pageName),25, 255);	
+		$txtTitle = new customText("content[pageName]",validation::prepTextForInput($cpObj->pageName),25, 255);	
 		$txtTitle->setLabel("Content Name: ");			
 	
-		$txtDesc = new phpTextArea("pageData", validation::prepTextForInput($cpObj->pageData), 23, 113, "wysiwyg");		
+		$txtDesc = new phpTextArea("content[pageData]", validation::prepTextForInput($cpObj->pageData), 23, 113, "wysiwyg");		
 	
 		$aForm = new phpForm("post", "contentForm");	
 		$aForm->addControl($txtCaption);
 		$aForm->addControl($txtTitle);		
 		$aForm->addControl($txtDesc);
+		$aForm->addControl(new hiddenInput("action", "updateContentEntry"));
+		$aForm->addControl(new hiddenInput("contentID", $cpObj->id));
+		$aForm->addControl(new hiddenInput("dataID", $dataID));
+		$aForm->addControl(new hiddenInput("typeID", $typeID));
 		
 		$cWin->addControl($aForm);
 		
@@ -189,6 +204,15 @@ function getContentWin($contentID)
 			$sec = new security($cpObj->updatedUserID);
 			$cWin->addControl(new phpParagraph("Content last modified by {$sec->login} on ".validation::parseMySqlDate($cpObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "updated"));	
 		}		
+		
+		if (!$cpObj->id)
+		{
+			$msg = "<strong>NOTE:</strong> Some editor features (file uploads, image uploads, etc) are unavailable until the content 
+					entry has been added.<br /><br />
+					Please fill out the basic information, then click the add button to enable all editor features.";
+			
+			$cWin->insertControl(new jqUI_dismissableMessage($g_sec, "new_custom_content_entry", $msg));	
+		}
 		
 		$js->dataID = $dataObj->id;
 		$js->uploadType = $uploadType;
@@ -203,7 +227,7 @@ function getContentWin($contentID)
 	echo $js->render();
 	exit(0);
 }
-function updateContentEntry($contentID, $typeID, $dataID, $fields)
+function updateContentEntry($contentID, $content, $dataID, $typeID)
 {
 	global $g_sec;
 	
@@ -212,64 +236,59 @@ function updateContentEntry($contentID, $typeID, $dataID, $fields)
 	
 	try
 	{	
-		validation::ensureInt($typeID);
 		validation::ensureInt($dataID);
+		validation::ensureInt($typeID);
 		
-		foreach((array)$fields as $field)
-		{
-			$content[$field[name]] = $field[value];
-		}
+		$cpObj = new customContentData($contentID);
 		
-		if ($contentID)
+		if (!$cpObj->id)
 		{
-			$cpObj = new customContentData($contentID);
+			if (!customContent_core::checkPermission($g_sec, $typeID, $dataID, premissions::write, permissions::insert)) $g_sec->security_error_a();						
+		}		
+		else
+		{
+			if (!customContent_core::checkPermission($g_sec, $cpObj->typeID, $cpObj->dataID, permissions::write)) $g_sec->security_error_a();
 			
+			$dataID = $cpObj->dataID;
 			$typeID = $cpObj->typeID;
-			$dataID = $cpObj->dataID;	
-		}
-	
-		if (strlen($content[pageName]) < 3) throw new Exception("Item title must be at least 3 characters!");
+		}		
 		
-		$oName = $content[pageName];
+		if (strlen($content["pageName"]) < 3) throw new Exception("Content Name must be at least 3 characters!");
 		
-		$content[pageName] = str_replace(" ", "_", $content[pageName]);
+		$content["pageName"] = str_replace(" ", "_", $content["pageName"]);
+		
 		//Strip out unwanted characters
-		$content[pageName] = strtolower(preg_replace("/[^a-zA-Z0-9_]/", "", $content[pageName]));
-		$content[caption] = preg_replace("/[^a-zA-Z0-9_\-\:\[\]\s\&]/", "", $content[caption]);
+		$content["pageName"] = strtolower(preg_replace("/[^a-zA-Z0-9_]/", "", $content["pageName"]));
+		$content["caption"] = preg_replace("/[^a-zA-Z0-9_\-\:\[\]\s\&]/", "", $content["caption"]);
 	
-		if ($d->qryCount("select id from customContent where pageName='$content[pageName]' and dataID=$dataID and typeID=$typeID".($contentID ? " and id <> $contentID" : "")))
+		if ($d->qryCount("select id from customContent where pageName='{$content["pageName"]}' and dataID=$dataID and typeID=$typeID".($contentID ? " and id <> $contentID" : "")))
 		{
 			throw new Exception("Sorry, but there is already a custom content entry with that content name. Please choose another name and try again.");
-		} 
+		}
 		
-		if (!$content[menuInclude]) $content[menuInclude] = 0;
-
-		$content[pageData] = validation::prepMultiLineForStorage($content[pageData]);
-		$cvList = validation::quotedArray($content);
-	
-		$cvList[updatedDateTime] = "now()";
-		$cvList[updatedUserID] = $g_sec->id;
+		$content["pageData"] = validation::prepMultiLineForStorage($content["pageData"]);
+		
+		foreach((array)$content as $key=>$value)
+		{
+			$cpObj->$key = "'$value'";
+		}		
+		
+		$cpObj->updatedDateTime = "now()";
+		$cpObj->updatedUserID = $g_sec->id;
 		
 		if ($contentID)
 		{
-			if (!customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::write)) $g_sec->security_error_a();
-		
-			$d->qryUpdateByArray('customContent', $cvList, "id=$contentID");
-		
+			$cpObj->save();		
 			pageClass::setNotify("Content Page successfully updated");		
 		}
 		else
-		{				
-			if (!customContent_core::checkPermission($g_sec, $typeID, $dataID, permissions::write, permissions::insert)) $g_sec->security_error_a();
-				
-			$max = $d->qryCount("select max(position) from customContent where dataID=$dataID and typeID=$typeID");					
+		{			
 			
-			$cvList[dataID] = $dataID;
-			$cvList[typeID] = $typeID;
-			$cvList[caption] = "'$oName'";
-			$cvList[position] = $max + 1;
-		
-			$contentID = $d->qryInsertByArray('customContent', $cvList);
+			$cpObj->dataID = $dataID;
+			$cpObj->typeID = $typeID;			
+			
+			$cpObj->insert();			
+			
 			pageClass::setNotify("Content Page successfully inserted");
 			
 			$js->contentID = $contentID;

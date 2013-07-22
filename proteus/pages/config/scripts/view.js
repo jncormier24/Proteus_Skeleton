@@ -1,11 +1,12 @@
 function initConfig(disableControls)
 {
 	var frm = $("#frmConfig");
+	var mods = $("#modules");
 	
 	frm.updateHelper(saveConfig, {autoSave: false, disableControls: disableControls});
 	
-	$("div.mod_select > div", frm.parent()).buttonset();	
-	$("input[type='radio']", frm.parent()).change(function()
+	$("div.mod_select > div", mods).buttonset();	
+	$("input[type='radio']", mods).change(function()
 	{
 		$.showLoading("Saving Module Configuration");
 		

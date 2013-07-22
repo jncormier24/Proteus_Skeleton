@@ -31,40 +31,44 @@ class customCalendar_core
 										 PRIMARY KEY (`id`)
 										) ENGINE=MyISAM DEFAULT CHARSET=utf8");
 }
-class customCalendar extends customConfig 
+class customCalendar extends phpDataSet 
 {
 	const calendar_standalone = 0;
 	const calendar_municipal_entity = 1;
 	
-	private $p_caldata;
-	private $p_calID;	
-	
 	public $entries;
+	public $settings;
 	
 	public function __construct($calID, $fillEntries = true)
 	{
-		validation::ensureInt($calID);
-		if (!$calID) throw new Exception("No Calendar provided!");		
+		parent::__construct("calendars", $calID, $calID ? true : false);
 		
-		//Fill the basic data for the parent calendar object.
-		$d = new DAL(true);
+		if ($calID)
+		{
+			// Set the default icon size for each entry to 50x50 - this can be changed in Proteus backend, this is only used if
+			// this value is not defined in the config manually. See the 'loadDefaults' method in the 'customConfig' class above.
+			$this->settings = new customConfig(proteus_core::$module_calendars["siteType"], $calID, array("iconSize"=>"50x50"));
+						
+			//Get all the entries for this Calendar (set fillEntries to false to filter this list by hand instead of getting all of them)
+			if ($fillEntries) $this->fillEntries();
+		}
+	}
+	public function hasAccess(security $sec, $permission)
+	{
+		if ($sec->hasAccess(permissions::$manage_calendars, permissions::write)) return true;		
+		if (!$this->id) return false;
+		if ($permission > permissions::read && $sec->hasAccess(permissions::$modify_calendar, permissions::write, $this->id)) return true;
+		if ($permission == permissions::read && $sec->is(permissions::$modify_calendar, $this->id)) return true;
 		
-		$qry = "select *
-				from calendars
-				where id=$calID";
-				
-		$this->p_caldata = $d->qryArray($qry);
-		if (!$this->id) throw new Exception("Error, that Calendar cannot be found!");
+		switch($this->typeID)
+		{
+			case customCalendar::calendar_municipal_entity:
+				if ($sec->hasAccess(permissions::$manage_municipal_entities, permissions::write)) return true;
+				if ($permission > permissions::read && $sec->hasAccess(permissions::$municipal_entity, permissions::write, $this->dataID)) return true;
+				return $sec->is(permissions::$municipal_entity, $this->dataID);
+		}
 		
-		// Set the default icon size for each entry to 30x30 - this can be changed in Proteus backend, this is only used if
-		// this value is not defined in the config manually. See the 'loadDefaults' method in the 'customConfig' class above.
-		$this->p_defaults[iconSize] = "30x30";		
-		
-		//Get the configuration for this object - 7 is for type 'Calendar' in Proteus site type definitions
-		parent::__construct(7, $calID);
-		
-		//Get all the entries for this Calendar (set fillEntries to false to filter this list by hand instead of getting all of them)
-		if ($fillEntries) $this->fillEntries();
+		return false;
 	}
 	private function fillEntries($includeInactive = false)
 	{	
@@ -73,32 +77,20 @@ class customCalendar extends customConfig
 		//Don't include inactive entries by default
 		if (!$this->id) throw new Exception("Error, this calendar cannot be found!");
 		
-		$cCache = new cache("calendarEntries_".$this->id);
-
-		//Need ALL the calendar entries (for recurrence...) to filter properly
-		if ($includeInactive || $cCache->isExpired(10))
-		{		
-			$d = new DAL(true);
-			
-			$iWh = (!$includeInactive ? "and inactive=0" : ""); 
-			
-			$qry = "select id
-					from calendarEntry
-					where calendarID = $this->id $iWh
-					order by startDate asc";
-			$eQry = $d->qry($qry);
-			
-			while($entry = $eQry->fetch_assoc())
-			{
-				$eObj = new customCalendarEntry($entry[id]);
-				$this->entries[] = $eObj;	
-			}
-			
-			$cCache->storeObject($this->entries);
-		}
-		else
+		$d = new DAL(true);
+		
+		$iWh = (!$includeInactive ? "and inactive=0" : ""); 
+		
+		$qry = "select id
+				from calendarEntry
+				where calendarID = $this->id $iWh
+				order by startDate asc";
+		$eQry = $d->qry($qry);
+		
+		while($entry = $eQry->fetch_assoc())
 		{
-			$cCache->loadObject($this->entries);	
+			$eObj = new customCalendarEntry($entry[id]);
+			$this->entries[] = $eObj;	
 		}
 	}
 	public function filterEntries($startDate, $behindStamp = 0, $aheadStamp = 0)
@@ -159,14 +151,11 @@ class customCalendar extends customConfig
 		
 		//Return an array of filtered entries
 		return $tmpArr;
-	}	
-	public function __get($key)
-	{
-		return $this->p_caldata[$key] ? $this->p_caldata[$key] : parent::__get($key);
-	}	
+	}		
 	public static function getCalendars($typeID = 0, $dataID = 0)
 	{		
-		if (!pageClass::checkSiteType(proteus_core::module_calendars)) throw new Exception("Error, this site is not configured to use the Proteus Calendar Module. Please enable the module and try again.");
+		$conf = new siteConfig();
+		if (!$conf->moduleEnabled(proteus_core::$module_calendars)) throw new Exception("Error, this site is not configured to use the Proteus Calendar Module. Please enable the module and try again.");
 
 		validation::ensureInt($typeID);
 		validation::ensureInt($dataID);
@@ -188,77 +177,64 @@ class customCalendar extends customConfig
 		return $arr;
 	}
 }
-class customCalendarEntry
-{
-	protected $p_data;
-	public $files;
-	
-			
-	// 0 - weekly
-	// 1 - monthly, same date
-	// 2 - monthly, dow
-	
-	public $recurrenceType;
-	
-	public function __construct($entryID, $p_data = NULL)
+class customCalendarEntry extends phpDataset
+{			
+	public function __construct($entryID, $throwOnEmpty=true)
 	{
 		global $config;
-		if($p_data && is_array($p_data))
-		{
-			$this->p_data = $p_data;
-		}
-		else 
-		{
-			validation::ensureInt($entryID);
-			if (!$entryID) throw new Exception("Error, no entry provided!");
-
-			$d = new DAL(true);
 		
-			$qry = "select *
-					from calendarEntry
-					where id=$entryID";
-			$this->p_data = $d->qryArray($qry);
-		}
-		//Do this here and be done with it! (has uses later on)
-		$this->p_data[startStamp] = validation::convertToUnixTimestamp($this->p_data[startDate]);
-		
-		//Enumerate the files
-		$baseLoc = "images/calendars/$this->calendarID/$entryID";
-		$filesLoc = $config[baseAppDir].$baseLoc;
-		
-		if (!file_exists($filesLoc))
-		{		
-			//recursively create (thank you PHP5!)
-			// HAVE TO USE THE @ SYMBOL HERE!! Failure to do so will cause mkdir to fail SILENTLY and never throw any errors. Definitely a PHP BUG!!
-			if (!@mkdir($filesLoc, 0770, true)) throw new Exception("Error creating entry storage location (this is likely a permissions problem!)");			
-		}		
-		
-		$dir = dir($filesLoc);
-		
-		while(($entry = $dir->read()) !== false)
-		{
-			if ($entry == "." || $entry == ".." || $entry == "icon.png" || preg_match("/^support_/", $entry)) continue;
-				
-			$file[name] = $entry;
-			$file[size] = @filesize($filesLoc.'/'.$entry);
-			$file[url] = $baseLoc."/$entry";
-			
-			$this->files[] = $file;
-		}
-		
-		$dir->close();
-		
-		if (file_exists("$filesLoc/icon.png"))
-		{
-			$this->p_data[icon] = $config[scripturl]."$baseLoc/icon.png";	
-		}
-		
-		$rec = explode("::", $this->recurring);
-		$this->recurrenceType = intval( $rec[0] );
+		parent::__construct("calendarEntry", $entryID, $entryID ? true : false);
 	}
 	public function __get($key)
 	{			
-		return $this->p_data[$key];	
+		switch($key)
+		{
+			case "calendar":
+				return $this->getCalendarObject(false);
+				
+			case "recurrenceType":
+				// 0 - weekly
+				// 1 - monthly, same date
+				// 2 - monthly, dow
+				$rec = explode("::", $this->recurring);
+				return count($rec) ? $rec[0] : false;
+				 
+			case "startStamp":
+				return validation::convertToUnixTimestamp($this->startDate);
+		}
+		
+		return parent::__get($key);	
+	}
+	public function getIconObject(&$fileLocation='', &$dimensions='')
+	{
+		global $config;
+		
+		//Shouldn't ever be getting an icon object for a non-existent entity.
+		if (!$this->id) return false;
+		
+		$folder = "assets/calendars/{$this->calendar->id}/{$this->id}/";		
+		$absFolder = $config["baseAppDir"].$folder;		
+			
+		$file = "icon.png";		
+
+		$fileLocation = $absFolder.$file;
+		
+		$dimensions = explode("x", $this->calendar->iconDim);
+		
+		if (file_exists($fileLocation))
+		{			
+			$iconObject = new image($folder.$file."?rnd=".rand(0, 100), validation::prepForDisplay($this->title));
+		}
+		else
+		{
+			$iconObject = new phpDIV($dimensions[0] > 100 ? "<p>No Image Available<p>" : "<p style='padding: 1px 30px;'>X</p>");
+			$iconObject->title = "No Icon Configured";
+		}
+		
+		$iconObject->class = "entryIcon";
+		$iconObject->style = "width: {$dimensions[0]}px; height: {$dimensions[1]}px;";
+
+		return $iconObject;
 	}
 	public static function getCalendarByEntryID($entryID, $fillEntries = false)
 	{
@@ -269,7 +245,7 @@ class customCalendarEntry
 	{
 		return new customCalendar($this->calendarID, $fillEntries);	
 	}
-	public static function  getWeekOfMonth($timestamp, $date = '')
+	public static function getWeekOfMonth($timestamp, $date = '')
     {
     	$rollover = "sunday";
     	$daylen = 86400;

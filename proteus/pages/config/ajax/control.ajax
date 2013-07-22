@@ -80,7 +80,7 @@ function setModStat($siteType, $stat)
 		$tmp = explode("::", $conf->siteType);
 		
 		if ($stat)
-		{
+		{			
 			$syncObj = new dbSync();
 			$syncObj->syncModule($modObj);
 			
@@ -99,7 +99,7 @@ function setModStat($siteType, $stat)
 					unset($tmp[$key]);
 					break;
 				}	
-			}
+			}			
 		}				
 		
 		$conf->siteType = implode("::", $tmp);

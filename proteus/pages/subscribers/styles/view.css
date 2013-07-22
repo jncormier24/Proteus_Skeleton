@@ -1,0 +1,25 @@
+#subscriberCont .ui_tabPage
+{
+	min-height: 400px;
+}
+div.optionsContainer
+{
+	padding: 5px 0px 12px 5px;
+	overflow: hidden;
+}
+div.optionsContainer label, div.optionsContainer select, div.optionsContainer button
+{
+	float: left;
+	margin-right: 4px;
+}
+div.optionsContainer label
+{
+	margin-top: 8px;
+}
+div.panelBlockContainer h1 div.jqPopupMenu
+{
+	position: absolute !important;
+	
+	top: 5px;
+	right: 4px;
+}

@@ -20,22 +20,10 @@ function showEntities()
 	$a->addPageModule(new jqRedactorModule());
 	$a->addPageModule(new jqFilterHelperModule());
 	$a->addPageModule(new jqTableSortModule());
-	$a->addPageModule(new jqClipboardModule());
+	$a->addPageModule(new subscriptionModule());
 	$a->addPageModule(new jqUpdateHelperModule());
 	
-	$a->addPostScriptObject(new javascriptControl("","proteus/pages/common/scripts/positionUpdate.js"));
-	
-	//$a->addPageModule(new jqWysiwygModule());	
-	//$a->addPageModule(new tabPageModule());
-	
-	//$a->addPageModule(new jqDatePickerModule());	
-	
-	//$a->addScriptObject(new javaControl("", "includes/js/subscribers.js"));
-	
-	//$a->addScriptObject(new javaControl("", "includes/js/customContent.js"));
-	//$a->addScriptObject(new javaControl("", "includes/js/calendar.js"));
-	//$a->addStyleSheet("../admin/$config[theme]/customContent.css");
-	//$a->addStyleSheet("../admin/$config[theme]/calendar.css");
+	$a->addPostScriptObject(new javascriptControl("","proteus/pages/common/scripts/positionUpdate.js"));	
 	
 	if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) && !$g_sec->hasAccess(permissions::$municipal_entity, permissions::read))
 	{
@@ -55,14 +43,9 @@ function showEntities()
 		$mnu = new jqPopupMenu();
 		
 		$ctl = $mnu->addMenuItem("", "Municipal Settings", "", "ui-icon-wrench");
-		$ctl->onclick = "getSettingsEdit();";
-		
-		/* $btnSettings = new jqUI_button("btnSettings", "Municipal Settings", "", "ui-icon-wrench");
-		$btnSettings->onclick = "getSettingsEdit();";
-		$btnSettings->breakAfter = true; */
+		$ctl->onclick = "getSettingsEdit();";		
 		
 		$eBlock->header->addControl($mnu);
-		//$eBlock->addWrapperControl($mnu);
 	}	
 	
 	$a->addControl($eBlock);

@@ -1,0 +1,258 @@
+div.panelBlockContainer h1 div.jqPopupMenu
+{
+	position: absolute !important;
+	
+	top: 5px;
+	right: 4px;
+}
+#blogCatTabs .ui_tabPage
+{
+	min-height: 500px;
+}
+#blogCatTabs > .ui_tabPage > form
+{
+	float: right;
+	padding: 6px 5px;
+}
+#entryWin .redactor_box
+{	
+	clear: left;	
+}
+#entryWin div.tabContent, #blogCatTabs div.tabContent, #entriesWin div.tabContent
+{
+	min-height: 500px;	
+}
+#settingsForm span.longLabel
+{
+	text-align: left !important;
+}
+#btnSettings
+{
+	float: right;
+	margin: 2px 0px 8px 0px;
+}
+img.blogIcon, div.blogIcon
+{
+	float: left;
+	
+	border: 1px solid #808080;
+	box-shadow: 2px 2px 3px #333333;
+	border-radius: 3px;
+	
+	max-width: 167px !important;
+	max-height: 100px !important;		
+}
+div.blogIcon
+{
+	background-color: #8398AF;
+}
+div.blogIcon p
+{
+	text-align: center;
+	padding: 15px 0px;	
+}
+div.blogLeft
+{
+	float: left;	
+}
+div.blogLeft div.uploadDiv, div.blogLeft button.clearIcon
+{
+	float: left;
+	clear: left;
+	
+	margin: 10px 0px 0px 0px;
+}
+div.blogLeft div.uploadDiv label
+{
+	float: left;
+	 	
+	font-size: 10px;
+	text-align: left;
+	
+	color: #808080;	
+}
+div.blogLeft div.uploadDiv .fileinput-wrapper
+{
+	float: left;
+	clear: left;
+}
+div.blogLeft div.uploadDiv button
+{
+	float: left;
+	clear: left;
+	
+	margin-top: 3px !important;
+	
+	width: 222px;	
+}
+div.blogLeft div.uploadDiv .ui-button .ui-button-text
+{
+	line-height: 15px;	
+}
+div.blogContainer
+{
+	position: relative;
+	
+	padding: 15px 0px 15px 10px;
+	margin: 0px 2px 2px 2px;	
+	
+	overflow: hidden;	
+}
+div.blogContainer div.functions
+{
+	float: right;
+	
+	margin: 0px 8px 0px 0px;
+	
+	width: 500px;	
+}
+div.functions h2, div.functions h3, div.blogContainer h4, div.functions h5
+{
+	float: right;
+	clear: right;
+
+	margin: -10px 0px 12px 0px;
+	
+	width: 95%;
+	
+	text-align: right;
+}
+div.functions h2
+{
+	font-size: 15px;	
+}
+div.functions h3
+{
+	font-size: 11px;
+	font-style: italic;
+	
+	color: #4b4b4b;	
+}
+div.blogContainer > h4
+{
+	position: absolute;
+	
+	bottom: 8px;
+	right: 10px;
+	
+	font-size: 11px;	
+	color: #808080;
+	
+	width: 200px;
+}
+div.blogContainer > h4 strong, table.filesTable tr td strong
+{
+	color: #7F1F1F;
+}
+div.functions h5
+{	
+	font-size: 9px;	
+	color: #9999aa;	
+}
+div.blogContainer > div.functions button
+{
+	float: right;
+	
+	margin: 2px 0px 3px 5px;
+	width: 180px;
+}
+#blogCatTabs div.actual, #entryTabs div.actual
+{
+	margin-bottom: 5px;	
+}
+#addForm, #topicLink, #feedLink
+{
+	display: block;
+	margin: 10px;
+}
+#topicLink input
+{
+	margin: 0px 5px;
+}
+#tag_cloud span.tag
+{
+	display: inline-block;
+	margin: 2px 0px;
+	padding: 1px 4px;
+}
+#tag_cloud span.tagHover
+{
+	border: 1px solid #6A6B73;
+	border-radius: 3px;
+	-moz-border-radius: 3px;
+	
+	padding: 0px 3px;
+	
+	background-image: url(images/row_shine_strong.png);
+	background-repeat: repeat-x;
+	background-position: 0px -8px;
+	background-color: #53595E;
+	
+	color: #e2e2e2;
+}
+#tag_cloud span.tagHover .ui-icon
+{	
+	display: inline-block !important;
+	
+	margin-top: 2px;
+	cursor: pointer;
+}
+#tag_cloud label
+{		
+	float: left;
+	clear: left;
+	
+	width: 125px;
+	font-weight: bold;
+	
+	margin: 10px 0px 5px 0px;
+}
+#tagMaint
+{
+	float: left;
+	
+	margin: 5px 0px 5px 0px;
+	padding: 8px 3px;	
+	
+	overflow: hidden;
+}
+#btnAddTag, #tag_cloud input, #tag_cloud select
+{
+	float: left;
+}
+#tag_cloud select, #btnAddTag
+{
+	margin-top: 4px;
+}
+#btnAddTag
+{
+	margin-left: 6px;
+}
+#btnGenerate
+{
+	float: left;
+	clear: left;
+	
+	margin: 35px 0px 10px 0px;
+}
+div.tagDisplay
+{
+	float: right;
+	
+	border-style: solid;
+	border-color: #999999;
+	border-width: 0px 0px 0px 1px;
+	
+	padding: 0px 0px 0px 5px;
+	
+	width: 350px;	
+	min-height: 350px;
+}
+table.feedTable
+{
+	margin-bottom: 10px;	
+}
+#btnAddNew, #btnSave
+{
+	margin: 1px 0px 0px 4px;	
+}

@@ -1,26 +1,46 @@
+$(function()
+{
+	// Just a simple wrapper to make creating WYSIWYG assets easier using the customContent module
+	// see customContent/model.inc for supported object types (customContentData::getDataOject)
+	
+	$.fn.assetRedactor = function(typeID, dataID, contentID, redactorOptions)
+	{
+		var opts = {};
+		
+		if (contentID)
+		{
+			opts = 
+			{
+				imageUpload: "admin/module/customContent?action=assetUpload&typeID=" + typeID + "&dataID=" + dataID + "&contentID=" + contentID,
+				imageUploadErrorCallback: function(output) { $.jqAlert(output.error); },
+				fileUpload: "admin/module/customContent?action=assetUpload&isFile=1&typeID=" + typeID + "&dataID=" + dataID + "&contentID=" + contentID,
+				fileUploadErrorCallback: function(output) { $.jqAlert(output.error); }
+			}
+		}
+		
+		// Allow passing of any variables to the redactor configuration
+		redactorOptions = $.extend(opts, redactorOptions);
+		
+		return $(this).redactor(opts);
+	}
+});
 function getContentEntries(typeID, dataID, container)
 {	
-	var dataElem = "container_" + typeID + "_" + dataID;
+	var container = $("#container_" + typeID + "_" + dataID);	
 	
-	if (!container) container = $(document).data(dataElem);
-	
-	container = $(container);
-	
-	container.showLoading();
-	
-	//Store the container for later retrieval (refreshes)
-	$(document).data(dataElem, container);
+	container.showLoading();	
 	
 	$.getJSON("admin/module/customContent", {action: "getContentEntries", dataID: dataID, typeID: typeID}).then(function(output)
 	{
 		if (!$.ajaxError(output, container))
 		{		
 			container.html(output.content);
+			
 			initTableSort();
 		}
 	});
 }
-function getContentWin(contentID)
+function getContentWin(contentID, dataID, typeID)
 {
 	if ($("#contentWin").length)
 	{	
@@ -37,7 +57,7 @@ function getContentWin(contentID)
 	
 	cont.showLoading("Loading Custom Content Editor");
 	
-	$.getJSON("admin/module/customContent", {action: "getContentWin", contentID: contentID}).then(function(output)
+	$.getJSON("admin/module/customContent", {action: "getContentWin", contentID: contentID, dataID: dataID, typeID: typeID}).then(function(output)
 	{
 		if (!$.ajaxError(output, cont))			
 		{		
@@ -47,8 +67,10 @@ function getContentWin(contentID)
 			
 			// Using blockContainer to help with the redactor -> modal dialog issue (7/13)
 			$.blockContainer();
-				
-			$(".wysiwyg").redactor({
+			
+			var win = $("#contentWin");
+			
+			$(".wysiwyg", win).redactor({
 				maxHeight: 370,
 				imageUpload: "admin/module/customContent?action=assetUpload&contentID=" + contentID + "&dataID=" + output.dataID + "&typeID=" + output.uploadType,
 				imageUploadErrorCallback: function(output) { $.jqAlert(output.error); },
@@ -56,65 +78,46 @@ function getContentWin(contentID)
 				fileUploadErrorCallback: function(output) { $.jqAlert(output.error); }				
 			});
 			
-			$("#contentWin").dialog("option", "close", function()
+			win.dialog("option", "close", function()
 			{
 				$.showDialogs(true);				
 				$(this).remove();
-			});
+			}).updateHelper(updateContentEntry, {closeConfirmOnly: true, autoSave: false, disableControls: parseInt(output.disabled)});
 		}
 	});
 }
-function updateContentEntry(contentID, typeID, dataID)
+function updateContentEntry()
 {
-	var cont, cap, frm;	
+	var win = $("#contentWin");
+	var frm = $("#contentForm");	
+	var contentID = $("#contentID", frm);
 	
 	if (contentID)
-	{
-		cont = $("#contentWin");
-		cap = "Saving Custom Content";
-		frm = $("#contentForm");
+	{		
+		cap = "Saving Custom Content";		
 	}
 	else
-	{		
-		cont = $;
-		cap = "Adding Custom Content";
-		frm = $("#contentForm_new");
-		
-		var tmp = $(frm).closest(".ui-dialog");
-		if (tmp.length) cont = tmp;
+	{			
+		cap = "Adding Custom Content";		
 	}
 	
-	cont.showLoading(cap);
+	$.showLoading(cap);
 	
-	$.post("admin/module/customContent", {
-		action: "updateContentEntry",
-		contentID: contentID,
-		dataID: dataID,
-		typeID: typeID,
-		fields: frm.serializeArray()
-	}, null, "json").then(function(output)
+	$.post("admin/module/customContent", frm.serialize(), null, "json").then(function(output)
 	{
-		cont.hideLoading();
+		if (!$.ajaxError(output, $))
+		{		
+			getMessages();
 		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+			win.updateHelper("reset").dialog("close");
+			
+			if (!contentID)
+			{
+				getContentWin(output.contentID);
+			}
+		
+			getContentEntries(output.typeID, output.dataID);
 		}
-		
-		getMessages();
-		
-		if (!contentID)
-		{
-			getContentWin(output.contentID);
-		}
-		else
-		{
-			cont.dialog('close');			
-		}
-		
-		getContentEntries(output.typeID, output.dataID);
-		
 	});
 }
 function deleteContentEntry(contentID)

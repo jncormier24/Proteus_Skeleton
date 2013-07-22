@@ -37,11 +37,13 @@ function showHome()
 	
 	if ($g_sec->hasAccess(permissions::$manage_users, permissions::insert))
 	{
-		$btnNew = new jqUI_button("btnNewUser", "Add new User", "", "ui-icon-person");
-		$btnNew->onclick = "showEditUser()";
+		$mnu = new jqPopupMenu();	
 		
-		$uBlock->addControl($btnNew);
-	}	
+		$ctl = $mnu->addMenuItem("", "Add new User", "", "ui-icon-plusthick");
+		$ctl->onclick = "showEditUser()";
+	
+		$uBlock->header->addControl($mnu);	
+	}
 	
 	$uBlock->addControl($tblFilter);
 	$uBlock->addControl($dv);

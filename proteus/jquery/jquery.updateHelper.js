@@ -3,30 +3,34 @@
 	$.fn.updateHelper = function(func, options)
 	{
 		var parent = $(this);
+		var optionKey = "updatehelper-options";
 		
 		defaults = {
-			selector: "input,select,textarea,.redactor_editor",
+			selector: "input,select,textarea",
 			disableControls: false,
-			autoSave: true,
+			autoSave: false,
 			leftOffset: 0,
-			closeConfirmOnly: 0
+			closeConfirmOnly: 0,
+			attemptCallbackClose: false
 		};
 		
 		var chFunc = function(evt)
 		{			
-			var opts = parent.data("options");
+			var opts = parent.data(optionKey);
 			var func = parent.data("func");
 			
 			var dfd = new $.Deferred();
 			
-			$(opts.selector, parent).prop("readonly","readonly").fadeTo(1, .5); 
+			// Don't automatically gray/disable fields if the closeConfirmOnly option is set; handled by the window using it.
+			if (!opts.closeConfirmOnly) $(opts.selector, parent).prop("readonly","readonly").fadeTo(1, .5); 
 			
 			$.when(func()).fail(function()
-			{
-				$(opts.selector, parent).removeProp("readonly").fadeTo(1, 1);
+			{				
 				dfd.reject();
 			}).done(function()
-			{				
+			{
+				if (!opts.closeConfirmOnly) $(opts.selector, parent).removeProp("readonly").fadeTo(1, 1);
+				
 				resetDirty();
 				dfd.resolve();
 			});
@@ -36,13 +40,23 @@
 		
 		var resetDirty = function()
 		{
-			var opts = parent.data("options");
-			$(opts.selector, parent).removeProp("readonly").fadeTo(1, 1).each(function()
+			var opts = parent.data(optionKey);
+			
+			if (!opts)
+			{
+				alert("f");
+			}
+			opts.isDirty = false;
+			
+			$(opts.selector, parent).each(function()
 			{
 				var thisObj = $(this);					
 				if (!thisObj.data("isDirty")) return;
 				
-				thisObj.data("isDirty", false);
+				thisObj.data("isDirty", false);				
+				
+				// Leave hidden elements alone (just for the sake of cleanliness - wysiwyg placeholders, etc)
+				if (!thisObj.is(":visible")) return;
 				
 				if (thisObj.attr("type") == "checkbox")
 				{
@@ -54,13 +68,17 @@
 				}
 			});
 			
-			$("span.jqSaveIcon").fadeOut('normal', function() { $(this).remove(); });	
+			$("span.jqSaveIcon").fadeOut('normal', function() { $(this).remove(); });
+			
+			parent.data(optionKey, opts);
 		}
 		
 		var isDirty = function()
 		{
-			var opts = parent.data("options");
+			var opts = parent.data(optionKey);
 			var retval = false;
+			
+			if (opts.isDirty) return true;
 			
 			$(opts.selector, parent).each(function()
 			{	
@@ -76,8 +94,14 @@
 		
 		var openDialog = function()
 		{
-			var opts = parent.data("options");
+			var opts = parent.data(optionKey);
 			var dfd = $.Deferred();
+			
+			var attemptCloseDialog = function()
+			{
+				var dlg = parent.closest(".ui-dialog-content");
+				if (dlg.length) dlg.dialog("close");
+			}
 			
 			var conf = $("<div><p>You have unsaved changes, would you like to save now?</p></div>").dialog({
 							resizable: false,
@@ -90,12 +114,13 @@
 								"Save Changes": function() 
 								{
 									$(this).dialog("close");
-									$.when(chFunc()).fail(function() { dfd.reject(); }).done(function() { dfd.resolve(); });									
+									$.when(chFunc()).fail(function() { dfd.reject(); }).done(function() { attemptCloseDialog(); dfd.resolve(); });									
 								},
 								"Discard Changes": function() 
 								{
 									$(this).dialog("close");
 									resetDirty();
+									attemptCloseDialog();
 									dfd.resolve();									
 								},
 								"Cancel": function()
@@ -112,6 +137,12 @@
 		
 		switch(func)
 		{
+			case "setDirty":
+				var opts = parent.data(optionKey);
+				opts.isDirty = true;
+				
+				parent.data(optionKey, opts);
+				break;
 			case "promptSave":				
 				if (isDirty())
 				{
@@ -124,7 +155,7 @@
 					
 					return dfd.promise();
 				}
-				
+				break;
 			case "reset":				
 				resetDirty();
 				return parent;				
@@ -140,11 +171,12 @@
 					{
 						win.bind("dialogbeforeclose", function(event, ui)
 						{
-							if (!isDirty()) return true;
+							if (!isDirty()) return true;							
 							
 							$.when(openDialog(options)).then(function()
 							{
-								win.dialog('close');
+								// Attempt to close the containing dialog if the option is set (default: false)
+								if (options.attemptCallbackClose && win.is(":visible")) win.dialog('close');
 							});
 							
 							return false;
@@ -182,6 +214,9 @@
 					var dirtyFunc = function(evt)
 					{							
 						var resetControlDirty = function() { obj.data("isDirty", false).next(".jqSaveIcon").fadeOut('normal'); };
+						
+						// Don't do anything if the controls are disabled (stops prompting for save when no save access)
+						if (options.disableControls) return false;
 						
 						if (options.closeConfirmOnly || (obj.prop("tagName").match(/textarea|input|select/i) && !options.autoSave))
 						{		
@@ -267,7 +302,14 @@
 						}
 					};			
 					
-					if (obj.prop("tagName").match(/textarea|input/i))
+					if (obj.is(".wysiwyg"))
+					{
+						// Hook to the Redactor keyup event (does not work w/ iframe editor!! Need to bind keyupCallback by hand)
+						var editor = obj.redactor("getEditor");
+						
+						editor.on("keyup.redactor", $.proxy(dirtyFunc, obj));
+					}
+					else if (obj.prop("tagName").match(/textarea|input/i))
 					{
 						if (obj.is(".datePicker,.hasDatepicker"))
 						{
@@ -292,18 +334,14 @@
 						{
 							obj.keyup(dirtyFunc);
 						}
-					}
-					else if (obj.is(".redactor_editor"))
-					{						
-						obj.keyup(dirtyFunc);
-					}
+					}					
 					else
 					{
 						obj.change(dirtyFunc);
 					}
 				});	
 			
-				parent.data("options", options).data("func", func);
+				parent.data(optionKey, options).data("func", func);
 				
 				return $(this);
 		}

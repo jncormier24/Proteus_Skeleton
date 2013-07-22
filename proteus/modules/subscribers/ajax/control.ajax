@@ -1,0 +1,605 @@
+<?php 
+	$g_sec = permissions::getAuthorizedUser();
+	proteus_core::includeAllModules();
+	
+	switch($action)
+	{
+		case "subscribe":
+			subscribe($email, $options, $subID);
+			break;
+			
+		case "showSubscribe":
+			showSubscribe($optionID, $subID);
+			break;
+						
+		case "subscriptionSend":
+			subscriptionSend($emailSubject, $emailBody, $options, $entryID, $emailOverride);
+			break;
+			
+		case "getSubscriptionSendWin":
+			getSubscriptionSendWin($optionID, $entryID, $typeID, $dataID, $template);
+			break;
+	}
+
+function getSubscriptionSendWin($optionID, $entryID, $typeID, $dataID, $template)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		validation::ensureInt($optionID);
+		
+		$superAdmin = $g_sec->hasAccess(permissions::$manage_subscribers, permissions::write);
+		
+		$conf = new siteConfig();
+		
+		if ($optionID)
+		{
+			$optObj = new subscriberOption($optionID);
+			if (!$optObj->hasAccess($g_sec)) $g_sec->security_error_a();
+		}
+		else
+		{
+			if (!$superAdmin) $g_sec->security_error_a();
+		}
+		
+		if ($entryID)
+		{
+			$eData = $d->qryArray("select * from subscriptionHistory where id=$entryID");
+			if (!$eData["id"]) throw new Exception("Error, that saved subscription entry could not be found!");	
+			
+			$optArr = explode("::", $eData["options"]);
+			
+			$typeID = $eData["typeID"];
+			$dataID = $eData["dataID"];
+		}		
+		else
+		{
+			$baseDir = $config["baseAppDir"]."themes/".$config["frontend_theme"]."/subscriptions";
+			
+			if (!$template)
+			{
+				$files = array();				
+
+				foreach(glob($baseDir."/*.tpl") as $file)
+				{
+					$files[] = $file;
+				}
+				
+				if (!count($files)) throw new Exception("No subscription templates (.tpl) found in $baseDir."); 
+				
+				if (count($files) < 2) 
+				{
+					$tplFile = $files[0];
+				}
+				else
+				{
+					$ddl = new phpDDL("templateFile");
+					$ddl->setLabel("Select an Email Template: &nbsp;");
+					
+					foreach($files as $file)
+					{
+						$fBase = basename($file);
+						$ddl->addListItem(new phpListItem($fBase, $fBase));
+					}
+					
+					$sWin = new jqUI_dialog("templateSelect", true, 420, "", "Select an Email Template");
+					$sWin->addClass("configWin");
+					$sWin->setOption("autoOpen", true);
+					$sWin->setOption("autoResize", true);
+					
+					$sWin->addCloseButton("Cancel");
+					$sWin->addButton("Use Template", "function() { getSubscriptionSendWin($optionID, $entryID, $typeID, $dataID, $('#templateFile').val()); $(this).dialog('close') }");
+					
+					$sWin->addControl($ddl);
+					
+					$js->content = $sWin->render();
+					
+					echo $js->render();
+					exit(0);
+				}
+			}
+			else
+			{
+				$tplFile = $baseDir."/".$template;
+			}
+		}
+		
+		switch($typeID)
+		{
+			case subscriber_core::type_municipal_agenda:
+				$aObj = new pmm_entityAgenda($dataID);
+				
+				$eData["subject"] = "Meeting Agenda: ".validation::prepForDisplay($aObj->title, false);
+				$eData["body"] = $aObj->body;
+				
+				$tabAnchor = "admin/municipal";
+				break;
+			case subscriber_core::type_municipal_file:
+				$fObj = new pmm_entityFile($dataID);
+				
+				$fileCap = validation::prepForDisplay($fObj->caption, false);
+				$fileLink = new phpHyperlink($config["scripturl"].$fObj->fileFolder.$fObj->fileName, $fileCap);
+				
+				$eData["subject"] = "Subscription Alert: ".$fileCap;
+				$eData["body"] = "This subscription alert has been sent to you because a file has been added or modified. Please click the link below to download.<br /><br />".$fileLink->render()."<br /><br /> Thank you!";
+				
+				$tabAnchor = "admin/municipal";
+				break;
+			case subscriber_core::type_municipal_posting:
+				$postObj = new pmm_entityPosting($dataID);
+				
+				$eData["subject"] = validation::prepForDisplay($postObj->title);
+				$eData["body"] = $postObj->body;
+
+				$tabAnchor = "admin/municipal";
+				break;
+			case subscriber_core::type_municipal_generic:
+				$eObj = new pmm_entity($dataID);
+				
+				$eData["subject"] = validation::prepForDisplay($eObj->title." updates");
+				
+				$tabAnchor = "admin/municipal";
+				break;
+			case subscriber_core::type_generic:
+				
+				$tabAnchor = "admin/subscribers";					
+				break;				
+		}			
+		
+		if ($tplFile)
+		{
+			$p = new fileParser($tplFile, true);
+			$p->pushParam("content", $eData["body"]);
+			$p->pushParam("businessName", $conf->businessName);
+			$p->pushParam("businessAddr", $conf->businessAddr);
+			
+			$eData["body"] = $p->render();
+		}
+		
+		$eWin = new jqUI_dialog("emailWin", true, 860, "", "Send Subscriber Email".($entryID ? " (saved)" : ""));
+		$eWin->setOption("autoOpen", true);
+		$eWin->setOption("modal", 0);		
+		$eWin->addClass("configWin");
+		$eWin->fitToViewport();
+		$eWin->addCloseButton("Cancel");
+		
+		$eWin->addButton("Send All", "function() { subscriptionSend(0); }");		
+		$eWin->addButton("Send Sample", "function() { subscriptionSend(1); }");
+		$eWin->addButton("Save for Later", "function() { subscriptionSend(-1); }");		
+		
+		$txtSubject = new customText("emailSubject", validation::prepTextForInput($eData["subject"]), 75, 255);
+		$txtSubject->setLabel("Email Subject: ");
+		
+		$tabs = new jqUI_tabControl("emailTabs", 0, $tabAnchor);
+		
+		$tpBody = new jqUI_tabPage("email_body", "Email Body", "ui-icon-mail-open");
+		
+		$txtBody = new phpTextArea("emailBody", $eData["body"], 26, 107, "wysiwyg");
+		$tpBody->addControl($txtBody);
+		
+		$tabs->addTabPage($tpBody);
+		
+		if ($superAdmin)
+		{
+			$tpOptions = new jqUI_tabPage("channels", "Selected Channels", "ui-icon-star");
+			
+			$t = new tblBuilder("center",0,0,5,"100%");
+			$t->class = "listTable";
+	
+			$r = $t->addRow();
+			$r->addHeader(new tblHeader("&nbsp;"));
+			$r->addHeader(new tblHeader("Channel"));
+			$r->addHeader(new tblHeader("Type"));
+			$r->addHeader(new tblHeader("Subscribers (opted out)"));		
+			
+			$sCt = $d->qryCount("select count(*) 
+								 from subscribers 
+								 where optoutGeneral = 0 and inactive = 0");
+							
+			$soCt = $d->qryCount("select count(*) 
+								  from subscribers 
+								  where optoutGeneral = 1 and inactive = 0");		
+			
+			$chk = new phpCheckbox("options[-1]", -1, $optionID || !in_array(-1, (array)$optArr) ? false : true);
+			
+			$r = $t->addRow();
+			$r->addCell(new tblCell($chk, "oddCell", "center"));
+			$r->addCell(new tblCell("General Subscription", "evenCell", "left", 2));		
+			$r->addCell(new tblCell("$sCt ($soCt)", "evenCell", "center"));
+			
+			$ct = 0;
+			$opts = subscriber_core::getSubscriberOptions();
+			foreach($opts as $optObj)
+			{
+				$sCt = $d->qryCount("select count(*) 
+									 from subscriberOptionLink inner join subscribers on subscribers.id = subscriberOptionLink.subscriberID 
+									 where optionID=$optObj->id and inactive = 0");
+								
+				$soCt = $d->qryCount("select count(*) 
+								 	  from subscriberOptionLink inner join subscribers on subscribers.id = subscriberOptionLink.subscriberID 
+								 	  where optionID=$optObj->id and inactive = 1");
+				
+				switch($optObj->typeID)
+				{
+					case proteus_core::$module_blogs["siteType"]:
+						$chType = "Blog";
+						break;
+					case proteus_core::$module_customCategories["siteType"]:
+						$chType = "Category Type";
+						break;
+					case proteus_core::$module_municipal["siteType"]:
+						$chType = "Municipal Entity";
+						break;	
+				}			
+				
+				$chTitle = $optObj->title;
+				validation::truncateText($chTitle, 50);
+				
+				$chk = new phpCheckbox("options[$ct]", $optObj->id, $optionID == $optObj->id || in_array($optObj->id, (array)$optArr) ? true : false);
+				
+				$r = $t->addRow();
+				$r->addCell(new tblCell($chk, "oddCell", "center"));
+				$r->addCell(new tblCell($chTitle, "evenCell", "left"));
+				$r->addCell(new tblCell($chType, "oddCell", "left"));
+				$r->addCell(new tblCell("$sCt ($soCt)", "evenCell", "center"));
+
+				$ct++;
+			}
+			
+			$tpOptions->addControl($t);
+			$tabs->addTabPage($tpOptions);
+		}
+		else
+		{
+			$tabs->addControl(new hiddenInput("options[0]", $optionID));	
+		}
+		
+		$frm = new phpForm("post", "emailForm");
+		$frm->addControl($txtSubject);
+		$frm->addControl($tabs);
+		$frm->addControl(new hiddenInput("action", "subscriptionSend"));
+		$frm->addControl(new hiddenInput("entryID", $entryID));
+		$frm->addControl(new hiddenInput("emailOverride", $g_sec->email));		
+		
+		$eWin->addControl($frm);
+		
+		// Set this to a 1 here so that we know to finish initializing the editor (not just selecting a template from the list)
+		$js->template = 1;
+		$js->addObject("content", $eWin->render(), false);		
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+function subscriptionSend($subject, $body, $options, $entryID, $emailOverride)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();	
+	
+	try
+	{			
+		$emails = array();		
+		
+		if ($options[-1] && !$g_sec->hasAccess(permissions::$manage_subscribers, permissions::write)) $g_sec->security_error_a("You do not have access to send emails to that subscription channel!");
+		
+		if ($entryID)
+		{
+			$eData = $d->qryArray("select * from subscriptionHistory where id=$entryID");
+			if (!$eData[id]) throw new Exception("Error, that saved subscription history entry could not be found!");	
+		}
+		
+		if (strlen($subject) < 3) throw new Exception("Sorry, but the Subject must be at least 3 characters to prevent emails being marked as spam by some filters.");
+				
+		foreach((array)$options as $key=>$optID)
+		{
+			if ($key == -1)
+			{
+				$qry = "select id, email
+						from subscribers
+						where optoutGeneral = 0 and inactive = 0
+						order by email";
+				$sQry = $d->qry($qry);
+				
+				while($subscr = $sQry->fetch_assoc())
+				{
+					$emails[$subscr[email]] = 1;
+				}	
+			}
+			else
+			{
+				$optObj = new subscriberOption($optID);
+				if (!$optObj->hasAccess($g_sec)) $g_sec->security_error_a("You do not have access to send emails to that subscription channel!");
+	
+				$sArr = $optObj->getSubscribers(0);
+				foreach($sArr as $sObj)
+				{
+					$emails[$sObj->email] = $sObj->createdDateTime;	
+				}
+			}			
+		}		
+		
+		// Need to cast cases as string so as not to do an implicit conversion (string would then match 0)
+		switch($emailOverride)
+		{
+			case "-1":
+				// Save draft - any checks here?
+				break;
+				
+			case "0":				
+				if (strlen($body) < 20) throw new Exception("Please specify more content to send. Emails with little or no content are often trapped by spam filters.");
+				
+				break;
+			default:				
+				if (!validation::isValidEmail($emailOverride)) throw new Exception("Error, sample email address does not appear to be in the correct format. Please try again.");
+				
+				// Override the emails array
+				$emails = array($emailOverride=>1);				
+				break;
+				
+		}		
+		
+		$emlCt = count($emails);
+				
+		if (!$emlCt && !$emailOverride) throw new Exception("Sorry, but there were no emails found in the channels selected. Sending this email would go nowhere!");
+		
+		$cv[options] = "'".implode("::", (array)$options)."'";
+		$cv[subject] = "'$subject'";
+		$cv[body] = "'$body'";
+		$cv[updatedDateTime] = "now()";
+		$cv[updatedUserID] = $g_sec->id;
+		$cv[completed] = !$emailOverride ? 1 : 0;
+		
+		if (!$emailOverride) $cv[lastSentDateTime] = "now()";
+		
+		//If the entry has been completed (viewing a sent entry), insert it as a new when saving or sending (clones it)
+		if ($entryID && !$eData["completed"])
+		{
+			$d->qryUpdateByArray("subscriptionHistory", $cv, "id=$entryID");
+		}
+		else
+		{
+			$entryID = $d->qryInsertByArray("subscriptionHistory", $cv);		
+		}
+		
+		$js->completed = $cv["completed"];
+		$js->entryID = $entryID;
+		
+		if ($emailOverride == -1)
+		{
+			pageClass::setNotify("Draft Saved");	
+		}
+		else 
+		{				
+			$conf = new siteConfig(); 		 
+			$body = stripslashes(str_replace('$', '\$', $body));
+				
+			$p = new contentParser($body);
+						
+			foreach($emails as $eml=>$created)
+			{
+				$p->pushParam("EMAILHASH", md5($eml.$created));
+								
+				$eml = new proteusEmail($eml, $subject);
+				$eml->fromName = $conf->businessName." Subscription Mailer";
+				$eml->fromAddress = $conf->sitemail;
+				
+				$eml->send(false, true, $p);
+			}
+			
+			pageClass::setNotify("Successfully sent $emlCt email(s)");
+		}
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit();
+}
+function showSubscribe($optionID, $subID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+
+	try
+	{
+		validation::ensureInt($subID);		
+		
+		$insertAccess = $g_sec->hasAccess(permissions::$manage_subscribers, permissions::insert);
+		$writeAccess = $g_sec->hasAccess(permissions::$manage_subscribers, permissions::write);
+		
+		$sWin = new jqUI_dialog("subscribeWin", true, 640, "", "Subscribe to Mailing List(s)");
+		$sWin->setOption("autoOpen", 1);		
+		$sWin->setOption("autoResize", 1);
+		$sWin->addCloseButton("Cancel");
+		$sWin->addButton($subID ? "Save Subscription" : "Subscribe", "function() { subscribe() }");		
+		
+		if (!$insertAccess && !$writeAccess)
+		{
+			$sWin->addControl(new phpParagraph("Please enter your email below, and select any Subscriber Channels you would like to be included in. All emails are confidential, and any mailings will always include a link to unsubscribe from any or all of our Subscriber Channels. Thank you!<br /><br />"));
+		}
+		else
+		{
+			$sWin->addControl(new phpParagraph("Configure Subscription Settings"));
+		}
+		
+		$sObj = new subscriber($subID);
+		
+		$frm = new phpForm("post", "subscribeForm");
+		$frm->addControl(new hiddenInput("subID", $subID));
+		$frm->addControl(new hiddenInput("action", "subscribe"));		
+		
+		$txtEmail = new customText("email", validation::prepTextForInput($sObj->id || $insertAccess ? $sObj->email : $g_sec->email), 50, 75);
+		$txtEmail->setLabel("Email Address (required):");
+		if ((!$sObj->id && ($g_sec->id && !$insertAccess)) || ($sObj->id && $sObj->userID)) $txtEmail->addParameter("readonly disabled"); 
+		
+		$frm->addControl($txtEmail);
+		
+		$chkGen = new phpCheckbox("options[-1]", 1, $sObj->optoutGeneral ? false : true);
+		$chkGen->setLabel("General Mailings");
+		$chkGen->labelRenderOrder = 1;
+		
+		if (!$subID) $chkGen->addParameter("readonly disabled");		
+		
+		$frm->addControl($chkGen);
+		
+		$opts = subscriber_core::getSubscriberOptions();
+		$ct = 0;
+		foreach($opts as $optObj)
+		{
+			if ($subID)
+			{
+				$selVal = $d->qryCount("select id from subscriberOptionLink where optionID=$optObj->id and subscriberID=$subID");
+			}
+			else
+			{
+				$selVal = $optionID == $optObj->id ? true : false;	
+			}
+			
+			$chk = new phpCheckbox("options[$ct]",$optObj->id, $selVal);
+			$chk->setLabel($optObj->title);
+			$chk->labelRenderOrder = 1;			
+			
+			$frm->addControl($chk);
+			
+			$ct++;
+		}
+		
+		$sWin->addControl($frm);
+		
+		$js->content = $sWin->render();		
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function subscribe($email, $options, $subID)
+{
+	global $config, $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+
+	try
+	{		
+		validation::ensureInt($subID);		
+		
+		if (!$options) $options = array();		
+				
+		$conf = new siteConfig();
+		
+		$insertAccess = $g_sec->hasAccess(permissions::$manage_subscribers, permissions::insert);
+		
+		if (!$subID)
+		{
+			$subID = subscriber::getSubscriberID($email, $g_sec->id && !$insertAccess ? $g_sec->id : 0);
+		}
+		
+		$sObj = new subscriber($subID);				
+		
+		if (((!$sObj->id && (!$g_sec->id || $insertAccess)) || ($sObj->id && !$sObj->userID)) && !validation::isValidEmail($email)) throw new Exception("We're sorry, but your email address seems to be in an incorrect format. Please correct and try again.");
+				
+		if (!$sObj->id)
+		{							
+			if ($g_sec->id && !$insertAccess)
+			{
+				$sObj->userID = $g_sec->id;				
+			}
+			else
+			{				
+				$sObj->email = "'$email'";
+				$sObj->inactive = 1;
+			}
+			
+			$sObj->optoutGeneral = 0;
+			$sObj->createdDateTime = "now()";
+			
+			$sID = $sObj->insert();
+
+			//re-initialize to get the created date
+			$sObj = new subscriber($sID);			
+			
+			$emlHash = md5($sObj->email.$sObj->createdDateTime);			
+			
+			if ($g_sec->id && !$insertAccess)
+			{
+				$confBody = "This automated email has been dispatched to confirm your subscription to {$conf->businessName} mailing list(s).<br /><br />
+				To manage your subscriptions, click please click <a href='{$config["scripturl"]}subscriptions/subscriberOptions?key=$emlHash'>here</a><br /><br />
+				No further action is required.";							
+			}
+			else 
+			{					
+				$confBody = "This automated email has been dispatched to complete the subscription signup process, which protects you from someone else signing up for our lists on your behalf. Please click the link provided below to activate your subscription.<br /><br />
+				No emails will be sent to your address until this process has been completed!<br /><br />
+				<a href='{$config["scripturl"]}/subscriptions/confirmSubscription?key=$emlHash'>Confirm Subscription</a><br /><br />Thank you!";
+			}
+			
+			$eml = new systemEmail($sObj->email, "Subscription Confirmation: {$conf->businessName}", $confBody);
+			$eml->send(true);			
+			
+			$msg = "Successfully subscribed; an email has been dispatched to the address specified for confirmation. Please check your inbox to complete the subscription registration process. Thank you!";
+		}
+		else
+		{			
+			if (!$sObj->userID) $sObj->email = "'$email'";
+			
+			$sObj->optoutGeneral = $options[-1] ? 0 : 1;
+			$sObj->inactive = count($options) ? 0 : 1;			
+			$sObj->updatedDateTime = "now()";
+			
+			$sObj->save();
+
+			//Clear out all of them, rebuild below
+			$d->qry("delete from subscriberOptionLink where subscriberID=$subID");
+			
+			$msg = "Subscription Settings Saved.";
+		}
+		
+		foreach((array)$options as $key=>$opt)
+		{
+			if ($key == -1) continue;			
+			$sObj->linkOption($opt);
+		}
+		
+		if ($insertAccess)
+		{
+			pageClass::setNotify("Successfully modified subscription status");
+		}
+		else
+		{
+			$sWin = new jqUI_notify($msg, 15, "", true, 2, false, "Subscription Successful!");
+			$sWin->setOption("close", "function() { $('#subscribeWin').dialog('close'); $(this).remove(); }");
+					
+			$js->content = $sWin->render();
+		}		
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}			
+?>

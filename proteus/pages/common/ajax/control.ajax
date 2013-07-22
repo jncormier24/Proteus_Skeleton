@@ -6,6 +6,10 @@
 	
 	switch($action)
 	{		
+		case "dismissMessage":			
+			dismissMessage($notificationKey);
+			break;
+			
 		case "logout":
 			logout();
 			break;
@@ -44,6 +48,30 @@ function logout()
 	
 	$_SESSION["password"] = "";
 	session_write_close();
+
+	echo $js->render();
+	exit(0);
+}
+function dismissMessage($key)
+{
+	global $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		if (!$g_sec->id) throw new Exception("Not logged in");
+		
+		$sObj = $g_sec->notification_settings;
+		$sObj->$key = 1;		
+		
+		pageClass::setNotify("Message preferences saved.");
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();		
+	}
 
 	echo $js->render();
 	exit(0);

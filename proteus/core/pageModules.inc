@@ -6,19 +6,10 @@ class pageModule
 	public $styleSheets = array();
 	public $rev;
 
-	public function __construct()
-	{
-
-	}
+	public function __construct() {}
 	public function addScriptObject($javaControl)
 	{
 		global $config;
-
-		/* if ($javaControl->src)
-		{
-			$javaControl->src = $config[scripturl].$javaControl->src;
-		} */
-
 		array_push($this->scriptObjects, $javaControl);
 	}
 	public function addStylesheet($stylesheet)
@@ -28,6 +19,14 @@ class pageModule
 	public function addRequisiteModule($module)
 	{
 		array_push($this->requisiteModules, $module);
+	}
+}
+class subscriptionModule extends pageModule
+{
+	public function __construct()
+	{
+		$this->addScriptObject(new javascriptControl("", "proteus/modules/subscribers/scripts/view.js"));
+		$this->addStylesheet(new stylesheetControl("proteus/modules/subscribers/styles/view.css"));
 	}
 }
 class jqAutoGrowModule extends pageModule
@@ -121,13 +120,16 @@ class jqUpdateHelperModule extends pageModule
 }
 class jqMaskedInputModule extends pageModule
 {
+	const mask_phone = "(999) 999-9999";
+	const mask_dimensions = "~~~~~~~?~~";
+	
 	public function __construct()
 	{		
-		$this->addScriptObject(new javascriptControl("", "proteus/jquery/jquery.maskedinput-1.2.2.js"));				
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/jquery.maskedinput.min.js"));				
 	}	
 	public static function setMask(&$webControl, $mask)
 	{
-		$loader = new jqLoader("$(\"[name='$webControl->name']\").setMask($mask);");
+		$loader = new jqLoader("$(\"[name='$webControl->name']\").mask('$mask');");
 		$webControl->postContent .= $loader->render();			
 	}
 }
@@ -158,6 +160,7 @@ class jqTableSortModule extends pageModule
 	public function __construct()
 	{
 		$this->addScriptObject(new javascriptControl("", "proteus/jquery/jquery.tableSort.js"));						
+		$this->addScriptObject(new javascriptControl("", "proteus/modules/tableSorter/scripts/view.js"));
 	}	
 }
 class jqClipboardModule extends pageModule

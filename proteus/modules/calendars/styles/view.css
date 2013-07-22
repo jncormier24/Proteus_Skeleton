@@ -12,22 +12,49 @@
 {
 	float: left;
 }
-#btnAddIcon
-{
-	position: relative;
-	top: -3px;
-}
 #entryFiles .fileinput-wrapper
 {
 	float: left;
 	padding-top: 4px;
 }
-#enWin .wysiwyg
+#entryEditWin .redactor_box
 {
 	float: left;
+	width: 595px;
+
+	margin-bottom: 10px;
 }
-#enWin label
+#entryEditWin .redactor_editor
 {
-	clear: left;
-	width: 145px;
+	max-height: 200px;
+}
+#entryIconDiv > button
+{
+	float: left;
+	height: 28px;
+}
+#entryIconDiv > .entryIcon
+{
+	float: right;
+	clear: right;
+	
+	margin: 10px 10px 5px 0px;
+}
+img.entryIcon, div.entryIcon
+{	
+	border: 1px solid #808080;
+	box-shadow: 2px 2px 3px #333333;
+	border-radius: 3px;
+	
+	max-width: 280px !important;	
+	max-height: 250px;	
+}
+div.entryIcon
+{
+	background-color: #8398AF;
+}
+div.entryIcon p
+{
+	text-align: center;
+	padding: 15px 0px;	
 }

@@ -194,15 +194,23 @@ class DAL
 				
 		if (is_array($whereClause))
 		{
-			$whList = validation::quotedArray($whereClause);				
+			//$whList = validation::quotedArray($whereClause);				
 		
-			foreach((array)$whList as $ky=>$wh)
+			foreach($whereClause as $ky=>$wh)
 			{
-				$wTmp[] = "$ky=$wh";
+				// Support for 2 differerent syntax: array("column"=>"value") and array("column=value OR column2=value2")
+				if (!is_numeric($ky))
+				{
+					$wTmp[] = "$ky='$wh'";
+				}
+				else
+				{
+					$wTmp[] = $wh;	
+				}
 			}
 			
 			//Override the where clause with the array data if it exists
-			$whereClause = implode(" AND ", (array)$wTmp);			
+			$whereClause = implode(" AND ", (array)$wTmp);					
 		}
 		
 		$qry = "update ".($ignore ? "IGNORE " : "")."$tableName set $stmt where $whereClause";		
@@ -426,7 +434,7 @@ class dbSync
 			$structObj = new dbStructUpdater();
 				
 			foreach((array)$core_class->tables as $table=>$structure)
-			{
+			{				
 				try
 				{
 					$d->suppressErrors = true;
@@ -437,7 +445,7 @@ class dbSync
 				catch(Exception $ex)
 				{
 					$localStructure = "";
-				}
+				}				
 				
 				$changes = $structObj->getUpdates($localStructure, $structure);
 

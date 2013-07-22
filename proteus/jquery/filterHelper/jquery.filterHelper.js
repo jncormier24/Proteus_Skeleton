@@ -50,10 +50,7 @@
 					
 					obj.data("options", opts);
 					obj.filterHelper();
-				}).css({
-					float: 'right',
-					cursor: 'pointer'					
-				});
+				}).attr("title", "Sort Results");
 				
 				if (current && current.dbColumn == item.dbColumn)
 				{
@@ -109,29 +106,57 @@
 				
 				thisObj.after(span);
 				
-				var width = function() 
-				{ 
-					var width = thisObj.outerWidth() - span.outerWidth(true) - 10;
-					return width < 10 ? 10 : width;
-				}();
+				var width = thisObj.parent().width();
+				width -= (thisObj.outerWidth() - thisObj.width());
+				
+				$("span", thisObj.parent()).each(function(){
+					width -= $(this).width();
+				});				
 				
 				thisObj.width(width);
-				
-				/*if (thisObj.is("select"))
-				{
-					thisObj.width(width);
-				}
-				else
-				{
-					thisObj.outerWidth(width);
-				}*/
 			}
 			
 			thisObj.data("isDirty", true);
 		};
 		
+		var toggleFilterRow = function(opts, row)
+		{
+			var dfd = $.Deferred();
+			var visible = row.is(":visible");
+			
+			// Fade in/out, reoslve deferred on animation complete (allows for setting focus when clicking icon handler)
+			row.stop().fadeToggle("normal", function() { dfd.resolve(); });
+			
+			// We're fading out - don't adjust again
+			if (visible) return;
+			
+			$("th", row).each(function()
+			{
+				var cell = $(this);				
+				var ctl = $(".filter", cell);
+				
+				cell.children().hide();
+				
+				var width = cell.width();
+				width -= (ctl.outerWidth() - ctl.width());
+				
+				$("span", cell).each(function(){
+					width -= $(this).width();
+				});
+				
+				ctl.width(width);
+				
+				cell.children().show();
+			});	
+			
+			return dfd.promise();
+		}
+		
 		var initColumnFilters = function(opts)
 		{
+			var showFilter = false;			
+			var nextRow;
+			
 			$.each(opts.filterColumns, function(i, item)
 			{	
 				var ctl = $("[name='filters[" + item.dbColumn + "]']", obj);
@@ -141,23 +166,23 @@
 				if (item.selector)
 				{
 					var itemObj = $(item.selector, opts.tableSelector);
-					var nextRow = itemObj.parent().next();
-					var idx = itemObj.index();
-					var filterCell = $("th", nextRow).eq(idx).addClass("sort");
-					var width = filterCell.width();				
 					
-					if (width < 1) width = "95%";					
+					nextRow = itemObj.parent().next().hide();
+					if (!nextRow.has("th")) return;
+					
+					var idx = itemObj.index();									
+					var filterCell = $("th", nextRow).eq(idx).addClass("sort");
+					
+					if (ctl.val().length) showFilter = true;
+					
+					var filterCtl = $("<span></span>").addClass("ui-icon ui-icon-tag sortControl").click(function()
+					{
+						$.when(toggleFilterRow(opts, nextRow)).then(function() { ctlClone.focus(); });						
+					}).attr("title", "Filter results");
+					
+					itemObj.append(filterCtl);
 					
 					ctlClone.show().appendTo(filterCell)
-					
-					if (ctlClone.is("select"))
-					{
-						ctlClone.width("90%");
-					}
-					else
-					{						
-						ctlClone.outerWidth(width);
-					}
 					
 					if (item.mask.length && ctlClone.setMask)
 					{
@@ -184,29 +209,19 @@
 				
 					ctlClone.after(spanx);
 					
-					var width = function() 
+					/*var width = function() 
 					{ 
 						var width = ctlClone.outerWidth() - spanx.outerWidth(true) - 10;
 						return width < 10 ? 10 : width;
 					}();
 					
-					ctlClone.width(width);
+					ctlClone.width(width);*/
 				}				
 				
 				if (ctlClone.is("select"))
 				{
 					ctlClone.change(function() { $(this).data("isDirty", true); obj.filterHelper(); });
 				}
-				
-				/*					
-				if (ctlClone.is("select"))
-				{
-					ctlClone.width(width);
-				}
-				else
-				{
-					ctlClone.outerWidth(width);
-				}*/
 				
 				if (ctlClone.prop("tagName").match(/textarea|input/i))
 				{
@@ -235,6 +250,8 @@
 					}
 				});
 			});
+			
+			if (showFilter && nextRow) toggleFilterRow(opts, nextRow);
 		}		
 				
 		var initNavigation = function(opts)

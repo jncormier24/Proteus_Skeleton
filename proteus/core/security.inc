@@ -24,7 +24,7 @@ abstract class permission_base
 		
 		foreach($pArr as $perm)
 		{
-			if ($perm[key] == $key) return $perm;	
+			if ($perm["key"] == $key) return $perm;	
 		}
 		
 		return false;
@@ -37,7 +37,7 @@ abstract class permission_base
 		$d = new DAL(true);
 		
 		$entry = $d->qryArray("select * from permissionsAssignment where id=$entryID");
-		if (!$entry[id]) throw new Exception("Error, that permission entry could not be found.");
+		if (!$entry["id"]) throw new Exception("Error, that permission entry could not be found.");
 		
 		return $entry;
 	}
@@ -153,11 +153,11 @@ class permissions extends permission_base
 		// No information found, nobody has logged in yet
 		if (!$login || !$pass) return $secObj;
 		
-		//Once validated, don't re-validate for another 20 minutes
+		//Once validated, don't re-validate for another 5 minutes
 		$sCache = new session_cache("login");
 		$secObj = $sCache->loadObject($secObj);		
 		
-		if ($sCache->isExpired(20) || !$secObj->id || $force)
+		if ($sCache->isExpired(5) || !$secObj->id || $force)
 		{			
 			//Check local users database for authentication if configured
 			$qry = "select * from users where login='$login' and password='$pass'";
@@ -217,26 +217,36 @@ class security
 	public $key_access = array();
 	private $perm_array = array();
 	
-	public $global_admin = false;
+	//private $global_admin = false;
 	
-	public function __construct($userID=0, $populate=true)
+	private $settings;
+	private $notification_settings;
+	
+	public function __construct($userID=0)
 	{
 		global $config;		
 		
 		validation::ensureInt($userID);
-		
-		//if (!$userID) return false; 
-		
 		$this->userID = $userID;
-		if ($userID) $this->account_data = security::getAccountFromID($this->userID, false);
-
-		// Shorctut since this is tested in so many places
-		if ($userID && $populate) $this->global_admin = $this->is(permissions::$site_admin);
 	}	
 	public function __get($key)
 	{		
+		if (!count($this->account_data)) $this->account_data = security::getAccountFromID($this->userID, false);
+		if (!$this->account_data["id"]) return;
+		 
 		switch($key)
 		{
+			case "global_admin":
+				return $this->is(permissions::$site_admin);
+				
+			case "notification_settings":
+				$this->notification_settings = new notificationsConfig($this);
+				return $this->notification_settings;
+				
+			case "settings":
+				$this->settings = new userConfig($this);
+				return $this->settings;
+				
 			case "fullName":
 				return $this->account_data[firstName] && $this->account_details[data] ? $this->account_data[lastName].", ".$this->account_data[firstName] : $this->account_data[login];
 

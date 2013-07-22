@@ -37,6 +37,18 @@ $(function()
 		obj.data("menuTimer", timeout);
 	});
 	
+	// Disable the enter key automatically submitting forms	
+	$(document).on({
+		keydown: function(event) 
+		{ 
+			if (event.keyCode == 13)
+			{
+				event.preventDefault();
+				return false;
+			}
+		}
+	}, "form > input, form select");
+		
 	// Set all the inputs to react to being focused; add a class and define style in style.css (since it's global)
 	$(document).on(
 	{
@@ -97,17 +109,6 @@ $(function()
 		});
 	}
 });
-
-function getMessages()
-{
-	var ttl = 8000;
-	
-	//Get any message boxes...
-	$.getJSON("admin/ajax/common", {action: "getMessages"}).then(function(output)
-	{
-		if (output.message) $.jGrowl("<span class='ui-icon ui-icon-circle-check' style='float:left; margin:1px 7px 5px 0px;'></span><span class='systemNotif'>" + output.message + "</span>", { life: ttl, header: "System Notification:" });
-	});	
-}
 function logout(ref)
 {
 	$.jqConfirm("Are you sure you want to Log Out?", function()

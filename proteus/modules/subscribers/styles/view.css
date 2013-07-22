@@ -1,0 +1,33 @@
+#emailTabs
+{
+	clear: left;
+}
+#emailTabs .redactor_editor
+{
+	min-height: 500px;
+}
+#confirmSuccessWin p
+{
+	text-align: justify;
+	font-size: 18px;
+}
+#subscribeWin p
+{	
+	font-size: 16px;
+	text-align: left;
+}
+#subscribeWin label, #subscribeWin input
+{
+	float: left;
+	margin: 0px 0px 10px 8px;
+}
+#subscribeWin label
+{	
+	margin-top: 8px;
+	text-align: left;
+}
+#subscribeWin input[type='checkbox']
+{
+	clear: left;
+	margin-top: 10px;
+}

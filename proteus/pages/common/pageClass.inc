@@ -49,17 +49,44 @@ class admin_navigation extends phpDIV
 			$conf = new siteConfig();
 			
 			$lnk = new jqUI_hyperlink("admin", "Admin Home", "", "ui-icon-home");
-			$this->menu->addListItem(new htmlListItem($lnk->render()));		
-		
+			$this->menu->addListItem(new htmlListItem($lnk->render()));			
+			
+			$lnk = new jqUI_hyperlink("javascript:void(0)", "Content", "", "ui-icon-star");
+			$li = new htmlListItem($lnk->render());
+			
+			$ul = new phpUnOrderedList();
+			
 			if ($conf->moduleEnabled(proteus_core::$module_municipal["siteType"]) && $secObj->is(permissions::$manage_municipal_entities))
 			{
 				$lnk = new jqUI_hyperlink("admin/municipal", "Municipal", "", "ui-icon-flag");
-				$li = new htmlListItem($lnk->render());
-				
-				$this->menu->addListItem($li);
+				$ul->addListItem(new htmlListItem($lnk->render()));
 			}
 			
-			$lnk = new jqUI_hyperlink("javascript:void()", "Management", "", "ui-icon-gear");
+			if ($secObj->is(permissions::$manage_custom_content))
+			{	
+				$lnk = new jqUI_hyperlink("admin/customContent", "Content Pages", "", "ui-icon-document");
+				$ul->addListItem(new htmlListItem($lnk->render()));
+			}			
+			
+			if ($conf->moduleEnabled(proteus_core::$module_blogs["siteType"]) && ($secObj->is(permissions::$manage_blogs) || $secObj->is(permissions::$modify_blog_category)))
+			{	
+				$lnk = new jqUI_hyperlink("admin/blogs", "Blogs", "", "ui-icon-signal-diag");
+				$ul->addListItem(new htmlListItem($lnk->render()));
+			}
+
+			if ($conf->moduleEnabled(proteus_core::$module_showcases["siteType"]) && $secObj->is(permissions::$manage_showcases))
+			{	
+				$lnk = new jqUI_hyperlink("admin/showcases", "Custom Showcases", "", "ui-icon-image");
+				$ul->addListItem(new htmlListItem($lnk->render()));
+			}
+			
+			$li->addControl($ul);
+			
+			if (count($ul->listItems)) $this->menu->addListItem($li);
+			
+			///////////////////////////////////////////
+			
+			$lnk = new jqUI_hyperlink("javascript:void(0)", "Management", "", "ui-icon-gear");
 			$li = new htmlListItem($lnk->render());
 			
 			$ul = new phpUnOrderedList();
@@ -67,6 +94,18 @@ class admin_navigation extends phpDIV
 			if ($secObj->is(permissions::$site_configuration))
 			{	
 				$lnk = new jqUI_hyperlink("admin/config", "System Settings", "", "ui-icon-wrench");
+				$ul->addListItem(new htmlListItem($lnk->render()));
+			}
+			
+			if ($conf->moduleEnabled(proteus_core::$module_subscribers["siteType"]) && $secObj->is(permissions::$manage_subscribers))
+			{	
+				$lnk = new jqUI_hyperlink("admin/subscribers", "Subscriptions Management", "", "ui-icon-mail-closed");
+				$ul->addListItem(new htmlListItem($lnk->render()));
+			}
+			
+			if ($conf->moduleEnabled(proteus_core::$module_municipal["siteType"]) && ($secObj->is(permissions::$manage_calendars) || $secObj->is(permissions::$modify_calendar)))
+			{	
+				$lnk = new jqUI_hyperlink("admin/calendars", "Calendars & Events", "", "ui-icon-calendar");
 				$ul->addListItem(new htmlListItem($lnk->render()));
 			}
 			
@@ -79,10 +118,10 @@ class admin_navigation extends phpDIV
 			$li->addControl($ul);
 			
 			if (count($ul->listItems)) $this->menu->addListItem($li);
-			//$this->menu->addListItem($li);
 		}
 		
 		$lnk = new jqUI_hyperlink("index", "Back to Site", "", "ui-icon-seek-prev");
+		$lnk->title = "Exit administration";
 		
 		$li = new htmlListItem($lnk->render());
 		$li->class = "back";
@@ -203,8 +242,8 @@ class calendarModule extends pageModule
 {
 	public function __construct()
 	{			
-		$this->addScriptObject(new javascriptControl("", "proteus/modules/calendar/scripts/view.js"));
-		$this->addStylesheet(new stylesheetControl("proteus/modules/calendar/styles/view.css"));			
+		$this->addScriptObject(new javascriptControl("", "proteus/modules/calendars/scripts/view.js"));
+		$this->addStylesheet(new stylesheetControl("proteus/modules/calendars/styles/view.css"));			
 	}	
 }
 class customContentModule extends pageModule 

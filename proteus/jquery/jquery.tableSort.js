@@ -9,23 +9,37 @@
 			return;
 		}
 		
-		var op = $.extend({start: function() {}}, options);
+		var parent = $(this).parent();
+		var container = parent.closest(".ui-dialog-content");
 		
-		$(this).not(".sortLoaded").sortable({
-			helper: 'original',
+		if (!container.length) container = parent;
+		
+		var op = $.extend({
+			start: function() {},
+			stop: function() {},
+			container: container
+		}, options);
+		
+		var fixHelper = function(e, ui) 
+		{
+			ui.children().each(function() {
+				$(this).width($(this).width());
+			});
+			
+			return ui;
+		};
+		
+		$(this).not("sortLoaded").sortable({
+			helper: fixHelper,
+			forcePlaceholderSize: true,
 			opacity: 0.85,
 			items: $("tr", this).not(":has(th)"),
 			start: op.start,
 			stop: op.stop,
-			containment: $(this).parent()
-		}).data("sortable-loaded", true).addClass(".sortLoaded");
+			containment: op.container
+		}).data("sortable-loaded", true).addClass("sortLoaded");
 		
 		return $(this);
 	};
-	$.fn.evenOddStripe = function()
-	{
-		$("td", this).removeClass("evenCell oddCell");
-		$("tr:odd:not(:has(th)) td", this).addClass('oddCell');
-		$("tr:even:not(:has(th)) td", this).addClass('evenCell');
-	};
+	
 })(jQuery);

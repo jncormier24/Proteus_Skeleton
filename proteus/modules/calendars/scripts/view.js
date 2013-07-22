@@ -2,105 +2,110 @@ function getCalendars(typeID, dataID)
 {
 	var cont = $("#calendarsContainer");
 	
-	cont.setWorking("Fetching Calendars");
+	$.showLoading("Fetching Calendars");
 	
-	$.getJSON("admin/module/calendar", { action: "getCalendars", dataID: dataID, typeID: typeID }).then(function(output)
+	$.getJSON("admin/module/calendars", { action: "getCalendars", dataID: dataID, typeID: typeID }).then(function(output)
 	{
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, $))
+		{			
+			cont.html(output.content).tableRowAlternate();
+			
+			initJqPopupMenus();
 		}
-		
-		cont.html(output.content);
 	});
 }
 function getCalendarWin(calID, typeID, dataID)
 {
 	$.showLoading("Loading Calendar Interface");
 	
-	$.getJSON("admin/module/calendar", { action: "getCalendarWin", calID: calID, typeID: typeID, dataID: dataID }).then(function(output)
+	$.getJSON("admin/module/calendars", { action: "getCalendarWin", calID: calID, typeID: typeID, dataID: dataID }).then(function(output)
 	{
-		$.hideLoading();
-		
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output, $))
+		{		
+			$(output.content).appendTo("body");
 		}
-		
-		$(output.content).appendTo("body");
 	});
 }
-function saveCalendar(calID)
-{
-	if (!calID) calID = 0;
-	$.post("admin/module/calendar?action=saveCalendar&calID=" + calID, $("#calForm").serialize(), function(output)
+function saveCalendar()
+{	
+	var frm = $("#calForm");
+	var calID = $("#calID", frm);
+	
+	$.showLoading(calID ? "Saving Calendar Detail" : "Adding Calendar");
+	
+	$.post("admin/module/calendars", frm.serialize(), null, "json").then(function(output)
 	{
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
-		}
-
-		getMessages();
-		getCalendars(output.typeID, output.dataID);
+		if (!$.ajaxError(output, $))
+		{		
+			getMessages();
+			getCalendars(output.typeID, output.dataID);
 		
-		if (!calID)
-		{
-			$("#calendarEdit").dialog('close');			
-			getCalendarWin(output.calID);			
+			if (!parseInt(calID))
+			{
+				$("#calendarEdit").dialog('close');			
+				getCalendarWin(output.calID);			
+			}
 		}		
-		
-	}, "json");
+	});
+}
+function getEntriesWin(calID)
+{
+	$.showLoading("Loading Entry Management Interface");
+	
+	$.getJSON("admin/module/calendars", { action: "getEntriesWin", calID: calID}).then(function(output)
+	{
+		if (!$.ajaxError(output, $))
+		{
+			$(output.content).appendTo("body");
+			getEntries(calID);
+		}
+	});
 }
 function getEntries(calID)
 {
-	var cont = $("#cal_entries");
+	var cont = $("#entriesWin");
 	cont.setWorking("Loading Calendar Entries");
 	
-	$.getJSON("admin/module/calendar", {
-		action: "getEntries",
-		calID: calID
-	}).then(function(output)
+	$.getJSON("admin/module/calendars",	{ action: "getEntries", calID: calID}).then(function(output)
 	{
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output))
+		{		
+			cont.html(output.content).tableRowAlternate();
+			initJqPopupMenus();
 		}
-		
-		cont.html(output.content);
 	});	
 }
 function getEntryEdit(entryID, calID)
 {
 	$.showLoading("Loading Edit Interface");
 
-	$.getJSON("admin/module/calendar", {
+	$.getJSON("admin/module/calendars", {
 		action: "getEntryEdit",
 		entryID: entryID,
 		calID: calID
 	}).then(function(output)
 	{
-		$.hideLoading();
-
-		if (output.error)
+		if (!$.ajaxError(output, $))
 		{
-			$(output.error).appendTo("body");
-			return;
-		}
+			$.hideDialogs(true);		
+			
+			$(output.content).appendTo("body");
 
-		$(output.content).appendTo("body");
-
-		if (entryID)
-		{
-			getEntryFiles(entryID);
-			getEntryIcon(entryID);
-		}
+			if (entryID)
+			{
+				getEntryIcon(entryID);
+			}
+			
+			var win = $("#entryEditWin");
+			
+			$(".wysiwyg", win).assetRedactor(7, output.calID, entryID);
 		
-		initWYSIWYG(".wysiwyg");
-		//initBBCodeControl();
+			win.dialog("option", "close", function()
+			{
+				$.showDialogs(true);
+				$(this).remove();
+			}).updateHelper(saveEntry, {closeConfirmOnly: true, disableControls: parseInt(output.disabled)});
+		}
 	});
 }
 function getEntryFiles(entryID)
@@ -108,7 +113,7 @@ function getEntryFiles(entryID)
 	var cont = $("#entryFiles");
 	cont.setWorking('Loading Files...');
 
-	$.getJSON("admin/module/calendar", {
+	$.getJSON("admin/module/calendars", {
 		action: "getEntryFiles",
 		entryID: entryID
 	}).then(function(output)
@@ -125,74 +130,72 @@ function getEntryFiles(entryID)
 }
 function getEntryIcon(entryID)
 {
-	$.getJSON("admin/module/calendar", {
+	$.getJSON("admin/module/calendars", {
 		action: "getEntryIcon",
 		entryID: entryID
 	}).then(function(output)
 	{
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
+		if (!$.ajaxError(output))
+		{		
+			$("#entryIconDiv").html(output.content);
+			$("#entryIcon").fileinput();
 		}
-
-		$("#entryIconDiv").html(output.content);
-		$("#entryIcon").fileinput();
 	});
 }
 function deleteEntryIcon(entryID)
 {
-	var cont = $("#enWin");	
-	cont.showLoading("Clearing Entry Icon");
-	
-	$.getJSON("admin/module/calendar", {
-		action: "deleteEntryIcon",
-		entryID: entryID
-	}).then(function(output)
+	$.jqConfirm("Are you sure you want to delete this Entry's icon?", function()
 	{
-		cont.hideLoading();
+		var cont = $("#enWin");	
+		cont.showLoading("Clearing Entry Icon");
 		
-		if (output.error)
+		$.getJSON("admin/module/calendars", {
+			action: "deleteEntryIcon",
+			entryID: entryID
+		}).then(function(output)
 		{
-			$(output.error).appendTo("body");
-			return;
-		}
-		
-		getMessages();
-		getEntryIcon(entryID);
+			cont.hideLoading();
+			
+			if (output.error)
+			{
+				$(output.error).appendTo("body");
+				return;
+			}
+			
+			getMessages();
+			getEntryIcon(entryID);
+		});
 	});
 }
 function saveEntry(entryID)
 {
-	$.post("admin/module/calendar?action=saveEntry&entryID=" + entryID, $("#calEntryForm").serializeArray(), function(output)
+	$.showLoading("Saving Entry");
+	
+	$.post("admin/module/calendars", $("#calEntryForm").serializeArray(), null, "json").then(function(output)
 	{
-		if (output.error)
-		{
-			$(output.error).appendTo("body");
-			return;
-		}
+		if (!$.ajaxError(output, $))
+		{		
+			getMessages();
+			getEntries(output.calID);
 
-		getMessages();
-		getEntries(output.calID);
-
-		if(!entryID) //if this is a new item, refresh the whole window so that the id is in the form (and we don't create 2x if hit save again)
-		{
-			$("#enWin").dialog('close');
-			getEntryEdit(output.entryID, output.calID);
+			if (!entryID)
+			{
+				$("#entryEditWin").dialog("close");
+				getEntryEdit(output.entryID);
+			}
+			else
+			{
+				//getEntryFiles(output.entryID);
+				getEntryIcon(output.entryID);
+			}
 		}
-		else
-		{
-			getEntryFiles(output.entryID);
-			getEntryIcon(output.entryID);
-		}
-
-	}, "json");
+	});
 }
 function deleteEntry(entryID)
 {	
 	$.showLoading("Removing Calendar Entry");
 	
-	$.getJSON("admin/module/calendar", {
+	$.getJSON("admin/module/calendars", {
 		action: "deleteEntry",
 		entryID: entryID
 	}).then(function(output)
@@ -214,7 +217,7 @@ function deleteEntryFile(entryID, hash, salt)
 	var cont = $("#enWin");	
 	cont.showLoading("Removing Linked File");
 	
-	$.getJSON("admin/module/calendar", {
+	$.getJSON("admin/module/calendars", {
 		action: "deleteEntryFile",
 		entryID: entryID,
 		fileHash: hash,
@@ -240,7 +243,7 @@ function attachFile(entryID)
 	cont.showLoading("Attaching File");
 	
 	$.ajaxFileUpload( {
-		url : 'admin/module/calendar?action=attachFile&entryID=' + entryID,
+		url : 'admin/module/calendars?action=attachFile&entryID=' + entryID,
 		secureuri : false,
 		fileElementId : _element,
 		dataType : 'json',
@@ -271,24 +274,24 @@ function attachFile(entryID)
 function uploadIcon(entryID)
 {
 	var _element = "entryIcon";
-	var cont = $("#enWin");	
-	cont.showLoading("Uploading Entry Icon");	
+	
+	$.showLoading("Uploading Entry Icon");	
 	
 	$.ajaxFileUpload( {
-		url : 'admin/module/calendar?action=uploadIcon&entryID=' + entryID,
+		url : 'admin/module/calendars?action=uploadIcon&entryID=' + entryID,
 		secureuri : false,
 		fileElementId : _element,
 		dataType : 'json',
 		success : function(data, status)
 		{
-			cont.hideLoading();
+			$.hideLoading();
 			
 			if (data.error)
 			{
-				alert(data.error);
+				$.jqAlert(data.error);
 			}			
 			
-			$("#" + _element).val('').fileinput();
+			$("#" + _element).val('').fileinput().nextAll("button").prop("disabled", true);
 			
 			getMessages();
 			getEntryIcon(entryID);
@@ -303,21 +306,22 @@ function uploadIcon(entryID)
 }
 function deleteCalendar(calID)
 {
-	if (!confirm("Are you SURE you want to permanently delete this calendar and all events? This CANNOT be undone!")) return;
-	
-	$.showLoading("Removing Calendar and Entries");
-	
-	$.getJSON("admin/module/calendar", { action: "deleteCalendar", calID: calID }).then(function(output)
-	{
-		$.hideLoading();
+	$.jqConfirm("Are you SURE you want to permanently delete this calendar and all events? This CANNOT be undone!", function()
+	{	
+		$.showLoading("Removing Calendar and Entries");
 		
-		if (output.error)
+		$.getJSON("admin/module/calendars", { action: "deleteCalendar", calID: calID }).then(function(output)
 		{
-			$(output.error).appendTo("body");
-			return;
-		}
-		
-		getMessages();
-		getCalendars(output.typeID, output.dataID);
+			$.hideLoading();
+			
+			if (output.error)
+			{
+				$(output.error).appendTo("body");
+				return;
+			}
+			
+			getMessages();
+			getCalendars(output.typeID, output.dataID);
+		});
 	});
 }

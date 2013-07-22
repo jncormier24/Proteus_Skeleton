@@ -16,7 +16,7 @@
 			break;
 			
 		case "saveAgenda":
-			saveAgenda($agendaID, $agenda, $entityID);
+			saveAgenda($agendaID, $agenda, $entityID, $addNotice);
 			break;
 			
 		case "getAgendaEdit":
@@ -24,7 +24,7 @@
 			break;
 			
 		case "getAgendas":
-			getAgendas($entityID, $filter);
+			getAgendas($entityID, $paging, $sortData, $filterColumns, $customColumns);
 			break;
 			
 		case "getAgendaWin":
@@ -223,21 +223,21 @@ function getSettingsEdit()
 		$settingsWin->addCloseButton();
 		$settingsWin->addButton("Save", "function() { saveSettings(); }");		
 		
-		$txtISize = new customText("cfg[iconDim]", $eObj->settings->config("iconDim"), 10, 7);
+		$txtISize = new customText("cfg[iconDim]", $eObj->settings->iconDim, 10, 7);
 		$txtISize->setLabel("Entity Icon Dimensions:");		
 		$txtISize->setRequired("&nbsp; Format: 99x99", "desc");
 		
-		$txtISSize = new customText("cfg[staffIconDim]", $eObj->settings->config("staffIconDim"), 10, 7);
+		$txtISSize = new customText("cfg[staffIconDim]", $eObj->settings->staffIconDim, 10, 7);
 		$txtISSize->setLabel("Staff Icon Dimensions:");		
 		$txtISSize->setRequired("&nbsp; Format: 99x99", "desc");
 		
-		$txtIPSize = new customText("cfg[postIconDim]", $eObj->settings->config("postIconDim"), 10, 7);
+		$txtIPSize = new customText("cfg[postIconDim]", $eObj->settings->postIconDim, 10, 7);
 		$txtIPSize->setLabel("Postings Icon Dimensions:");		
 		$txtIPSize->setRequired("&nbsp; Format: 99x99", "desc");
 		
 		$ddlTime = new phpDDL("cfg[defaultMeetingTime]");
 		$ddlTime->setLabel("Default Meeting Time:");			
-		$ddlTime->selected = $eObj->settings->config("defaultMeetingTime");
+		$ddlTime->selected = $eObj->settings->defaultMeetingTime;
 		
 		for($i = 0; $i <= 23; $i++)
 		{
@@ -293,7 +293,7 @@ function saveSettings($cfg)
 		
 		foreach((array)$cfg as $key=>$value)
 		{
-			$eObj->settings->config($key, $value);
+			$eObj->settings->$key = $value;
 		}
 		
 		pageClass::setNotify("Successfully saved Configuration settings.");
@@ -414,12 +414,12 @@ function getEntities($typeID)
 				//SUBSCRIPTION MODULE
 				if ($conf->moduleEnabled(proteus_core::$module_subscribers))
 				{
-					$optData = subscriberOption::getSubscriberOption(proteus_core::$module_municipal, $entity[id]);
+					$optData = subscriberOption::getSubscriberOption(proteus_core::$module_municipal, $entity["id"]);
 					
 					if ($optData[id])
 					{
-						$btnEmail = new jqUI_button("btnEmail_$entity[id]", "Email Subscribers", "ui-state-highlight", "ui-icon-mail-closed", true);
-						$btnEmail->onclick = "getSubscriptionSendWin($optData[id], 0, 0, $entity[id])";
+						$btnEmail = new jqUI_button("btnEmail_$entity[id]", "Email Subscribers", "", "ui-icon-mail-closed", true);
+						$btnEmail->onclick = "getSubscriptionSendWin($optData[id], 0, ".subscriber_core::type_municipal_generic.", $entity[id])";
 						
 						$dDiv->addControl($btnEmail);
 					}
@@ -484,7 +484,8 @@ function getEntityEdit($entityID)
 		$entityWin = new jqUI_dialog("entityWin", true, 875, "", $entityID ? "Modify Entity" : "Add new Entity");
 		$entityWin->addClass("configWin");
 		$entityWin->setOption("autoOpen", true);
-		$entityWin->setOption("autoResize", true);
+		//$entityWin->setOption("autoResize", true);
+		$entityWin->fitToViewport();
 		
 		// Redactor will not function inside a modal window. Use $.fn.block() / unblock() on the main container within view Javascript
 		$entityWin->setOption("modal", 0);
@@ -509,27 +510,24 @@ function getEntityEdit($entityID)
 			$entityWin->addButton("Add Entity","function() { updateEntity(); }");
 		}
 		
-		$ddlType = new phpDDL("entity[typeID]");
-		$ddlType->class = "floating";
-		$ddlType->setLabel("Entity Type:", "longLabel floating");
+		$ddlType = new phpDDL("entity[typeID]");		
+		$ddlType->setLabel("Entity Type:");
 		$ddlType->selected = $eObj->typeID;		
 		
 		$arr = pmm_core::getEntityTypes();
 		$ddlType->bindByArray($arr);
 
-		$txtTitle = new customText("entity[title]", validation::prepTextForInput($eObj->title), 70, 75, "text floating");
-		$txtTitle->setLabel("Title:", "longLabel floating");
+		$txtTitle = new customText("entity[title]", validation::prepTextForInput($eObj->title), 70, 75);
+		$txtTitle->setLabel("Title:");
 		
-		$txtBlurb = new phpTextArea("entity[blurb]", validation::prepTextForInput($eObj->blurb), 3, 70, "text floating");
-		$txtBlurb->setLabel("Blurb (preview):", "longLabel floating");
+		$txtBlurb = new phpTextArea("entity[blurb]", validation::prepTextForInput($eObj->blurb), 3, 70);
+		$txtBlurb->setLabel("Blurb (preview):");
 		
-		$txtDesc = new phpTextArea("entity[description]", validation::prepTextForInput($eObj->description), 12, 103, "wysiwyg floating");
-		$txtDesc->setLabel("Description:","longLabel floating", true);
-		$txtDesc->addAttribute("data-upload-dataid", $entityID);
-		$txtDesc->addAttribute("data-upload-typeid", 6);
+		$txtDesc = new phpTextArea("entity[description]", validation::prepTextForInput($eObj->description), 12, 103, "wysiwyg");
+		$txtDesc->setLabel("Description:","", true);
 		
-		$txtAddr = new phpTextArea("entity[address]", validation::prepTextForInput($eObj->address), 3, 70, "text floating");
-		$txtAddr->setLabel("Address (contact):", "longLabel floating");
+		$txtAddr = new phpTextArea("entity[address]", validation::prepTextForInput($eObj->address), 3, 70);
+		$txtAddr->setLabel("Address (contact):");
 
 		$frmEntity = new phpForm("post","entityForm");
 		$frmEntity->addControl($ddlType);		
@@ -653,7 +651,7 @@ function uploadEntityIcon($entityID)
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $eObj->id)) $g_sec->security_error_a();
 		
-		$dim = $eObj->settings->config("iconDim");
+		$dim = $eObj->settings->iconDim;
 		$tmp = explode("x",$dim);		
 		
 		if (count($tmp) != 2) throw new Exception("Error, missing Dimension information. Please try again.");
@@ -691,7 +689,7 @@ function getStaffWin($entityID)
 		
 		$staffWin = new jqUI_dialog("staffWin", true, 875, 665, validation::prepForDisplay($eObj->title, false)." Staff");
 		$staffWin->setOption("autoOpen", true);		
-		$staffWin->fitToViewport("Close");
+		$staffWin->fitToViewport();
 		
 		$staffWin->addCloseButton();
 		
@@ -702,33 +700,17 @@ function getStaffWin($entityID)
 		}
 		
 		$tblFilter = new tableFilter("staffFilter", "#staffTable", "function() { getStaff({$eObj->id}); }");
-		$tblFilter->addSortFilter("title", "th.title");
-		$tblFilter->addSortFilter("assigned", "th.assigned");
+		//$tblFilter->addSortFilter("title", "th.title");
+		//$tblFilter->addSortFilter("assigned", "th.assigned");
 		$tblFilter->setPaging(25);
 		
-		$tblFilter->addColumnFilter("title", tableFilter::filter_text, "th.title");
-		$tblFilter->addColumnFilter("assigned", tableFilter::filter_text, "th.assigned");
+		//$tblFilter->addColumnFilter("title", tableFilter::filter_text, "th.title");
+		//$tblFilter->addColumnFilter("assigned", tableFilter::filter_text, "th.assigned");
 		
 		$tblFilter->addCustomFilter("status", tableFilter::filter_dropdown, "User Status:", array("Active"=>0, "Inactive"=>1));
-		//$tblFilter->addCustomFilter("email", tableFilter::filter_text, "Email:");
 		
 		$dv = new phpDIV();
 		$dv->id = "staff";
-		
-		/* $tabs = new tabControl("staffTabs");
-		$tabs->addClass("tabContainerNoHeader");
-		
-		$tpActive = new tabPage("Active Staff", "#active_staff");
-		//$tpActive->addControl(new jqLoader("$(function() { getStaff($entityID, 1); });"));
-		
-		$tabs->addTabPage($tpActive);
-		
-		$tpInactive = new tabPage("Inactive Staff", "#inactive_staff");
-		//$tpInactive->click_event = "function() { getStaff($entityID, 2); }";		
-		
-		$tabs->addTabPage($tpInactive);
-		
-		$staffWin->addControl($tabs); */
 		
 		$staffWin->addControl($tblFilter);
 		$staffWin->addControl($dv);
@@ -762,14 +744,17 @@ function getStaff($entityID, $paging, $sortData, $filterColumns, $customColumns)
 		$t = new tblBuilder("center", 0, 0, 0, '100%');
 		$t->class = "listTable";
 		$t->id = "staffTable";
+		$t->addAttribute("data-sort-type", tableSorter_core::$sort_municipal_staff["sortType"]);
 		
-		$r = $t->addRow();
+		// Cannot use the Table Sorter with custom sort functionality (no way to coalesce position) 
+		
+		/* $r = $t->addRow();
 		$r->addHeader(new tblHeader("Title", "title", "", "", 175));
 		$r->addHeader(new tblHeader("Assigned", "assigned", "", "", 125));		
 		
 		$r = $t->addRow();
 		$r->addHeader(new tblHeader());
-		$r->addHeader(new tblHeader());		
+		$r->addHeader(new tblHeader()); */		
 		
 		foreach((array)$customColumns as $cFilter)
 		{
@@ -796,7 +781,7 @@ function getStaff($entityID, $paging, $sortData, $filterColumns, $customColumns)
 		
 		$qry = "select id
 				from pmm_entityStaff
-				where 1 $whClause				
+				where pmm_entityStaff.id={$eObj->id} $whClause				
 				order by ".tableFilter::getOrderClause($sortData, "position asc");
 		
 		$totalCt = $d->qryRow($qry);
@@ -1075,7 +1060,7 @@ function uploadStaffIcon($staffID)
 		
 		$eObj = $sObj->getParentEntity();
 		
-		$dim = $eObj->settings->config("staffIconDim");
+		$dim = $eObj->settings->staffIconDim;
 		$tmp = explode("x",$dim);		
 		
 		$u = new upload($_FILES['staffIcon_'.$staffID]);
@@ -1227,7 +1212,8 @@ function getFaqEntries($entityID)
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
 			
 		$t = new tblBuilder("center", 0, 0, 5, '100%');
-		$t->class = 'listTable hoverTable';
+		$t->class = "listTable hoverTable";
+		$t->addAttribute("data-sort-type", tableSorter_core::$sort_municipal_faq["sortType"]);
 		
 		$r = $t->addRow();
 		$r->addHeader(new tblHeader("Question"));
@@ -1245,7 +1231,7 @@ function getFaqEntries($entityID)
 		{		
 			$ctlArray = array();
 			
-			$btnEdit = new jqUI_button("btnEditFaq_$faqObj->id", "Edit", "ui-state-highlight", "ui-icon-pencil", true);
+			$btnEdit = new jqUI_button("btnEditFaq_$faqObj->id", "Edit", "", "ui-icon-pencil", true);
 			$btnEdit->onclick = "getFaqEdit($faqObj->id, 0)";
 			
 			$ctlArray[] = $btnEdit;
@@ -1297,10 +1283,12 @@ function getFaqEdit($faqEntryID, $entityID)
 		
 		$faqObj = new pmm_entityFaq($faqEntryID);
 		
-		if ($faqEntryID)
-		{
-			if (!$faqObj->id) throw new Exception("Error, that faq entry could not be found!");
+		if ($faqObj->id)
+		{			
 			$entityID = $faqObj->entityID;
+			
+			$writeAccess = $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+						   $g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID);
 		}
 		else
 		{
@@ -1309,25 +1297,29 @@ function getFaqEdit($faqEntryID, $entityID)
 			
 			$eObj = new pmm_entity($entityID);
 			if (!$eObj->id) throw new Exception("Error, that entity could not be found! Please refresh the page and try again.");
-		}
+			
+			$writeAccess = $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+						   $g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $eObj->id);
+		}		
 		
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();			
 			
-		$faqEditWin = new jqUI_dialog("faqEditWin", true, 800, 475, $faqEntryID ? "Modify Faq Entry" : "Add a new Faq Entry");
+		$faqEditWin = new jqUI_dialog("faqEditWin", true, 800, "", $faqEntryID ? "Modify Faq Entry" : "Add a new Faq Entry");
 		$faqEditWin->addClass("configWin");
-		$faqEditWin->setOption("modal", 0);
+		$faqEditWin->setOption("modal", 0);		
 		$faqEditWin->setOption("autoOpen", true);
+		$faqEditWin->fitToViewport();
 		
 		$faqEditWin->addCloseButton($faqEntryID ? "Close": "Cancel");
 		
-		if (($faqEntryID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) ||
-			(!$faqEntryID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-			$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID)))
+		if ($writeAccess)
 		{	
-			//pseudo: if faqEntryID && hasAccess GlobalWrite/EntityWrite || !faqEntryID && hasAccess GlobalWrite/EntityInsert
-			$faqEditWin->addButton($faqEntryID ? "Save Changes" : "Add Faq Entry", "function() { saveFaqEntry($faqEntryID, $entityID); }");
+			$faqEditWin->addButton($faqEntryID ? "Save Changes" : "Add Faq Entry", "saveFaqEntry");
+		}
+		else
+		{
+			$js->disabled = 1;
 		}
 		
 		if ($faqObj->updatedUserID)
@@ -1342,12 +1334,25 @@ function getFaqEdit($faqEntryID, $entityID)
 		$txtAnswer = new phpTextArea("faq[answer]", validation::prepTextForInput($faqObj->answer), 12, 103, "wysiwyg");
 		$txtAnswer->setLabel("Answer:", "", true);
 		
-		$frm = new phpForm("post", "faqEditForm");
+		$frm = new phpForm("post", "frmFaq");
 		$frm->addControl($txtQuestion);
 		$frm->addControl($txtAnswer);
+		$frm->addControl(new hiddenInput("action", "saveFaqEntry"));
+		$frm->addControl(new hiddenInput("faqEntryID", $faqEntryID));
+		$frm->addControl(new hiddenInput("entityID", $entityID));
 		
 		$faqEditWin->addControl($frm);
 
+		if (!$faqObj->id)
+		{
+			$msg = "<strong>NOTE:</strong> Some editor features (file uploads, image uploads, etc) are unavailable until the FAQ 
+					entry has been added.<br /><br />
+					Please fill out the basic information, then click the add button to enable all editor features.";
+			
+			$faqEditWin->insertControl(new jqUI_dismissableMessage($g_sec, "new_municipal_faq", $msg));
+		
+		}
+		
 		$js->entityID = $entityID;
 		$js->addObject("content", $faqEditWin->render(), false);		
 	}
@@ -1610,8 +1615,8 @@ function getPostEntries($entityID, $paging, $sortData, $filterColumns, $customCo
 		
 		$qry = "select pmm_entityPostings.id
 				from pmm_entityPostings
-				where 1 $whClause ".tableFilter::getHavingClause($hv)."
-				order by ".tableFilter::getOrderClause($sortData, "case publishDate when '0000-00-00' then updatedDateTime else publishDate end asc");
+				where pmm_entityPostings.entityID={$eObj->id} $whClause ".tableFilter::getHavingClause($hv)."
+				order by ".tableFilter::getOrderClause($sortData, "if(publishDate IS NULL, updatedDateTime, publishDate) desc");
 		
 		$totalCt = $d->qryRow($qry);
 		$pQry = $d->qry($qry.tableFilter::getLimitClause($paging));
@@ -1628,7 +1633,7 @@ function getPostEntries($entityID, $paging, $sortData, $filterColumns, $customCo
 			}			
 			if ($postObj->expireDate)
 			{
-				$dateDisp .= "Expire on ".validation::parseMySqlDate($postObj->expireDate, "D, M d");	
+				$dateDisp .= "Expires on ".validation::parseMySqlDate($postObj->expireDate, "D, M d");	
 			}
 						
 			$eDiv = new phpDIV();
@@ -1669,7 +1674,7 @@ function getPostEntries($entityID, $paging, $sortData, $filterColumns, $customCo
 				$dDiv->addControl($btnDelete);
 			}
 			
-			$btnEdit = new jqUI_button("btnEditPost_$postObj->id", "Edit Post", "ui-state-highlight", "ui-icon-pencil", true);
+			$btnEdit = new jqUI_button("btnEditPost_$postObj->id", "Edit Post", "", "ui-icon-pencil", true);
 			$btnEdit->onclick = "getPostEdit($postObj->id, 0)";			
 			
 			$dDiv->addControl($btnEdit);
@@ -1694,8 +1699,8 @@ function getPostEntries($entityID, $paging, $sortData, $filterColumns, $customCo
 				
 				if ($optData[id])
 				{
-					$btnEmail = new jqUI_button("btnEmail_$postObj->id", "Email Subscribers", "ui-state-highlight", "ui-icon-mail-closed", true);
-					$btnEmail->onclick = "getSubscriptionSendWin($optData[id], 0, ".subscriber_core::type_municipal_posting.", $postObj->id, '#postWin')";
+					$btnEmail = new jqUI_button("btnEmail_$postObj->id", "Email Subscribers", "", "ui-icon-mail-closed", true);
+					$btnEmail->onclick = "getSubscriptionSendWin($optData[id], 0, ".subscriber_core::type_municipal_posting.", $postObj->id)";
 					
 					$dDiv->addControl($btnEmail);
 				}
@@ -1835,7 +1840,7 @@ function getPostEdit($postEntryID, $entityID)
 	echo $js->render();
 	exit(0);
 }
-function savePostEntry($postEntryID, $post, $entityID, $cutOutBeforeExit = false) //cutOutBeforeExit if saving a post from within another AJAX call (like from within create entities)
+function savePostEntry($postEntryID, $post, $entityID)
 {
 	global $g_sec;
 	
@@ -1868,6 +1873,12 @@ function savePostEntry($postEntryID, $post, $entityID, $cutOutBeforeExit = false
 		$post["blurb"] = validation::prepMultiLineForStorage($post["blurb"]);
 		$post["body"] = validation::prepMultiLineForStorage($post["body"]);
 
+		if ($post["publishDate"]) $postObj->publishDate = "'".validation::convertToMySqlDate($post["publishDate"])."'";
+		if ($post["expireDate"]) $postObj->expireDate = "'".validation::convertToMySqlDate($post["expireDate"])."'";
+		
+		unset($post["publishDate"]);
+		unset($post["expireDate"]);
+		
 		foreach((array)$post as $key=>$value)
 		{
 			$postObj->$key = "'$value'";	
@@ -1875,8 +1886,6 @@ function savePostEntry($postEntryID, $post, $entityID, $cutOutBeforeExit = false
 		
 		$postObj->updatedUserID = $g_sec->id;
 		$postObj->updatedDateTime = "now()";
-		if ($post["publishDate"]) $postObj->publishDate = "'".validation::convertToMySqlDate($post["publishDate"])."'";
-		if ($post["expireDate"]) $postObj->expireDate = "'".validation::convertToMySqlDate($post["expireDate"])."'";
 		
 		if ($postEntryID)
 		{
@@ -1894,7 +1903,7 @@ function savePostEntry($postEntryID, $post, $entityID, $cutOutBeforeExit = false
 			$postObj->entityID = $entityID;
 			$postObj->insert();
 
-			if(!$cutOutBeforeExit) pageClass::setNotify("Successfully added Post.");
+			pageClass::setNotify("Successfully added Post.");
 		}		
 		
 		$js->entityID = $entityID;
@@ -1904,11 +1913,9 @@ function savePostEntry($postEntryID, $post, $entityID, $cutOutBeforeExit = false
 		$eWin = new jqUI_errorNotify($ex);
 		$js->error = $eWin->render();	
 	}
-	if(!$cutOutBeforeExit )
-	{
-		echo $js->render();
-		exit(0);
-	}		
+	
+	echo $js->render();
+	exit(0);			
 }
 function deletePostEntry($postEntryID)
 {
@@ -1991,7 +1998,7 @@ function uploadPostIcon($postEntryID)
 		
 		$eObj = $pObj->getParentEntity();
 		
-		$dim = $eObj->settings->config("postIconDim");
+		$dim = $eObj->settings->postIconDim;
 		$tmp = explode("x",$dim);		
 		
 		if (count($tmp) != 2) throw new Exception("Error, missing Dimension information. Please try again.");
@@ -2039,7 +2046,7 @@ function getDocumentsWin($entityID)
 		$fDiv->id = "filesContainer";
 		
 		$tpContent = new jqUI_tabPage("custom_content", "Custom Content", "ui-icon-star");
-		$tpContent->addControl(new phpDIV());
+		$tpContent->addControl(customContentData::getContentContainer(proteus_core::$module_municipal["siteType"], $eObj->id));
 		
 		$tabs->addTabPage($tpContent);
 		
@@ -2058,7 +2065,7 @@ function getDocumentsWin($entityID)
 		
 		$docWin->addControl($tabs);
 		
-		$js->contentType = proteus_core::$module_municipal["siteType"];
+		//$js->contentType = proteus_core::$module_municipal["siteType"];
 		$js->content = $docWin->render();
 	}
 	catch(Exception $ex)
@@ -2175,7 +2182,7 @@ function getFiles($dataID, $typeID)
 				if ($writeAccess && $optData[id])
 				{
 					$ctl = $mnu->addMenuItem("", "Email Subscribers", "", "ui-icon-mail-closed");
-					$ctl->onclick = "getSubscriptionSendWin({$optData["id"]}, 0, ".subscriber_core::type_municipal_file.", $fileObj->id, '#docWin')";				
+					$ctl->onclick = "getSubscriptionSendWin({$optData["id"]}, 0, ".subscriber_core::type_municipal_file.", $fileObj->id)";				
 				}
 			}			
 			
@@ -2685,8 +2692,11 @@ function getAgendaWin($entityID)
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
 		
-		$agendaWin = new jqUI_dialog("agendaWin", true, 875, 725, validation::prepForDisplay($eObj->title, false)." Agendas");
+		$agendaWin = new jqUI_dialog("agendaWin", true, 875, "", validation::prepForDisplay($eObj->title, false)." Agendas");
 		$agendaWin->setOption("autoOpen", true);		
+		$agendaWin->fitToViewport();
+		
+		$agendaWin->addCloseButton("Close");
 		
 		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
 			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
@@ -2694,20 +2704,19 @@ function getAgendaWin($entityID)
 			$agendaWin->addButton("Add a new Agenda", "function() { getAgendaEdit(0, $entityID); }");
 		}
 		
-		$agendaWin->addButton("Close", "function() { $(this).dialog('close'); }");
+		$tblFilter = new tableFilter("agendasFilter", "#agendasTable", "function() { getAgendas($entityID, 0) }");
+		$tblFilter->addSortFilter("title", "th.title");
+		$tblFilter->addSortFilter("meetingDateTime", "th.meeting");
+		$tblFilter->addColumnFilter("title", tableFilter::filter_text, "th.title");		
+		$tblFilter->setPaging(25);		
 		
-		$tabs = new tabControl("agendaTabs");
-		$tabs->addClass("tabContainerNoHeader");
+		$tblFilter->addCustomFilter("status", tableFilter::filter_dropdown, "Agenda Status:", array("Upcoming Meetings"=>1, "Past Meetings"=>2));
+				
+		$dv = new phpDIV();
+		$dv->id = "agendas";
 		
-		$tpActive = new tabPage("Upcoming Meetings", "#upcoming_meetings");		
-		
-		$tabs->addTabPage($tpActive);
-		
-		$tpInactive = new tabPage("Past Meetings", "#past_meetings");				
-		
-		$tabs->addTabPage($tpInactive);
-		
-		$agendaWin->addControl($tabs);
+		$agendaWin->addControl($tblFilter);
+		$agendaWin->addControl($dv);
 		
 		$js->content = $agendaWin->render();
 	}
@@ -2720,17 +2729,15 @@ function getAgendaWin($entityID)
 	echo $js->render();
 	exit(0);
 }
-function getAgendas($entityID, $filter)
+function getAgendas($entityID, $paging, $sortData, $filterColumns, $customColumns)
 {
 	global $g_sec;
 	
+	$d = new DAL(true);
 	$js = new json_a();
 	
 	try
-	{
-		validation::ensureInt($filter);
-		if (!$filter) $filter = 0;
-		
+	{		
 		$eObj = new pmm_entity($entityID);
 		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
 		
@@ -2738,19 +2745,61 @@ function getAgendas($entityID, $filter)
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
 			
 		$t = new tblBuilder("center", 0, 0, 5, '100%');
-		$t->class = 'listTable hoverTable';
+		$t->class = "listTable hoverTable";
+		$t->id = "agendasTable";
 		
 		$r = $t->addRow();
-		$r->addHeader(new tblHeader("Title"));
-		$r->addHeader(new tblHeader("Date &amp; Time"));
-		$r->addHeader(new tblHeader("&nbsp;"));		
+		$r->addHeader(new tblHeader("Title", "title"));
+		$r->addHeader(new tblHeader("Date &amp; Time", "meeting"));
+		$r->addHeader(new tblHeader("&nbsp;", "", "", "", "1%"));		
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader());
+		$r->addHeader(new tblHeader());
+		$r->addHeader(new tblHeader());
 		
 		$conf = new siteConfig();		
 		
-		$agendas = $eObj->getAgendas($filter);
-		foreach((array)$agendas as $agendaObj)
+		foreach((array)$customColumns as $cFilter)
+		{
+			if (!strlen($cFilter["value"])) continue;
+		
+			switch($cFilter["key"])
+			{
+				case "status":
+					switch($cFilter["value"])
+					{
+						case 1:
+							$wh[] = "(meetingDateTime is null or meetingDateTime > now())";
+							break;
+							
+						case 2:
+							$wh[] = "meetingDateTime < now()";
+							break;
+					}								
+					break;
+			}
+		}
+		
+		tableFilter::getWhereArray($filterColumns, $wh, $hvArr);
+		$whClause = tableFilter::getWhereClause($wh);
+		
+		$qry = "select id
+				from pmm_entityAgendas
+				where pmm_entityAgendas.entityID = {$eObj->id} $whClause				
+				order by ".tableFilter::getOrderClause($sortData, "meetingDateTime asc");
+		
+		$totalCt = $d->qryRow($qry);
+		$aQry = $d->qry($qry.tableFilter::getLimitClause($paging));
+		
+		while($agenda = $aQry->fetch_assoc())			
 		{		
-			$ctlArray = array();
+			$agendaObj = new pmm_entityAgenda($agenda["id"]);
+			
+			$mnu = new jqPopupMenu();
+			
+			$ctl = $mnu->addMenuItem("", "Manage Meeting Minutes", "", "ui-icon-comment");
+			$ctl->onclick = "getFilesWin(2, $agendaObj->id, '#agendaWin')";
 			
 			if ($conf->moduleEnabled(proteus_core::module_subscribers))
 			{
@@ -2758,47 +2807,36 @@ function getAgendas($entityID, $filter)
 					
 				if ($optData[id])
 				{
-					$btnEmail = new jqUI_button("btnEmail_$entity[id]", "", "actionControl", "ui-icon-mail-closed", true);
-					$btnEmail->onclick = "getSubscriptionSendWin($optData[id], 0, ".subscriber_core::type_municipal_agenda.", $agendaObj->id)";
-					$btnEmail->title = "Email Subscribers";
-					
-					$ctlArray[] = $btnEmail;
+					$ctl = $mnu->addMenuItem("", "Email Subscribers", "", "ui-icon-mail-closed");
+					$ctl->onclick = "getSubscriptionSendWin($optData[id], 0, ".subscriber_core::type_municipal_agenda.", $agendaObj->id)";
 				}
 			}
 			
-			$btnFiles = new jqUI_button("btnManageFiles_$agendaObj->id", "", "actionControl", "ui-icon-note", true);
-			$btnFiles->onclick = "getFilesWin(2, $agendaObj->id, '#agendaWin')";
-			$btnFiles->title = "Meeting Minutes";
-			
-			$ctlArray[] = $btnFiles;
-			
-			$btnEdit = new editControl();
-			$btnEdit->onclick = "getAgendaEdit($agendaObj->id, 0)";
-			
-			$ctlArray[] = $btnEdit;
+			$ctl = $mnu->addMenuItem("", "Edit Meeting Agenda", "", "ui-icon-pencil");
+			$ctl->onclick = "getAgendaEdit($agendaObj->id, 0)";			
 			
 			if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
 				$g_sec->hasAccess(permissions::$municipal_entity, permissions::delete, $entityID))
 			{
-				$btnDelete = new deleteControl();
-				$btnDelete->onclick = "deleteAgenda($agendaObj->id)";
 				
-				$ctlArray[] = $btnDelete;
+				$ctl = $mnu->addMenuItem("", "Delete Agenda", "ui-state-error", "ui-icon-trash");
+				$ctl->onclick = "deleteAgenda($agendaObj->id)";
 			}
 			
 			$r = $t->addRow();
 			$r->addAttribute("data-id", $agendaObj->id);
 			$r->addCell(new tblCell(validation::prepForDisplay($agendaObj->title, false), "evenCell", "left"));
 			$r->addCell(new tblCell(validation::parseMySqlDate($agendaObj->meetingDateTime, "D, M d \a\\t h:ia"), "oddCell", "left", "", 175));
-			$r->addCell(new tblCell($ctlArray, "evenCell", "center", "", 340));		
+			$r->addCell(new tblCell($mnu, "evenCell", "center", "", 340));		
 		}
 		
-		if (!count($agendas))
+		if (!$totalCt)
 		{
 			$r = $t->addRow();
 			$r->addCell(new tblCell("There are no Agenda entries defined for this entity.", "evenCell", "center", 3));
 		}
 		
+		$js->count = $totalCt;
 		$js->content = $t->render();
 	}
 	catch(Exception $ex)
@@ -2829,6 +2867,9 @@ function getAgendaEdit($agendaID, $entityID)
 		{
 			if (!$agendaObj->id) throw new Exception("Error, that Agenda could not be found!");
 			$entityID = $agendaObj->entityID;
+			
+			$writeAccess = $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+						   $g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID);
 		}
 		else
 		{
@@ -2837,24 +2878,31 @@ function getAgendaEdit($agendaID, $entityID)
 			
 			$eObj = new pmm_entity($entityID);
 			if (!$eObj->id) throw new Exception("Error, that entity could not be found! Please refresh the page and try again.");
-		}
-		
-		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
-			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();			
 			
-		$agendaEditWin = new jqUI_dialog("agendaEditWin", true, 800, 675, $agendaID ? "Modify Agenda Entry" : "Add a new Agenda Entry");
+			$writeAccess = $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
+						   $g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID);
+		}		
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) && 
+		    !$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();		
+			
+		$agendaEditWin = new jqUI_dialog("agendaEditWin", true, 800, "", $agendaID ? "Modify Agenda Entry" : "Add a new Agenda Entry");
+		$agendaEditWin->addClass("configWin");
 		$agendaEditWin->setOption("autoOpen", true);
+		$agendaEditWin->setOption("modal", 0);
+		$agendaEditWin->fitToViewport();
 		
-		if (($agendaID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID)) ||
-			(!$agendaID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-			$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID)))
-		{	
-			//pseudo: if agendaID && hasAccess GlobalWrite/EntityWrite || !agendaID && hasAccess GlobalWrite/EntityInsert
-			$agendaEditWin->addButton($agendaID ? "Save Changes" : "Add agenda", "function() { saveAgenda($agendaID, $entityID); }");
-		}
+		$agendaEditWin->addCloseButton($agendaObj->id ? "Close" : "Cancel");
 		
-		$agendaEditWin->addButton("Cancel", "function() { $(this).dialog('close'); }");
+		if ($writeAccess)
+		{
+			$agendaEditWin->addButton($agendaID ? "Save Changes" : "Add agenda", "function() { saveAgenda(); }");
+			if (!$agendaID) $agendaEditWin->addButton("Add & Insert Notice", "function() { saveAgenda(1); }");
+		}	
+		else
+		{
+			$js->disabled = 1;
+		}	
 		
 		if ($agendaObj->updatedUserID)
 		{
@@ -2862,23 +2910,20 @@ function getAgendaEdit($agendaID, $entityID)
 			$agendaEditWin->addControl(new phpParagraph("Last edited by $sec->login on ".validation::parseMySqlDate($agendaObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "", "left"));	
 		}
 		
-		$txtTitle = new customText("agenda[title]", validation::prepTextForInput($agendaObj->title), 50, 50, "floating textBox");
-		$txtTitle->setLabel("Title:", "longLabel floating");
+		$txtTitle = new customText("agenda[title]", validation::prepTextForInput($agendaObj->title), 50, 50);
+		$txtTitle->setLabel("Title:");
 		
-		$txtLoc = new phpTextArea("agenda[location]", validation::prepTextForInput($agendaObj->location), 2, 60, "floating textBox");
-		$txtLoc->setLabel("Meeting Location:", "longLabel floating");
+		$txtLoc = new phpTextArea("agenda[location]", validation::prepTextForInput($agendaObj->location), 2, 60);
+		$txtLoc->setLabel("Meeting Location:");
 		
-		$txtBody = new phpTextArea("agenda[body]", validation::prepTextForInput($agendaObj->body), 16, 102, "floating textBox wysiwyg");
-		$txtBody->setLabel("Meeting Agenda Detail:", "longLabel floating", true);		
-		$txtBody->addAttribute("data-upload-dataid", $entityID);
-		$txtBody->addAttribute("data-upload-typeid", 6);
+		$txtBody = new phpTextArea("agenda[body]", validation::prepTextForInput($agendaObj->body), 16, 102, "wysiwyg");
+		$txtBody->setLabel("Meeting Agenda Detail:", "", true);		
 		
 		$dtSplit = explode(" ", $agendaObj->meetingDateTime);
 		
 		$ddlTime = new phpDDL("agenda[time]");
-		$ddlTime->setLabel("Meeting Time:", "longLabel floating");
-		$ddlTime->addClass("floating");	
-		$ddlTime->selected = $dtSplit[1] ? substr($dtSplit[1], 0, -3) : $eObj->settings->config("defaultMeetingTime");
+		$ddlTime->setLabel("Meeting Time:");			
+		$ddlTime->selected = $dtSplit[1] ? substr($dtSplit[1], 0, -3) : $agendaObj->settings->defaultMeetingTime;
 		
 		for($i = 0; $i <= 23; $i++)
 		{
@@ -2896,9 +2941,6 @@ function getAgendaEdit($agendaID, $entityID)
 		}
 
 		$dtDate = new jqUI_datepicker("agenda[date]", validation::parseMySqlDate($agendaObj->meetingDateTime, "m-d-Y"), "Meeting Date:", true, "new Date(2005,1,1)");
-		$dtDate->label->class = 'longLabel floating';
-		$dtDate->addClass('floating');
-		$dtDate->setOption("buttonImage", "'../includes/js/jquery/themes/smoothness/images/calendar.gif'");
 		
 		$frm = new phpForm("post", "agendaEditForm");
 		$frm->addControl($txtTitle);
@@ -2906,16 +2948,23 @@ function getAgendaEdit($agendaID, $entityID)
 		$frm->addControl($ddlTime);
 		$frm->addControl($txtLoc);
 		$frm->addControl($txtBody);
-		if(!$agendaID) //only give option to post as a notice if is a new agenda
-		{
-			$chkNotice = new phpCheckbox("agenda[isNoticeAlso]", 1, false, "floating");
-			$chkNotice->setLabel("Also post agenda text as a notice item?", "longLabel floating");
-			$chkNotice->labelRenderOrder = 0;
-			$frm->addControl($chkNotice);
-		}		
+		$frm->addControl(new hiddenInput("action", "saveAgenda"));
+		$frm->addControl(new hiddenInput("agendaID", $agendaObj->id));
+		$frm->addControl(new hiddenInput("entityID", $entityID));
+		$frm->addControl(new hiddenInput("addNotice", 0));		
 		
 		$agendaEditWin->addControl($frm);
+			
+		if (!$agendaObj->id)
+		{
+			$msg = "<strong>NOTE:</strong> Some editor features (file uploads, image uploads, etc) are unavailable until the content 
+					entry has been added.<br /><br />
+					Please fill out the basic information, then click the add button to enable all editor features.";
+			
+			$agendaEditWin->insertControl(new jqUI_dismissableMessage($g_sec, "new_municipal_agenda", $msg));	
+		}
 		
+		$js->entityID = $agendaObj->entityID;
 		$js->addObject("content", $agendaEditWin->render(), false);		
 	}
 	catch(Exception $ex)
@@ -2927,7 +2976,7 @@ function getAgendaEdit($agendaID, $entityID)
 	echo $js->render();
 	exit(0);
 }
-function saveAgenda($agendaID, $agenda, $entityID )
+function saveAgenda($agendaID, $agenda, $entityID, $addNotice)
 {
 	global $g_sec;
 	global $config;
@@ -2938,6 +2987,7 @@ function saveAgenda($agendaID, $agenda, $entityID )
 	{	
 		validation::ensureInt($entityID);
 		validation::ensureInt($agendaID);		
+		validation::ensureInt($addNotice, 0);
 		
 		$agendaObj = new pmm_entityAgenda($agendaID);
 		
@@ -2958,17 +3008,17 @@ function saveAgenda($agendaID, $agenda, $entityID )
 		if (strlen($agenda[title]) < 3) throw new Exception("Error, Agenda title must be at least 3 characters.");
 		if (!strlen($agenda[body])) throw new Exception("Error, you must specify Agenda content!");
 				
-		$agenda[body] = validation::prepMultiLineForStorage($agenda[body]);
-		$agenda[location] = validation::prepMultiLineForStorage($agenda[location]);
+		$agenda["body"] = validation::prepMultiLineForStorage($agenda["body"]);
+		$agenda["location"] = validation::prepMultiLineForStorage($agenda["location"]);
 		
-		$agenda[meetingDateTime] = validation::convertToMySqlDate($agenda[date])." {$agenda[time]}:00";
-		
-		$isNoticeAlso = intval( $agenda[isNoticeAlso] );
-		$noticeDate = $agenda[date];
-		
-		unset($agenda[isNoticeAlso]);
-		unset($agenda[date]);
-		unset($agenda[time]);
+		if ($agenda["date"])
+		{
+			$agenda["meetingDateTime"] = validation::convertToMySqlDate($agenda["date"])." {$agenda["time"]}:00";		
+			$noticeDate = $agenda["date"];
+		}
+				
+		unset($agenda["date"]);
+		unset($agenda["time"]);
 		
 		$agendaObj->updatedUserID = $g_sec->id;
 		$agendaObj->updatedDateTime = "now()";
@@ -2989,48 +3039,41 @@ function saveAgenda($agendaID, $agenda, $entityID )
 		else
 		{
 			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
-				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID)) $g_sec->security_error_a();				
+				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $entityID)) $g_sec->security_error_a();			
+			
+			if ($addNotice) //do we want to post this as a notice at the same time?  Many meetings also require public notice
+			{				
+				if (!$noticeDate) throw new Exception("Cannot save and insert without specifying a valid date. Please select a date, or choose the option to Add Agenda only.");
+
+				// Add this as a notice as well; create an entity object manually for full control (previously latched to savePostEntry)
+				$postObj = new pmm_entityPosting(0);
+				$postObj->body = "'<p><em>Meeting Held On: $noticeDate </em></p>" . $agenda[body] ."<br>
+							   <a href = \"municipal/minutes/{$agendaObj->id}\">View this Agenda & Associated Minutes here</a>'";
+				
+				// Not HTML in Blurb (flat text)
+				$blurb = validation::cleanHTML($post["body"]);				
+				
+				$postObj->blurb = "'".validation::truncateText("Meeting Held On: $noticeDate \n".$blurb, 250)."'";				
+				
+				$tsMeeting = validation::convertToUnixTimestamp($agenda["meetingDateTime"]);
+				$tsExpire = strtotime("+24 hours", $tsMeeting);
+				
+				$postObj->title = "'".$agenda["title"]."'";
+				$postObj->expireDate = "'".date("Y-m-d", $tsExpire)."'";
+				
+				// Set to 2 for notices
+				$postObj->typeID = 2;
+				$psotObj->entityID = $entityID;
+				$postObj->updatedDateTime = "now()";
+				$postObj->updatedUserID = $g_sec->id;
+				
+				$postObj->insert();
+				
+				$noticeNotify = " and Public Notice.";
+			}
 			
 			$agendaObj->entityID = $entityID;
 			$agendaObj->insert();
-			
-			//SEE ABOUT POSTING NEW ITEM AS NOTICE TO CUT OUT EXTRA STEPS
-			$noticeNotify = '';
-			if( $isNoticeAlso ) //do we want to post this as a notice at the same time?  Many meetings also require public notice
-			{
-				$post = array();
-				$post[body] = "<p><em>Meeting Held On: $noticeDate </em></p>" . $agenda[body];
-				$post[body] .= '
-					<br>
-					<a href = "'.$config[scripturl].'minutes.php?show='.$agendaObj->id.'">View this Agenda & Associated Minutes here</a>
-				';
-				$shortDesc = str_replace("&nbsp;", "", $agenda[body]); //&nbsp; doesn't work for blurb
-				$shortDesc = str_replace("&amp;", "and", $shortDesc); //&amp; doesn't work for blurb
-				$shortDesc = str_replace("<br>", "\n", $shortDesc); //<br> will show up literal for blurb
-				$shortDesc = str_replace("<li>", "\n", $shortDesc); //replace with newline to keep a semblance of organization
-				
-				$shortDesc = strip_tags($shortDesc, ''); //auto prepare the blurb: remove all other formatting
-				$shortDesc = "Meeting Held On: $noticeDate \n" . $shortDesc;
-				if(strlen($shortDesc) > 250) //if still more than 400 characters, truncate
-				{	
-					$shortDesc = substr($shortDesc, 0, 250); 
-					$shortDesc.=" ...";
-				}
-				
-				$post[title] = $agenda[title];
-				$post[blurb] = $shortDesc; 
-				$post[publishDate] = ''; //this will make it display automatically
-				
-				$Edates = explode("-", $noticeDate);
-				if (sizeof($Edates) < 3) throw new Exception("Error, there must be a valid date for the agenda to post it as a notice!");
-				$expireJ = 1 + gregoriantojd($Edates[0], $Edates[1], $Edates[2] ); //make expire 1 day after the meeting
-				list($Emonth, $Eday, $Eyear) = explode('/', jdtogregorian($expireJ));
-				$expireG = sprintf('%02d-%02d-%+05d', $Emonth, $Eday, $Eyear);
-				
-				$post[expireDate] = $expireG;
-				savePostEntry('', $post, $entityID, true); //save post and true to cutting out before exit
-				$noticeNotify = " and Public Notice.";
-			}
 			
 			pageClass::setNotify("Successfully added Agenda Entry" . $noticeNotify );
 		}		
@@ -3072,11 +3115,12 @@ function getFilesWin($typeID, $dataID)
 			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
 		
 		$filesWin = new jqUI_dialog("docWin", true, 800, 650, $title);
-		$filesWin->setOption("autoOpen", true);		
-		$filesWin->addButton("Close", "function() { $(this).dialog('close'); }");
+		$filesWin->setOption("autoOpen", true);	
+		$filesWin->addClass("configWin");	
+		$filesWin->addCloseButton("Close");
 
 		$dvFiles = new phpDIV();
-		$dvFiles->id = 'filesContainer';				
+		$dvFiles->id = "filesContainer";				
 		
 		$filesWin->addControl($dvFiles);
 		
@@ -3134,22 +3178,18 @@ function getEventsWin($entityID)
 		if (!$eObj->id) throw new Exception("Error, that Entity could not be found!");
 		
 		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
-			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();
-		
-			
-		if (!$g_sec->hasAccess(permissions::$manage_calendars, permissions::read) &&
-			!$g_sec->hasAccess(permissions::$modify_calendar, permissions::read, 0)) $g_sec->security_error();		
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();			
 			
 		$eventsWin = new jqUI_dialog("eventsWin", true, 875, 325, validation::prepForDisplay($eObj->title, false)." Event Calendars");
 		$eventsWin->setOption("autoOpen", true);		
+		$eventsWin->addClass("configWin");
+		$eventsWin->addCloseButton("Close");
 		
 		if ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
 			$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $entityID))
 		{
-			$eventsWin->addButton("Add Calendar", "function() { getCalendarWin(0, 1, $entityID); }");
-			
-		}
-		$eventsWin->addButton("Close", "function() { $(this).dialog('close'); }");
+			$eventsWin->addButton("Add Calendar", "function() { getCalendarWin(0, 1, $entityID); }");			
+		}		
 		
 		$dv = new phpDIV();
 		$dv->id = "calendarsContainer";

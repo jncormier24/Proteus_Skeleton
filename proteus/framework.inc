@@ -37,6 +37,11 @@
 	include($config["libraryDir"]."core/core.inc");
 	include($config["libraryDir"]."core/pageControls.inc");
 	include($config["libraryDir"]."core/pageModules.inc");
+	include($config["libraryDir"]."core/helpers.inc");
+	include($config["libraryDir"]."core/mail.inc");	
+	
+	// Use PHPMailer project for sending emails (https://github.com/PHPMailer/PHPMailer)
+	include($config["libraryDir"]."core/phpMailer/class.phpmailer.php");
 	
 	// Find all the required modules (required=true) and include their models
 	// Some modules will still require adding a pageModule to access CSS/JS functionality, this is just to include the object models

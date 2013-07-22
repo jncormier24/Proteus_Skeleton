@@ -5,11 +5,13 @@ class subscriber_core
 	const type_municipal_posting = 1;
 	const type_municipal_file = 2;
 	const type_municipal_agenda = 3;
+	const type_municipal_generic = 4;
 	 
-	public $files = array("subscribers.php", "subscribers.ajax", "subscriber.ajax");	
+	public $asset_folders = array("subscriptions");	
 	public $tables = array("subscribers"=>"CREATE TABLE `subscribers` (
 									 `id` int(11) NOT NULL AUTO_INCREMENT,
 									 `email` varchar(255) NOT NULL,
+									 `userID` int(11) NOT NULL,
 									 `inactive` int(4) NOT NULL,
 									 `optoutGeneral` int(4) NOT NULL,									 
 									 `createdDateTime` datetime NOT NULL,
@@ -72,25 +74,7 @@ class subscriber_core
 		ksort($results);
 		
 		return $results;
-	}
-	public static function getEmailParser()
-	{
-		global $config;
-		
-		$templateOverride = "$config[baseAppDir]/themes/$config[defaultTheme]/admin/subscription.tpl";
-			
-		if (file_exists($templateOverride))
-		{
-			$parserFile = $templateOverride;
-			$absolute = true;
-		}
-		else
-		{
-			$parserFile = "subscription.tpl";				
-		}
-		
-		return new parser($parserFile, $absolute);
-	}
+	}	
 }
 class subscriberOption extends phpDataset 
 {
@@ -187,6 +171,19 @@ class subscriber extends phpDataset
 	{
 		parent::__construct("subscribers", $id, $id ? true : false);
 	}
+	public function __get($key)
+	{
+		switch($key)
+		{
+			case "user":
+				return new security($this->userID);
+			case "email":
+				if ($this->userID) return $this->user->email;
+				return parent::__get("email"); 	
+		}
+		
+		return parent::__get($key);
+	}
 	public function linkOption($optionID)
 	{
 		$d = new DAL(true);
@@ -198,12 +195,25 @@ class subscriber extends phpDataset
 
 		return $d->qryInsertByArray("subscriberOptionLink", $cv);
 	}
-	public static function getSubscriberID($email)
+	public static function getSubscriberID($email, $userID=0)
 	{
 		validation::makeSafe($email);
 		
+		if ($userID) $wh = " or userID=$userID";
+		
 		$d = new DAL(true);
-		return $d->qryCount("select id from subscribers where email='$email'");			
+		return $d->qryCount("select id from subscribers where email='$email'".$wh);			
+	}
+	public static function getSubscriberFromKey($key)
+	{
+		validation::makeSafe($key);
+		
+		$d = new DAL(true);
+		$data = $d->qryArray("select subscribers.id 
+							  from subscribers left outer join users on users.id = subscribers.userID 
+							  where md5(concat(if(users.id, users.email, subscribers.email), subscribers.createdDateTime)) = '$key'");
+		
+		return new subscriber($data["id"]);
 	}
 }
 ?>

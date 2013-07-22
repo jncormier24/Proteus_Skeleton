@@ -54,10 +54,13 @@
 	$config[scripturl] = implode("/", $tmpArr)."/"; */
 	
 	// Override any default settings for the include folders
-	$config["auto_include_folders"] = Array("scripts"=>Array("js"), "styles"=>Array("css"));
+	$config["auto_include_folders"] = Array("scripts"=>Array("js"), "styles"=>Array("css"));	
+	
+	// Save the value for theme in a custom config entry so that admin scripts can enumerate files (templates) in front-end theme (emails, etc)
+	$config["frontend_theme"] = $config["theme"];
 	
 	// Override the default theme
-	$config[theme] = "default";
+	$config["theme"] = "default";
 	
 	// Shift away the "admin" from the url so we can get the admin-relative page index
 	array_shift($config["params"]);

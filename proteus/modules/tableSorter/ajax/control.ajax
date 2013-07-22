@@ -1,0 +1,42 @@
+<?php
+	/*
+	 * Table Sorter / Position Updater
+	 * 
+	 * Note: The $quantify parameter below is used to issue sort commands on tables that use a typeID / dataID structure; this allows 
+	 * the updater to still be used and to specifiy a particular typeID so as to only select the same typeID as the prev/next to swap positions 
+	 * 
+	 */
+
+	$g_sec = permissions::getAuthorizedUser();
+	proteus_core::includeAllModules();
+
+	switch($action)
+	{
+		default:
+			updatePosition($sortType, $sortID, $replacementID);
+	}
+	
+function updatePosition($sortType, $sortID, $replacementID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		$sorter = new sortable($g_sec, $sortType, $sortID, $replacementID);
+		$sorter->sort();	
+
+		pageClass::setNotify("Positions saved.");
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();			
+	}	
+	
+	echo $js->render();
+	exit(0);
+}
+?>

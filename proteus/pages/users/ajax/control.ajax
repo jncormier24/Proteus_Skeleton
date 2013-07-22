@@ -103,8 +103,7 @@ function getUsers($paging, $sortData, $filterColumns, $customColumns)
 		$whClause = tableFilter::getWhereClause($wh);
 		
 		$qry = "select users.*, concat(lastName, ', ', firstName) as 'fullName'
-				from users left outer join permissionsAssignment on permissionsAssignment.userID = users.id
-						   $join
+				from users left outer join permissionsAssignment on permissionsAssignment.userID = users.id						   
 				where 1 $whClause
 				group by users.id".
 				tableFilter::getHavingClause($hvArr)."
@@ -235,6 +234,14 @@ function showEditUser($userID)
 										
 			$tabs->addTabPage($tpComments);
 		}
+		else
+		{
+			$msg = "<strong>NOTE:</strong> There are several user features and permissions options that are not shown until the 
+					new user has been added.<br /><br />
+					Please fill out the basic information, then click the add button to enable all functionality.";
+			
+			$uWin->insertControl(new jqUI_dismissableMessage($g_sec, "new_user", $msg));
+		}
 		
 		$uWin->addControl($tabs);
 	
@@ -286,6 +293,8 @@ function updateUser($userID, $details)
 		$details["firstName"] = trim($details["firstName"]);
 		$details["lastName"] = trim($details["lastName"]);
 		$details["login"] = trim($details["login"]);
+		
+		if ($details["dob"]) $details["dob"] = validation::convertToMySqlDate($details["dob"]);
 		
 		$cv = validation::quotedArray($details);
 		
@@ -796,7 +805,7 @@ function getLinkedOptions($permKey, $userID)
 				case proteus_core::$module_calendars["siteType"]:
 					$qry = "select id, title 'name'
 							from calendars
-							where inactive = 0
+							where inactive = 0 and typeID = 0
 							order by title asc";
 					break;
 				case proteus_core::$module_municipal["siteType"]:

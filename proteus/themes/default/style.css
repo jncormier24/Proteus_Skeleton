@@ -134,7 +134,7 @@ body > #container
 }
 #container > #navContent .ui-menu-item a .ui-icon
 {
-	margin-right: 5px;
+	margin-right: 12px;
 }
 #container > #navContent .ui-menu
 {
@@ -177,6 +177,10 @@ select
 	border: 1px solid #999999;
 	border-radius: 4px;
 }
+h1
+{
+	font-size: 25px;
+}
 h1, h2, h3, h4, h5
 {
 	margin: 0px;
@@ -201,6 +205,16 @@ h1, h2, h3, h4, h5
 .shine_solid
 {
 	background-image: url(images/row_shine_solid.png);	
+}
+.strong
+{
+	font-weight: bold;
+}
+table.hoverTable tr:hover td
+{
+	background-color: #9f9f9f !important;
+	background-image: url(images/row_shine_solid.png) !important;
+	background-position: 0px -2px;
 }
 input[type=text], input[type=password], textarea
 {
@@ -266,6 +280,8 @@ div.panelBlockContainer > h1
 }
 div.panelBlockContainer
 {
+	position: relative;
+	
 	background-color: #717273;
 	background-image: url(images/layout/panel_back.png);
 	background-repeat: repeat-x;
@@ -417,7 +433,7 @@ div.configWin span.desc
 	
 	margin-top: 12px;	
 }
-div.configWin .datePickerContainer
+div.configWin form .datePickerContainer
 {
 	float: left;
 	clear: left;	

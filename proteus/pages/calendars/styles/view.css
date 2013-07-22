@@ -1,0 +1,18 @@
+#btnAddCal
+{
+	float: right;
+	clear: both;
+	
+	margin: 4px 10px 10px 0px;
+}
+div.panelBlockContainer h1 div.jqPopupMenu
+{
+	position: absolute !important;
+	
+	top: 5px;
+	right: 4px;
+}
+#calendarsContainer
+{
+	min-height: 500px;
+}

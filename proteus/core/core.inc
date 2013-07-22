@@ -17,12 +17,15 @@ class proteus_core
 	public static $module_municipal = array("siteType"=>11, "required"=>false, "location"=>"proteus/modules/municipal", "caption"=>"Municipal Framework", "class"=>"pmm_core");
 	public static $module_subscribers = array("siteType"=>12, "required"=>false, "location"=>"proteus/modules/subscribers", "caption"=>"Content Subscriptions", "class"=>"subscriber_core");
 	public static $module_calendars = array("siteType"=>7, "required"=>false, "location"=>"proteus/modules/calendars", "caption"=>"Calendars", "class"=>"customCalendar_core");
+	public static $module_blogs = array("siteType"=>8, "required"=>false, "location"=>"proteus/modules/blogs", "caption"=>"Blogs", "class"=>"customBlog_core");
+	public static $module_customCategories = array("siteType"=>2, "required"=>false, "location"=>"proteus/modules/customCategories", "caption"=>"Custom Categories", "class"=>"customCategory_core");
+	public static $module_showcases = array("siteType"=>4, "required"=>false, "location"=>"proteus/modules/customShowcase", "caption"=>"Custom Showcases", "class"=>"customShowcase_core");
 	
 	public static $module_comments = array("siteType"=>0, "required"=>true, "location"=>"proteus/modules/comments", "caption"=>"Comments", "class"=>"customComments_core");
 	public static $module_customContent = array("siteType"=>3, "required"=>true, "location"=>"proteus/modules/customContent", "caption"=>"Custom Content, Inline Editor", "class"=>"customContent_core");
 	public static $module_users = array("siteType"=>0, "required"=>true, "location"=>"", "caption"=>"Users Database", "class"=>"proteus_user_core");
+	public static $module_tableSorter = array("siteType"=>0, "required"=>true, "location"=>"proteus/modules/tableSorter", "caption"=>"Sortable Interface", "class"=>"tableSorter_core");
 			
-	public $files = array("sitemap.ajax");	
 	public $tables = array("config"=>"CREATE TABLE `config` (
 									 `id` int(11) NOT NULL AUTO_INCREMENT,
 									 `keyName` varchar(255) NOT NULL DEFAULT '',
@@ -55,6 +58,7 @@ class proteus_core
 									) ENGINE=InnoDB DEFAULT CHARSET=utf8;");
 	
 	public $queries = array("config"=>array("insert into config (keyName, keyValue) values('hitCount',0)",
+											"insert into config (keyName, keyValue) values('defaultEmailTemplate','default.tpl')",
 											"insert into config (keyName, keyValue) values('version','4.0')",
 											"insert into config (keyName, keyValue) values('siteType','2::4::5::6')"));
 	
@@ -261,9 +265,11 @@ class customConfig
 	protected $p_defaults = array();
 
 	const config_site = 0;
-	const config_blogs = 8;
+	const config_user = 5;
+	const config_blogs = 8;	
 	const config_calendar = 7;
 	const config_municipal = 11;
+	const config_user_notifications = 50;
 
 	public function __construct($configType=0, $dataID=0, $defaults = array())
 	{
@@ -288,12 +294,12 @@ class customConfig
 
 		while($cfg = $cQry->fetch_assoc())
 		{
-			$this->p_data[$cfg[keyName]] = $cfg[keyValue];
-			$configArray[$cfg[keyName]] = $cfg[keyValue];
+			$this->p_data[$cfg["keyName"]] = $cfg["keyValue"];
+			$configArray[$cfg["keyName"]] = $cfg["keyValue"];
 		}
 	}
 	public function __get($key)
-	{
+	{		
 		//Key not found in config database - load the default (if any) and add the key to the DB
 		if (!isset($this->p_data[$key])) $this->loadDefault($key);
 
@@ -317,10 +323,10 @@ class customConfig
 		$d = new DAL(true);
 
 		//Insert it into the DB
-		$cv[keyName] = "'$key'";
-		$cv[keyValue] = "'".$this->p_data[$key]."'";
-		$cv[typeID] = $this->p_typeID;
-		$cv[dataID] = $this->p_dataID;
+		$cv["keyName"] = "'$key'";
+		$cv["keyValue"] = "'".$this->p_data[$key]."'";
+		$cv["typeID"] = $this->p_typeID;
+		$cv["dataID"] = $this->p_dataID;
 
 		$cID = $d->qryInsertByArray('config', $cv);
 		if (!$cID) throw new Exception("Error adding default config entry - please try again.");
@@ -330,15 +336,15 @@ class customConfig
 	public function __set($key, $value)
 	{
 		$d = new DAL(true);
+		
+		$cv["keyName"] = "'$key'";
+		$cv["keyValue"] = "'$value'";
+		$cv["dataID"] = $this->p_dataID;
+		$cv["typeID"] = $this->p_typeID;
 
-		$cv[keyName] = "'$key'";
-		$cv[keyValue] = "'$value'";
-		$cv[dataID] = $this->p_dataID;
-		$cv[typeID] = $this->p_typeID;
-
-		if ($this->$key)
+		if (isset($this->p_data[$key]))
 		{
-			$d->qryUpdateByArray('config', $cv, array("keyName"=>"'$key'", "dataID"=>$this->p_dataID, "typeID"=>$this->p_typeID));
+			$d->qryUpdateByArray('config', $cv, array("keyName"=>$key, "dataID"=>$this->p_dataID, "typeID"=>$this->p_typeID));
 		}
 		else
 		{
@@ -424,6 +430,20 @@ class proteus_user_core
 	
 	public $queries = array("permissionsAssignment"=>array("INSERT INTO permissionsAssignment (userID, permissionKey, bitValue) VALUES (1, 'site_admin', 1);"),
 							"users" => array("insert into users (login, password, createdDateTime) values ('admin','prkxJ0EGtijhE',now())"));
+}
+class userConfig extends customConfig
+{
+	public function __construct(security $sec)
+	{
+		parent::__construct(customConfig::config_user, $sec->id);
+	}
+}
+class notificationsConfig extends customConfig
+{
+	public function __construct(security $sec)
+	{
+		parent::__construct(customConfig::config_user_notifications, $sec->id);
+	}
 }
 class metaData_core
 {
@@ -807,9 +827,12 @@ class validation
 			return join('',$tmp);
 		}
 	}	
-	public static function truncateText(&$strVal, $maxLength, $postElipse="...")
+	public static function truncateText($strVal, $maxLength, $postElipse="...")
 	{
-		if (strlen($strVal) > $maxLength) $strVal = substr($strVal, 0, $maxLength).$postElipse;	
+		// SWB (7/13): No longer takes first argument as a pointer
+		if (strlen($strVal) > $maxLength) $strVal = substr($strVal, 0, $maxLength).$postElipse;
+
+		return $strVal;
 	}
 	public static function ensureTelephone(&$phoneStr)
 	{
@@ -1112,69 +1135,24 @@ class upload
 	}
 	public function getFileExtension($str)
 	{
-		$parts = explode(".", $str);
-		return strtolower($parts[count($parts)-1]);
+		return fileHelper::getFileExtension($str);
 	}
 	public function getFileExtensionByMIME($file='')
 	{
-		// This function is designed to get the MIME type of images ONLY
-		$mime = $this->getMimeType($file);
-		
-		switch($mime)
-		{
-			case "image/jpg":
-			case "image/jpeg":
-				return "jpg";
-			case "image/png":
-				return "png";
-			case "image/bmp":
-			case "image/x-windows-bmp":
-			case "image/x-ms-bmp":
-				return "bmp";
-			case "image/gif":
-				return "gif";
-			default:
-				//throw new Exception("Unsupported MIME type detected.");
-				return false;
-		}
+		if (!$file) $file = $this->p_TmpName;		
+		return imageHelper::getExtensionByMIME($file);
 	}
 	public function getMimeType($file = '')
 	{
-		if (!$file) $file = $this->p_TmpName;
-		if (!$file) $file = $this->p_TmpName;
+		if (!$file) $file = $this->p_TmpName;		
 		
-		$finfo = finfo_open(FILEINFO_MIME_TYPE);
-		$mime = finfo_file($finfo, $file);
-		
-		return $mime;
+		return fileHelper::getMimeType($file);
 	}
 	private function getSourceImageObject()
 	{
 		if ($this->uploadComplete) throw new Exception("Error, the upload for this file has already been completed.");
 
-		$fExt = $this->getFileExtensionByMIME($this->p_TmpName);
-
-		switch($fExt)
-		{
-			case "bmp":
-				$srcImg = imagecreatefromwbmp($this->p_TmpName);
-				break;
-
-			case "jpg":
-			case "jpeg":
-				$srcImg = imagecreatefromjpeg($this->p_TmpName);
-				break;
-
-			case "gif":
-				$srcImg = imagecreatefromgif($this->p_TmpName);
-				break;
-
-			case "png":
-				$srcImg = imagecreatefrompng($this->p_TmpName);
-				break;
-		}
-
-		return $srcImg;
+		return imageHelper::getImageObject($this->p_TmpName);		
 	}
 	public function convertImage($newType, $resizeDimensions)
 	{

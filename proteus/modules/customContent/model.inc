@@ -76,45 +76,36 @@ class customContent_core
 		}			
 	}	
 }
-class customContentData
-{
-	private $contentData = array();
-
-	public function __construct($contentID='', $contentName='')
+class customContentData extends phpDataSet
+{	
+	public function __construct($contentID=0)
 	{
-		$d = new DAL();
-			
-		$baseQry = "select *
-					from customContent
-					where ";
-		
-		if ($contentID)
-		{
-			validation::ensureInt($contentID);
-			$baseQry .= "id=$contentID";	
-		}
-		elseif ($contentName)
-		{
-			validation::ensureString($contentName);
-			$baseQry .= "pageName='$contentName'";
-		}
-		else
-		{
-			throw new Exception("Error, nothing to query!");	
-		}
-		
-		$this->contentData = $d->qryArray($baseQry);		
+		parent::__construct("customContent", $contentID, $contentID ? true : false);
 	}
-	public function __get($keyName)
-	{
-		return $this->contentData[$keyName];	
-	}	
 	public static function getDataObject($typeID, $dataID, $contentID="")
 	{
 		$data = new stdClass();
 		
 		switch($typeID)
 		{
+			case -5:
+				// Blog Entry
+				$data = new customBlog($dataID);
+				$imgDir = "blogs/{$data->id}/$contentID";			
+				
+				break;
+			case -4:
+				// Municipal Entity
+				$data = new pmm_entity($dataID);
+				$imgDir = "municipal/$dataID";
+				
+				break;
+			case -3:
+				// Municipal Agendas
+				$data = new pmm_entityAgenda($dataID);
+				$imgDir = "municipal/$dataID/agendas/$contentID";
+				
+				break;
 			case -2:
 				// Municipal Post Entries
 				$data = new pmm_entityPosting($dataID);
@@ -127,7 +118,7 @@ class customContentData
 				$imgDir = "municipal/$dataID/faq/$contentID";
 				
 				break;				
-			case 1:	
+			case proteus_core::$module_customCategories["siteType"]:
 				$data = new categoryItem($dataID);
 				$imgDir = "images/categoryItems/$dataID";
 				break;
@@ -137,9 +128,9 @@ class customContentData
 				$imgDir = "images/contentPages";
 				break;
 			
-			case 3:				
+			case proteus_core::$module_blogs["siteType"]:				
 				// Blog Entries				
-				$entry = new customBlogEntry($dataID);
+				$data = new customBlogEntry($dataID);
 				$imgDir = "images/blogs/$dataID";
 				break;
 				
@@ -150,8 +141,8 @@ class customContentData
 				
 			case proteus_core::$module_customContent["siteType"]:
 				
-				$data = new customContentData($dataID);				
-				$imgDir = "contentPages/$dataID";
+				$data = new customContentData($contentID);				
+				$imgDir = "contentPages/$contentID";
 				$module = proteus_core::$module_customContent;				
 				
 				break;				
@@ -170,15 +161,49 @@ class customContentData
 				$imgDir = "calendars/$dataID/content/$contentID";
 				$module = proteus_core::$module_calendars;
 				
-				break;				
+				break;	
+			/* case proteus_core::$module_subscribers["siteType"]:
+
+				$data = new pmm_entity($dataID);
+				
+				$imgDir = "municipal/$dataID/content/$contentID";
+				$module = proteus_core::$module_municipal;
+				
+				break; */				
 			default:
-				throw new Exception("Invalid upload type specified!");					
+				throw new Exception("Invalid type specified!");					
 		}		
 		
 		$data->module = $module;
 		$data->assetDir = $imgDir;
 		
 		return $data;
+	}
+	public function insert($data="")
+	{
+		$d = new DAL(true);
+		
+		// Take care of setting the position when inserting here
+		$max = $d->qryCount("select max(position) from customContent where dataID={$this->dataID} and typeID={$this->typeID}");
+		if (!$max) $max = 0;
+		$max++;
+			
+		$this->position = $max;
+		
+		return parent::insert($data);
+	}
+	public static function getContentContainer($typeID, $dataID=0)
+	{
+		validation::ensureInt($dataID);
+		validation::ensureInt($typeID);
+		
+		// Setup the container object to receive the list of content pages (don't care of this method, but it works)
+		$dv = new phpDIV();
+		$dv->id = "container_{$typeID}_{$dataID}";
+		
+		$dv->addControl(new jqLoader("getContentEntries({$typeID},{$dataID});"));
+		
+		return $dv;
 	}
 } 
 ?>

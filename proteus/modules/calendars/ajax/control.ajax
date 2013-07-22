@@ -1,15 +1,20 @@
 <?php 
 	
 	$g_sec = permissions::getAuthorizedUser();
+	proteus_core::includeAllModules();
 
 	switch($action)
 	{
+		case "getEntriesWin":
+			getEntriesWin($calID);
+			break;
+			
 		case "deleteCalendar":
 			deleteCalendar($calID);
 			break;
 			
 		case "saveEntry":
-			saveEntry($entryID, $details);
+			saveEntry($entryID, $details, $calID);
 			break;
 			
 		case "deleteEntry":
@@ -74,7 +79,8 @@ function getCalendars($typeID, $dataID)
 		validation::ensureInt($dataID, 0);
 		
 		$writeAccessMun = false;
-		$calendars = NULL; //set below according to type
+		$calendars = array();
+		
 		switch($typeID)
 		{
 			case customCalendar::calendar_standalone:
@@ -99,7 +105,7 @@ function getCalendars($typeID, $dataID)
 				break;
 		}
 			
-		$t = new tblBuilder('center',0,0,4,'100%');	
+		$t = new tblBuilder('center',0,0,8,'100%');	
 		$t->class = "listTable hoverTable";
 		
 		$r = $t->addRow();	
@@ -112,31 +118,37 @@ function getCalendars($typeID, $dataID)
 		foreach($calendars as $calID=>$cal)
 		{
 			if (!$typeID && (!$g_sec->hasAccess(permissions::$manage_calendars, permissions::read) &&
-							 !$g_sec->hasAccess(permissions::$modify_calendar, permissions::read, $cal->id))) continue;
+							 !$g_sec->hasAccess(permissions::$modify_calendar, permissions::read, $cal->id))) continue;			
 			
 			$count = $d->qryCount("select count(id) from calendarEntry where calendarID = $cal->id");
 			
-			$eCtl = new editControl();
-			$eCtl->onclick = "getCalendarWin($cal->id)";
-			$eTxtCtl = $eCtl->getTextLink($cal->title);
+			$mnu = new jqPopupMenu();
+			
+			$ctl = $mnu->addMenuItem("", "Calendar Settings", "", "ui-icon-wrench");
+			$ctl->onclick = "getCalendarWin($cal->id)";			
+			
+			$ctl = $mnu->addMenuItem("", "Manage Calendar Entries", "", "ui-icon-calendar");
+			$ctl->onclick = "getEntriesWin($cal->id)";
 			
 			if ($writeAccessMun || $g_sec->hasAccess(permissions::$manage_calendars, permissions::delete))
 			{		
-				$dCtl = new deleteControl();
-				$dCtl->onclick = "deleteCalendar($cal->id)";
-			}
-			else
-			{
-				$dCtl = new phpFiller();	
+				$ctl = $mnu->addMenuItem("", "Delete Calendar", "ui-state-error", "ui-icon-trash");
+				$ctl->onclick = "deleteCalendar($cal->id)";
 			}
 			
 			$r = $t->addRow();
 			
-			$r->addCell(new tblCell($eTxtCtl->render(),'evenCell','left'));
+			$r->addCell(new tblCell($cal->title,'evenCell','left'));
 			$r->addCell(new tblCell($count,'oddCell','center'));				
 			$r->addCell(new tblCell((!$cal->inactive ? "Yes" : "No"),'evenCell','center'));				
-			$r->addCell(new tblCell(array($eCtl, $dCtl),'oddCell','center'));
+			$r->addCell(new tblCell($mnu,'oddCell','center'));
 		}	
+		
+		if (!count($calendars))
+		{
+			$r = $t->addRow();
+			$r->addCell(new tblCell("No Calendars found.", "strong", "center", 4));
+		}
 		
 		$js->content = $t->render();
 	}
@@ -162,106 +174,59 @@ function getCalendarWin($calID, $typeID, $dataID)
 		validation::ensureInt($typeID, 0);
 		validation::ensureInt($dataID, 0);
 		
-		if ($calID)
-		{
-			$calObj = new customCalendar($calID);
-			
+		$calObj = new customCalendar($calID);
+		
+		if ($calObj->id)
+		{	
 			$typeID = $calObj->typeID;
 			$dataID = $calObj->dataID;
 		}
 		
-		$eWin = new jqUI_dialog("calendarEdit", true, 750, 650, $calID ? "Modify Calendar" : "Add new Calendar");
+		$writeAccess = $calObj->hasAccess($g_sec, permissions::write);
+		
+		if (!$calObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
+		
+		$eWin = new jqUI_dialog("calendarEdit", true, 750, "", $calID ? "Modify Calendar" : "Add new Calendar");
 		$eWin->setOption("autoOpen", 1);
-				
-		switch($typeID)
+		$eWin->setOption("autoResize", 1);		
+		$eWin->addClass("configWin");
+		
+		$eWin->addCloseButton($calObj->id ? "Close" : "Cancel");
+		
+		if ($writeAccess) $eWin->addButton($calID ? "Save Changes" : "Add Calendar", "function() { saveCalendar(); }");		
+		
+		$txtTitle = new customText("details[title]", validation::prepTextForInput($calObj->title), 25, 25);
+		$txtTitle->setLabel("Calendar Title:");
+		
+		$txtKey = new customText("details[lookupKey]", validation::prepTextForInput($calObj->lookupKey), 10, 50);
+		$txtKey->setLabel("Lookup Key:");
+		
+		$chkInactive = new phpCheckbox("details[inactive]", 1, $calObj->inactive ? true : false);
+		$chkInactive->setLabel("Inactive:");
+		
+		if ($calObj->id)
 		{
-			case customCalendar::calendar_standalone:
-				if (($calObj->id && (!$g_sec->hasAccess(permissions::$manage_calendars, permissions::read) &&
-								     !$g_sec->hasAccess(permissions::$modify_calendar, permissions::read, $calObj->id))) ||
-					(!$calObj->id && !$g_sec->hasAccess(permissions::$manage_calendars, permissions::insert))) $g_sec->security_error_a();
-					
-					//SAVE PERMISSIONS FOR NORMAL MODULE
-					if (($calObj->id && ($g_sec->hasAccess(permissions::$manage_calendars, permissions::write) ||
-							 $g_sec->hasAccess(permissions::$modify_calendar, permissions::write, $calObj->id))) ||
-						(!$calObj->id && $g_sec->hasAccess(permissions::$manage_calendars, permissions::insert)))
-					{
-						$eWin->addButton($calID ? "Save Changes" : "Add Calendar", "function() { saveCalendar($calID); }");		
-					}
-				break;					
-			case customCalendar::calendar_municipal_entity:
-				$eObj = new pmm_entity($dataID);
-				if (!$eObj->id) throw new Exception("Error, invalid entity specified.");
-				
-				if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
-					!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $eObj->id)) $g_sec->security_error_a();
-				
-					//SAVE PERMISSIONS FOR MUNICIPAL
-					if (($dataID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-						$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $dataID)) ||
-						(!$dataID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-						$g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $dataID)))
-						{	
-							//pseudo: if entityID && hasAccess GlobalWrite/EntityWrite || !agendaID && hasAccess GlobalWrite/EntityInsert
-							$eWin->addButton($calID ? "Save Changes" : "Add Calendar", "function() { saveCalendar($calID); }");		
-						}
-				break;
+			$txtISize = new customText("cfg[iconSize]", $calObj->settings->iconSize, 10, 7);
+			$txtISize->setLabel("Entry Icon Dimensions:");			
+			$txtISize->setRequired("&nbsp; Format: 99x99", "desc");
 		}
 		
-		$eWin->addButton("Close", "function() { $(this).dialog('close'); }");
-		
-		$tabs = new tabControl("calendarTabs", "Calendar Setup");
-		
-		$txtTitle = new customText("details[title]", validation::prepTextForInput($calObj->title), 25, 25, "textBox");
-		$txtTitle->setLabel("Calendar Title:", "longLabel floating");
-		$txtTitle->addClass('floating');
-		$txtTitle->breakAfter = true;
-		
-		$txtKey = new customText("details[lookupKey]", validation::prepTextForInput($calObj->lookupKey), 10, 50, "textBox");
-		$txtKey->setLabel("Lookup Key:", "longLabel floating");
-		$txtKey->addClass('floating');
-		$txtKey->breakAfter = true;	
-	
-		$chkInactive = new formInput("details[inactive]", "checkbox", 1);
-		if ($calObj->inactive) $chkInactive->addParameter("checked");
-		$chkInactive->setLabel("Inactive:", "longLabel floating");
-		$chkInactive->addClass('floating');
-		$chkInactive->breakAfter = true;
-		
-		if ($calObj)
-		{
-			$txtISize = new customText("cfg[iconSize]", $calObj->config("iconSize"), 10, 7, "floating textBox");
-			$txtISize->setLabel("Entry Icon Dimensions:", "longLabel floating");	
-			$txtISize->breakAfter = true;
-			$txtISize->setRequired("&nbsp; Format: 99x99", 'floating');
-		}
-		
-		$cForm = new phpForm('post','calForm');
+		$cForm = new phpForm("post","calForm");
 		$cForm->addControl($txtTitle);
 		$cForm->addControl($txtKey);
-		$cForm->addControl($txtISize);
-		$cForm->addControl(new hiddenInput("details[typeID]", $typeID));
-		$cForm->addControl(new hiddenInput("details[dataID]", $dataID));
-		if ($calID) $cForm->addControl($chkInactive);
-		
-		$btnSave = new jqUI_button("btnSaveCal", ($calID ? "Save Calendar" : "Add Calendar"), "", "ui-icon-disk");
-		$btnSave->onclick = "saveCalendar($calID);";
-		$btnSave->style = "margin-top: 15px;";
-		
-		$tpDetail = new tabPage("Calendar Detail", "#cal_detail");
-		$tpDetail->addControl($cForm);
-		$tpDetail->addControl($btnSave);
 		
 		if ($calID)
 		{
-			$tpEntries = new tabPage("Calendar Entries", "#cal_entries");
-			$tpEntries->addControl(new jqLoader("getEntries($calID);"));
-			
-			$tabs->addTabPage($tpEntries);			
+			$cForm->addControl($txtISize);
+			$cForm->addControl($chkInactive);
 		}
 		
-		$tabs->addTabPage($tpDetail);
+		$cForm->addControl(new hiddenInput("details[typeID]", $typeID));
+		$cForm->addControl(new hiddenInput("details[dataID]", $dataID));
+		$cForm->addControl(new hiddenInput("action", "saveCalendar"));
+		$cForm->addControl(new hiddenInput("calID", $calObj->id));		
 		
-		$eWin->addControl($tabs);
+		$eWin->addControl($cForm);
 		
 		$js->addObject("content", $eWin->render(), false);
 	}
@@ -287,50 +252,13 @@ function getEntries($calID)
 		if (!$calID) throw new Exception("Error, no calendar provided!");
 		
 		$calObj = new customCalendar($calID, false);
-		$readAccess = false;
-		switch($calObj->typeID)
-		{
-			case customCalendar::calendar_standalone:
-				$readAccess = ($g_sec->hasAccess(permissions::$manage_calendars, permissions::read) ||
-							  ($calID && $g_sec->hasAccess(permissions::$modify_calendar, permissions::read, $calID)));
-							  
-				$writeAccess = $g_sec->hasAccess(permissions::$manage_calendars, permissions::write) ||
-					   			$calID && $g_sec->hasAccess(permissions::$modify_calendar, permissions::write, $calID);
-					   			
-				$insertAccess =	$g_sec->hasAccess(permissions::$manage_calendars, permissions::insert) ||
-					   			$calID && $g_sec->hasAccess(permissions::$modify_calendar, permissions::insert, $calID);
-				break;					
-			case customCalendar::calendar_municipal_entity:
-				$eObj = new pmm_entity($calObj->dataID);
-				if (!$eObj->id) throw new Exception("Error, invalid entity specified.");
-				
-				$readAccess = ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) ||
-							   $g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $eObj->id) );
-				
-					//SAVE PERMISSIONS FOR MUNICIPAL
-				$writeAccess = ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-								$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $calObj->dataID) );
-								
-				$insertAccess = ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::insert) ||
-								 $g_sec->hasAccess(permissions::$municipal_entity, permissions::insert, $calObj->dataID));
-						
-				break;
-		}
-		if (!$readAccess) $g_sec->security_error_a();
 		
+		if (!$calObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
 		
-			
+		$writeAccess = $calObj->hasAccess($g_sec, permissions::write);
+		
 		$t = new tblBuilder('center',0,0,4,'100%');
-		$t->class = 'listTable hoverTable';
-		
-		if ($insertAccess)
-		{
-			$cmdAdd = new jqUI_button("btnAddEntry", "Add Calendar Entry", "", "ui-icon-calendar", true);
-			$cmdAdd->onclick = "getEntryEdit(0, $calID);";
-			
-			$r = $t->addRow();
-			$r->addCell(new tblCell($cmdAdd, 'evenCell','right',5));
-		}
+		$t->class = "listTable hoverTable";
 		
 		$r = $t->addRow();
 		$r->addHeader(new tblHeader("Title"));
@@ -347,20 +275,20 @@ function getEntries($calID)
 		
 		while($entry = $eQry->fetch_assoc())
 		{
+			$eObj = new customCalendarEntry($entry["id"]);
+			
+			$mnu = new jqPopupMenu();
+			
+			$ctl = $mnu->addMenuItem("", "Edit Calendar Entry", "", "ui-icon-pencil");
+			$ctl->onclick = "getEntryEdit({$entry["id"]})";
+			
 			if ($writeAccess)
 			{
-				$dCtl = new deleteControl("javascript:deleteEntry($entry[id])");
-				$dCtl->setVerifyMessage("Are you sure you want to remove this entry?");
-			}
-			else
-			{
-				$dCtl = new phpFiller();	
-			}
+				$ctl = $mnu->addMenuItem("", "Delete Calendar Entry", "ui-state-error", "ui-icon-trash");
+				$ctl->onclick = "deleteEntry({$entry["id"]})";
+			}		
 						
-			$eCtl = new editControl("javascript:getEntryEdit($entry[id])");
-			$eTxtCtl = $eCtl->getTextLink(validation::prepForDisplay($entry[title]));
-			$eObj = new customCalendarEntry(0, $entry);
-			if ($entry[recurring])
+			if ($eObj->recurring)
 			{
 				$recDisp = $eObj->getOccurenceDescription(true);
 				$dDisp = $eObj->getOccurenceDescription();
@@ -369,20 +297,21 @@ function getEntries($calID)
 			{
 				$recDisp = "none";
 				
-				$dDisp = "<strong>".validation::parseMySqlDate($entry[startDate], "D, M d Y")."</strong>";
+				$dDisp = "<strong>".validation::parseMySqlDate($entry["startDate"], "D, M d Y")."</strong>";
 			}
-			$endStr = $entry[endTime] ? "- $entry[endTime]" : "";
-			$dDisp .= "<br />$entry[startTime] $endStr";
 			
-			$iDisp = new phpSpan(($entry[inactive] ? "<strong class='redColor'>Yes</strong>" : "<span class='greenColor'>No</span>"));			
+			$endStr = $entry["endTime"] ? "- {$entry["endTime"]}" : "";
+			$dDisp .= "<br />{$entry["startTime"]} $endStr";
+			
+			$iDisp = new phpSpan(($entry["inactive"] ? "<strong class='redColor'>Yes</strong>" : "<span class='greenColor'>No</span>"));			
 			
 			$r = $t->addRow();
 			if ($entry[inactive]) $r->addClass('inactiveRow');
-			$r->addCell(new tblCell($eTxtCtl, 'evenCell', 'left'));
+			$r->addCell(new tblCell(validation::prepForDisplay($entry[title]), 'evenCell', 'left'));
 			$r->addCell(new tblCell($dDisp, 'oddCell', 'left'));
 			$r->addCell(new tblCell($recDisp, 'evenCell', 'left'));
 			$r->addCell(new tblCell($iDisp, 'oddCell', 'center'));
-			$r->addCell(new tblCell(array($eCtl, $dCtl), 'evenCell', 'center'));
+			$r->addCell(new tblCell($mnu, 'evenCell', 'center'));
 		}
 		
 		$js->content = $t->render();
@@ -408,74 +337,44 @@ function getEntryEdit($entryID, $calID=0)
 		
 		validation::ensureInt($entryID);
 		
-		if ($entryID)
-		{
-			$eObj = new customCalendarEntry($entryID);
-			$calObj = new customCalendar($eObj->calendarID, false);
-			
-			$calID = $calObj->id;
-		}
-		else if ($calID)
-		{
-			$calObj = new customCalendar($calID, false);	
-		}
-
-		$readAccess = false;
-		switch($calObj->typeID)
-		{
-			case customCalendar::calendar_standalone:
-				$readAccess = ($g_sec->hasAccess(permissions::$manage_calendars, permissions::read) ||
-							  ($calID && $g_sec->hasAccess(permissions::$modify_calendar, permissions::read, $calID)));
-							  
-				$writeAccess = $g_sec->hasAccess(permissions::$manage_calendars, permissions::write) ||
-					   			$calID && $g_sec->hasAccess(permissions::$modify_calendar, permissions::write, $calID);
-				break;					
-			case customCalendar::calendar_municipal_entity:
-				
-				$readAccess = ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) ||
-							   $g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $calObj->dataID) );
-				
-				//SAVE PERMISSIONS FOR MUNICIPAL
-				$writeAccess = ( $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-								$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $calObj->dataID ) );
-						
-				break;
-		}
-		if (!($readAccess && $writeAccess) ) $g_sec->security_error_a();
+		$eObj = new customCalendarEntry($entryID);
 		
-		$txtTitle = new customText("details[title]", validation::prepTextForInput($eObj->title), 53, 255, "textBox");
-		$txtTitle->setLabel("Entry Title:", "longLabel floating");
-		$txtTitle->addClass('floating');
-		//$txtTitle->breakAfter = true;
+		if ($eObj->id)
+		{			
+			$calObj = new customCalendar($eObj->calendarID, false);			
+			$calID = $calObj->id;			
+		}
+		else
+		{
+			$calObj = new customCalendar($calID, false);			
+			if (!$calObj->hasAccess($g_sec, permissions::insert)) $g_sec->security_error_a();
+		}
+		
+		if (!$calObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
+		
+		$writeAccess = $calObj->hasAccess($g_sec, permissions::write);
+		
+		$txtTitle = new customText("details[title]", validation::prepTextForInput($eObj->title), 53, 255);
+		$txtTitle->setLabel("Entry Title:");		
 		
 		$txtDesc = new phpTextArea("details[description]", validation::prepTextForInput($eObj->description), 4, 85, "wysiwyg");
-		$txtDesc->setLabel("Description:", "longLabel floating");
-		$txtDesc->addClass("floating");
-		$txtDesc->breakAfter = true;
-		$txtDesc->addAttribute("data-upload-dataid", "$calID/$entryID");
-		$txtDesc->addAttribute("data-upload-typeid", 7);
+		$txtDesc->setLabel("Description:");
 				
-		$dtCtl = new jqUI_datepicker("details[startDate]", ($entryID ? validation::parseMySqlDate($eObj->startDate, "m-d-Y") : date("m-d-Y")), "Entry Date:", true);
-		$dtCtl->label->addClass('longLabel floating');
-		$dtCtl->addClass("floating");
-		$dtCtl->breakAfter = true;
+		$dtCtl = new jqUI_datepicker("details[startDate]", ($entryID ? validation::parseMySqlDate($eObj->startDate, "m-d-Y") : date("m-d-Y")), "Entry Date:", false);
 		
 		$ddlTime = new phpDDL("details[startTime]");
-		$ddlTime->setLabel("Start Time:", "longLabel floating");
-		$ddlTime->addClass("floating");	
+		$ddlTime->setLabel("Start Time:");			
 		$ddlTime->selected = substr($eObj->startTime, 0, -3);
 		
 		$ddlETime = new phpDDL("details[endTime]");
-		$ddlETime->setLabel("End Time:", "longLabel floating");
-		$ddlETime->addClass("floating");	
+		$ddlETime->setLabel("End Time:");			
 		$ddlETime->selected = substr($eObj->endTime, 0, -3);
 		$ddlETime->addListItem(new phpListItem("","")); //allow end time to be optional
 		
 		for($i = 1; $i <= 12; $i++)
 		{
 			for($j = 0; $j <= 45; $j+=15)
-			{
-				//$jD = ($j ? "00" : $j);
+			{			
 				$jDisp = sprintf("%02d", $i).":".sprintf("%02d", $j);
 				$ddlTime->addListItem(new phpListItem($jDisp, $jDisp));
 				$ddlETime->addListItem(new phpListItem($jDisp, $jDisp));
@@ -484,48 +383,32 @@ function getEntryEdit($entryID, $calID=0)
 		
 		$ddlTimeAP = new phpDDL("details[startTimeAP]");
 		$ddlTimeAP->addListItem(new phpListItem("AM","AM"));
-		$ddlTimeAP->addListItem(new phpListItem("PM","PM"));
-		$ddlTimeAP->addClass('floating');
-		$ddlTimeAP->selected = $entryID ? substr($eObj->startTime, -2) : "PM";
-		$ddlTimeAP->breakAfter = true;
+		$ddlTimeAP->addListItem(new phpListItem("PM","PM"));		
+		$ddlTimeAP->selected = $entryID ? substr($eObj->startTime, -2) : "PM";		
 		
 		$ddlETimeAP = new phpDDL("details[endTimeAP]");
 		$ddlETimeAP->addListItem(new phpListItem("",""));
 		$ddlETimeAP->addListItem(new phpListItem("AM","AM"));
-		$ddlETimeAP->addListItem(new phpListItem("PM","PM"));
-		$ddlETimeAP->addClass('floating');
+		$ddlETimeAP->addListItem(new phpListItem("PM","PM"));		
 		$ddlETimeAP->selected = $entryID ? substr($eObj->endTime, -2) : "";
-		$ddlETimeAP->breakAfter = true;
-		
-		//$ddlETimeAP = clone $ddlTimeAP;
-		//$ddlETimeAP->id = "details[endTimeAP]";
-		//$ddlETimeAP->selected = $entryID ? substr($eObj->endTime, -2) : "PM";
 		
 		$rDDL = new phpDDL("details[recurring]");
-		$rDDL->setLabel("Recurrence:", "longLabel floating");
-		$rDDL->addClass("floating");
-		$rDDL->breakAfter = true;
+		$rDDL->setLabel("Recurrence:");		
 		$rDDL->addListItem(new phpListItem("",""));
 		$rDDL->addListItem(new phpListItem("Weekly, on the same day", 0));
 		$rDDL->addListItem(new phpListItem("Monthly, on the same numeric day", 1));
 		$rDDL->addListItem(new phpListItem("Monthly, on the same week and day of the week", 2));
 		$rDDL->selected = substr($eObj->recurring, 0, 1);
 		
-		$chkInactive = new formInput("details[inactive]", "checkbox", 1);
-		if ($eObj->inactive) $chkInactive->addParameter("checked");
-		$chkInactive->setLabel("Inactive:", "longLabel floating");
-		$chkInactive->addClass('floating');
-		$chkInactive->breakAfter = true;
+		$chkInactive = new phpCheckbox("details[inactive]", 1, $eObj->inactive ? true : false);		
+		$chkInactive->setLabel("Inactive:");
 		
 		$dvIcon = new phpDIV();
-		$dvIcon->id = "entryIconDiv";
+		$dvIcon->id = "entryIconDiv";		
 		
-		//$bbCtl = bbCode::getBBCodeBlock("details[description]");
-		
-		$cForm = new phpForm('post','calEntryForm');
+		$cForm = new phpForm("post","calEntryForm");
 		$cForm->addControl($dvIcon);
 		$cForm->addControl($txtTitle);
-		//$cForm->addControl($bbCtl);
 		$cForm->addControl($txtDesc);
 		$cForm->addControl($dtCtl);
 		$cForm->addControl($ddlTime);
@@ -533,32 +416,39 @@ function getEntryEdit($entryID, $calID=0)
 		$cForm->addControl($ddlETime);
 		$cForm->addControl($ddlETimeAP);
 		$cForm->addControl($rDDL);		
-		$cForm->addControl($chkInactive);
-		$cForm->addControl(new hiddenInput("details[calID]", $calID));
+		if ($eObj->id) $cForm->addControl($chkInactive);
+		$cForm->addControl(new hiddenInput("calID", $calID));
+		$cForm->addControl(new hiddenInput("action", "saveEntry"));
+		$cForm->addControl(new hiddenInput("entryID", $eObj->id));
 			
-		$enWin = new jqUI_dialog("enWin", true);
+		$enWin = new jqUI_dialog("entryEditWin", true, 820, "", ($eObj->id ? "Modify a Calendar Entry" : "Add a new Calendar Entry"));
+		$enWin->addClass("configWin");
 		$enWin->setOption("autoOpen", "true");
-		$enWin->setOption("width", 820);
-		$enWin->setOption("height", 700);
-		$enWin->setOption("title", "'".($entryID ? "Modify a Calendar Entry" : "Add a new Calendar Entry")."'");
-		$enWin->addButton("Save Entry", "function() { saveEntry($entryID); }");
-		$enWin->addButton("Close", "function() { $(this).dialog('close'); }");
-		$enWin->setOption("focus","initProteusDatePickers");
-		$enWin->setOption("draggable","true");
-		$enWin->setOption("modal","false");
-				
-		$enWin->addControl($cForm);
-	
-		$fDiv = new phpDIV();
-		$fDiv->id = 'entryFiles';
+		$enWin->setOption("modal",0);
 		
-		if (!$entryID)
+		$enWin->addCloseButton($eObj->id ? "Close" : "Cancel");
+		
+		if ($writeAccess) 
 		{
-			$fDiv->addControl(new phpParagraph("<br /><br /><strong><span style='color: #FF0000;'>NOTE:</span> File Attachments and Entry Icon will be available only after initially saving a Calendar Entry.</strong>"));	
+			$enWin->addButton($eObj->id ? "Save Entry" : "Add new Entry", "function() { saveEntry(); }");
+		}
+		else
+		{
+			$js->disabled = 1;	
+		}
+				
+		$enWin->addControl($cForm);	
+		
+		if (!$eObj->id)
+		{
+			$msg = "<strong>NOTE:</strong> Some editor features (file uploads, image uploads, etc) are unavailable until this calendar 
+					entry has been added.<br /><br />
+					Please fill out the basic information, then click the add button to enable all editor features.";
+			
+			$enWin->insertControl(new jqUI_dismissableMessage($g_sec, "new_calendar_entry", $msg));	
 		}
 		
-		$enWin->addControl($fDiv);	
-		
+		$js->calID = $calID;
 		$js->addObject("content", $enWin->render(), false);		
 	}
 	catch(Exception $ex)
@@ -803,25 +693,12 @@ function deleteEntryIcon($entryID)
 	{		
 		$eObj = new customCalendarEntry($entryID);
 		$calObj = new customCalendar($eObj->calendarID);
-		$writeAccess = false;
-		switch($calObj->typeID)
-		{
-			case customCalendar::calendar_standalone:
-	  
-				$writeAccess = $g_sec->hasAccess(permissions::$manage_calendars, permissions::write) ||
-					   		   $eObj->calendarID && $g_sec->hasAccess(permissions::$modify_calendar, permissions::write, $eObj->calendarID);
-				break;					
-			case customCalendar::calendar_municipal_entity:
-
-				//SAVE PERMISSIONS FOR MUNICIPAL
-				$writeAccess = ( $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-								 $g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $calObj->dataID ) );
-						
-				break;
-		}
-		if (!$writeAccess) $g_sec->security_error_a();
-
-		unlink($config[baseAppDir]."images/calendars/$eObj->calendarID/$entryID/icon.png");
+		
+		if (!$calObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+		
+		$iconObj = $eObj->getIconObject($fLoc);
+		
+		unlink($fLoc);
 		
 		pageClass::setNotify("Successfully cleared Entry Icon");		
 	}
@@ -844,55 +721,32 @@ function getEntryIcon($entryID)
 		$eObj = new customCalendarEntry($entryID);
 		$calObj = $eObj->getCalendarObject();		
 		
-		$readAccess = false;
-		switch($calObj->typeID)
-		{
-			case customCalendar::calendar_standalone:
-				$readAccess = ($g_sec->hasAccess(permissions::$manage_calendars, permissions::read) ||
-							  ($eObj->calendarID && $g_sec->hasAccess(permissions::$modify_calendar, permissions::read, $eObj->calendarID)));
-
-				break;					
-			case customCalendar::calendar_municipal_entity:
+		if (!$calObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
 				
-				$readAccess = ($g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) ||
-							   $g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $calObj->dataID) );
-				
-				break;
-		}
-		if (!$readAccess) $g_sec->security_error_a();
-		
 		$pc = new pageContent();
 		
 		$btnUpload = new jqUI_button("btnAddIcon", "Upload Icon", "floating", "ui-icon-image", true);
 		$btnUpload->style = "display: none;";
-		$btnUpload->onclick = "return uploadIcon($entryID);";		
-		$btnUpload->breakAfter = true;		
+		$btnUpload->onclick = "return uploadIcon($entryID);";				
 		
 		$fInput = new formInput("entryIcon",'file');
 		$fInput->addClass('floating');	
 		$fInput->onchange = "$('#btnAddIcon').show();";
-		$fInput->setLabel("Upload Icon (".$calObj->config("iconSize")."):","longLabel floating");
+		$fInput->setLabel("Upload Icon (".$calObj->settings->iconSize."):","longLabel floating");
 		
-		if ($eObj->icon)
-		{
-			$img = new image($eObj->icon);
-			$img->class = 'floating';
-
-			$dCtl = new deleteControl("javascript:deleteEntryIcon($entryID)");
-			$dCtl->setVerifyMessage("Are you sure you want to clear this entry`s Icon?");
-			$dCtl->breakAfter = true;
-			$dCtl->addClass('floating');
-			$dCtl->style = "margin: 6px 0px 0px 6px;";
-			
-			$lbl = new phpSpan("Current Icon:", "longLabel floating");
-			
-			$pc->addControl($lbl);
-			$pc->addControl($img);
-			$pc->addControl($dCtl);
-		}
+		$img = $eObj->getIconObject($fLoc);
 		
+		$pc->addControl($img);
 		$pc->addControl($fInput);
-		$pc->addControl($btnUpload);		
+		$pc->addControl($btnUpload);
+
+		if (file_exists($fLoc))
+		{
+			$dCtl = new jqUI_button("","Clear Icon", "", "ui-icon-trash", true);
+			$dCtl->onclick = "deleteEntryIcon($entryID)";
+			
+			$pc->addControl($dCtl);
+		} 
 		
 		$js->content = $pc->render();
 	}
@@ -912,35 +766,19 @@ function uploadIcon($entryID)
 	
 	try
 	{
-		$eObj = new customCalendarEntry($entryID);
+		$eObj = new customCalendarEntry($entryID);		
 		$calObj = $eObj->getCalendarObject();
-			
-		$writeAccess = false;
-		switch($calObj->typeID)
-		{
-			case customCalendar::calendar_standalone:
-	  
-				$writeAccess = $g_sec->hasAccess(permissions::$manage_calendars, permissions::write) ||
-					   			$eObj->calendarID && $g_sec->hasAccess(permissions::$modify_calendar, permissions::write, $eObj->calendarID);
-				break;					
-			case customCalendar::calendar_municipal_entity:
+
+		if (!$calObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();		
 		
-				//SAVE PERMISSIONS FOR MUNICIPAL
-				$writeAccess = ( $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-								$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $calObj->dataID ) );
-						
-				break;
-		}
-		if(!$writeAccess) $g_sec->security_error_a();
-		
-		$dim = $calObj->config("iconSize");
+		$dim = $calObj->settings->iconSize;
 		$tmp = explode("x",$dim);
 		
 		if (count($tmp) != 2) throw new Exception("Error, calendar icon dimensions setting is in the wrong format! Please correct and try again.");
 		
 		$u = new upload($_FILES['entryIcon'], false);
-				
-		$baseLoc = $config[baseAppDir]."images/calendars/$eObj->calendarID/$entryID/";		
+		
+		$baseLoc = $config["baseAppDir"]."assets/calendars/{$calObj->id}/$entryID/";		
 		
 		if (!$u->uploadFile($baseLoc)) throw new Exception($u->err);
 		
@@ -955,11 +793,9 @@ function uploadIcon($entryID)
 				break;
 			case "gif":
 				$srcImg = imagecreatefromgif($baseLoc.$u->p_Name);
-				//$u->setImageTransparency($destImg, $srcImg);
 				break;
 			case "png":				
-				$srcImg = imagecreatefrompng($baseLoc.$u->p_Name);
-				//$u->setImageTransparency($destImg, $srcImg);				
+				$srcImg = imagecreatefrompng($baseLoc.$u->p_Name);				
 				break;
 		}
 		
@@ -999,65 +835,51 @@ function saveCalendar($calID, $details, $cfg)
 		if (strlen($details[title]) < 3) throw new Exception("Sorry, but the Calendar Title must be at least 3 characters in length. Please update and try again.");
 		if (!$details[inactive]) $details[inactive] = 0;
 		
-		if ($calID && !preg_match("/^[0-9]{2,3}x[0-9]{2,3}$/is", $cfg[iconSize])) throw new Exception("Error, icon size is not in the correct format: 99x99");
+		if ($calID && !preg_match("/^[0-9]{2,3}x[0-9]{2,3}$/is", $cfg["iconSize"])) throw new Exception("Error, icon size is not in the correct format: 99x99");
 		
-		$cv[title] = "'$details[title]'";
-		$cv[inactive] = $details[inactive];
-		$cv[lookupKey] = "'$details[lookupKey]'";
-		$cv[addedDateTime] = "now()";
+		$calObj = new customCalendar($calID, false);
 		
-		if (!$calID)
+		$cv["title"] = "'{$details["title"]}'";
+		$cv["inactive"] = $details["inactive"];
+		$cv["lookupKey"] = "'{$details["lookupKey"]}'";
+		$cv["addedDateTime"] = "now()";
+		
+		if (!$calID)		
 		{
-			if($details[typeID] == customCalendar::calendar_municipal_entity)
-			{
-				if (!($details[dataID] && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-						$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $details[dataID]))
-					) $g_sec->security_error_a();
-			}
-			else if (!$g_sec->hasAccess(permissions::$manage_calendars, permissions::insert)) $g_sec->security_error_a();
+			// Set these so the hasAccess call below can reference them
+			$calObj->typeID = $details["typeID"];
+			$calObj->dataID = $details["dataID"];
 			
-			$cv[typeID] = $details[typeID];
-			$cv[dataID] = $details[dataID];
+			if (!$calObj->hasAccess($g_sec, permissions::insert)) $g_sec->security_error_a();
+			
+			$cv["typeID"] = $details["typeID"];
+			$cv["dataID"] = $details["dataID"];
 			
 			$calID = $d->qryInsertByArray("calendars", $cv);
 			if (!$calID) throw new Exception("Error saving Calendar. Please try again or notify an admin if the problem persists.");
 			
 			$calObj = new customCalendar($calID, false);
 			
+			$baseLoc = $config["baseAppDir"]."assets/calendars/{$calObj->id}/";
+			@mkdir($baseLoc);
+			
 			pageClass::setNotify("Successfully added Calendar!");
 			
-			$js->calID = $calID; 
-			$js->typeID = $details[typeID];
-			$js->dataID = $details[dataID];
+			$js->calID = $calObj->id;			
 		}
 		else
-		{			
-			$calObj = new customCalendar($calID, false);
-			switch($calObj->typeID)
-			{
-				case customCalendar::calendar_standalone:
-					if (!$g_sec->hasAccess(permissions::$manage_calendars, permissions::write) &&
-					!$g_sec->hasAccess(permissions::$modify_calendar, permissions::write, $calID)) $g_sec->security_error_a();
-					
-					break;
-				case customCalendar::calendar_municipal_entity:
-						//SAVE PERMISSIONS FOR MUNICIPAL
-					if (!($calObj->dataID && $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-						$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $calObj->dataID)))
-						$g_sec->security_error_a();
-					break;
-			}
+		{	
+			if (!$calObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+			
 			$d->qryUpdateByArray("calendars", $cv, "id=$calID");
 
 			pageClass::setNotify("Successfully modified Calendar!");
-			
-			$js->typeID = $calObj->typeID;
-			$js->dataID = $calObj->dataID;
 		}
 		
-		if (!$cfg[iconSize]) $cfg[iconSize] = "16x16";
+		$js->typeID = $calObj->typeID;
+		$js->dataID = $calObj->dataID;
 		
-		$calObj->config("iconSize", $cfg[iconSize]);
+		if ($cfg["iconSize"]) $calObj->settings->iconSize = $cfg["iconSize"];
 	}
 	catch(Exception $ex)
 	{
@@ -1068,9 +890,9 @@ function saveCalendar($calID, $details, $cfg)
 	echo $js->render();
 	exit();
 }
-function saveEntry($entryID, $details)
+function saveEntry($entryID, $details, $calID)
 {
-	global $g_sec;
+	global $g_sec, $config;
 	
 	$d = new DAL(true);	
 	$js = new json_a();
@@ -1079,6 +901,22 @@ function saveEntry($entryID, $details)
 	try
 	{		
 		validation::ensureInt($entryID);
+		
+		$eObj = new customCalendarEntry($entryID);		
+		
+		if ($eObj->id)
+		{
+			$calObj = $eObj->getCalendarObject(false);
+			
+			if (!$calObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+		}
+		else
+		{
+			$calObj = new customCalendar($calID);
+			if (!$calObj->id) throw new Exception("Error, no calendar found!");
+			
+			if (!$calObj->hasAccess($g_sec, permissions::insert)) $g_sec->security_error_a();
+		}
 		
 		$startDate = validation::convertToMySqlDate($details[startDate]);
 		$ts = validation::convertToUnixTimestamp($startDate);
@@ -1099,78 +937,49 @@ function saveEntry($entryID, $details)
 				break;		
 		}		
 		
-		if (!$details[calID]) throw new Exception("Error, no calendar provided!");
-		$cal = $d->qryArray("select * from calendars where id=$details[calID]");
-		if (!$cal[id]) throw new Exception("Error, that calendar cannot be found!");
+		$details["title"] = trim($details["title"]);		
+		if (strlen($details["title"]) < 3) throw new Exception("Sorry, calendar entry titles must be at least 3 characters.");
 		
-		$details[title] = trim($details[title]);		
-		if (strlen($details[title]) < 3) throw new Exception("Sorry, calendar entry titles must be at least 3 characters.");
+		$details["description"] = validation::prepMultiLineForStorage($details["description"]);
 		
-		$details[description] = validation::prepMultiLineForStorage($details[description]);
 		
-		$cv[calendarID] = $details[calID];
-		$cv[title] = "'$details[title]'";
-		$cv[description] = "'$details[description]'";
-		$cv[startDate] = "'$startDate'";
-		$cv[startTime] = "'$details[startTime] $details[startTimeAP]'";
-		$cv[endTime] = $details[endTime] ? "'$details[endTime] $details[endTimeAP]'" : "''";
-		$cv[recurring] = ($idx ? "'$details[recurring]::$idx'" : "''");
-		$cv[addedDateTime] = "now()";
+		$eObj->title = "'{$details["title"]}'";
+		$eObj->description = "'{$details["description"]}'";
+		$eObj->startDate = "'$startDate'";
+		$eObj->startTime = "'{$details["startTime"]} {$details["startTimeAP"]}'";
+		$eObj->endTime = $details["endTime"] ? "'{$details["endTime"]} {$details["endTimeAP"]}'" : "''";
+		$eObj->recurring = ($idx ? "'{$details["recurring"]}::$idx'" : "''");		
 		
-		//need a non-quoted version to pass in for object
-		$details[startDate] = $startDate;
-		$details[recurring] = ($idx ? "$details[recurring]::$idx" : "");
-		$calEntry = new customCalendarEntry(0, $details);
-		//if the next occurence of this day is greater than the number of days in the month, then it is last
-		$is_last = (date("d", $ts) + 7) > cal_days_in_month(CAL_GREGORIAN, date("m", $ts), date("Y", $ts));
-		$ordinal = $calEntry->getOrdinal();
-		$cv[recurringWOM] = $is_last ? "'L'" : "'$ordinal'";
-		
-		$writeAccess = false;
-		switch($cal[typeID])
+		if (!$eObj->id)
 		{
-			case customCalendar::calendar_standalone:
-				$writeAccess = ( ($entryID) && ($g_sec->hasAccess(permissions::$manage_calendars, permissions::write) ||
-								$g_sec->hasAccess(permissions::$modify_calendar, permissions::write, $cal[id])) ) ||
-								($g_sec->hasAccess(permissions::$manage_calendars, permissions::write) ||
-								 $g_sec->hasAccess(permissions::$modify_calendar, permissions::insert, $cal[id]));
-							  
-				
-				break;					
-			case customCalendar::calendar_municipal_entity:
-				
-				//SAVE PERMISSIONS FOR MUNICIPAL
-				$writeAccess = ( $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-								 $g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $cal[dataID]) );
-						
-				break;
-		}
-		if(!$writeAccess) $g_sec->security_error();
-		
-		if ($entryID)
-		{
+			$eObj->calendarID = $calObj->id;
+			$eObj->addedDateTime = "now()";
 			
-			$data = $d->qryArray("select * from calendarEntry where id=$entryID");
-			if (!$data[id]) throw new Exception("Sorry, that calendar entry cannot be found! Please try again.");
-
-			if (!$details[inactive]) $details[inactive] = 0;
-			$cv[inactive] = $details[inactive];
+			$entryID = $eObj->insert();
 			
-			$d->qryUpdateByArray("calendarEntry", $cv, "id=$entryID");
+			$baseLoc = $config["baseAppDir"]."assets/calendars/{$calObj->id}/$entryID/";
+			@mkdir($baseLoc);
 			
-			$outDisp = "Successfully modified calendar entry!";
+			pageClass::setNotify("Successfully added new calendar entry!");
+			
+			$eObj = new customCalendarEntry($entryID);
 		}
 		else
 		{
-				
-			$entryID = $d->qryInsertByArray("calendarEntry", $cv);
+			$eObj->inactive = $details["inactive"];
+			$eObj->save();
 			
-			$outDisp = "Successfully added new calendar entry!";	
+			pageClass::setNotify("Successfully modified calendar entry!");
 		}
 		
-		pageClass::setNotify($outDisp);
+		//if the next occurence of this day is greater than the number of days in the month, then it is last
+		$is_last = (date("d", $ts) + 7) > cal_days_in_month(CAL_GREGORIAN, date("m", $ts), date("Y", $ts));
+		$ordinal = $eObj->getOrdinal();
 		
-		$js->calID = $details[calID];
+		$eObj->recurringWOM = $is_last ? "'L'" : "'$ordinal'";
+		$eObj->save();		
+		
+		$js->calID = $calObj->id;
 		$js->entryID = $entryID;
 	}
 	catch(Exception $ex)
@@ -1191,26 +1000,10 @@ function deleteCalendar($calID)
 	
 
 	try
-	{
-	
+	{	
 		$calObj = new customCalendar($calID);
-		$deleteAccess = false;
-		switch($calObj->typeID)
-		{
-			case customCalendar::calendar_standalone:
-	  
-				$deleteAccess = $g_sec->hasAccess(permissions::$manage_calendars, permissions::delete) ||
-					   			$g_sec->hasAccess(permissions::$modify_calendar, permissions::delete, $calID);
-				break;					
-			case customCalendar::calendar_municipal_entity:
 		
-				//SAVE PERMISSIONS FOR MUNICIPAL
-				$deleteAccess = ( $g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) ||
-								  $g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $calObj->dataID ) );
-						
-				break;
-		}
-		if (!$deleteAccess ) $g_sec->security_error();
+		if (!$calObj->hasAccess($g_sec, permissions::delete)) $g_sec->security_error_a();		
 			
 		$d->qry("delete from calendarEntry where calendarID=$calID");
 		$d->qry("delete from calendars where id=$calID");
@@ -1229,5 +1022,41 @@ function deleteCalendar($calID)
 	echo $js->render();
 	exit(0);
 }
-
+function getEntriesWin($calID)
+{
+	global $config, $g_sec;
+	
+	$js = new json_a();
+	
+	try
+	{
+		validation::ensureInt($calID);
+		if (!$calID) throw new Exception("Error, no calendar provided!");
+		
+		$calObj = new customCalendar($calID, false);
+		
+		if (!$calObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
+		
+		$eWin = new jqUI_dialog("entriesWin", true, 750, "", "Calendar Entries: ".$calObj->title);
+		$eWin->setOption("autoOpen", 1);
+		$eWin->fitToViewport();
+		
+		$eWin->addCloseButton("Close");
+		
+		if ($calObj->hasAccess($g_sec, permissions::write))
+		{
+			$eWin->addButton("New Calendar Entry", "function() { getEntryEdit(0, $calObj->id); }");
+		}
+		
+		$js->content = $eWin->render();		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();		
+	}
+	
+	echo $js->render();
+	exit(0);
+}
 ?>

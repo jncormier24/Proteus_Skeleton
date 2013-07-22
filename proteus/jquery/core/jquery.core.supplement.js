@@ -1,3 +1,27 @@
+function getMessages()
+{
+	var ttl = 8000;
+	
+	//Get any message boxes...
+	$.getJSON("admin/ajax/common", {action: "getMessages"}).then(function(output)
+	{
+		if (output.message) $.jGrowl("<span class='ui-icon ui-icon-circle-check' style='float:left; margin:1px 7px 5px 0px;'></span><span class='systemNotif'>" + output.message + "</span>", { life: ttl, header: "System Notification:" });
+	});	
+}
+function dismiss()
+{
+	var win = $("#dismissableMessageWin");
+	var key = win.attr("data-key");
+	
+	$.getJSON("admin/ajax/common", {action: "dismissMessage", notificationKey: key}).then(function(output)
+	{
+		if (!$.ajaxError(output))
+		{
+			getMessages();
+			win.dialog("close");
+		}
+	});
+}
 function initJQButtons()
 {
 	$(".jqui_button").not('.ui-button').each(function()
@@ -10,6 +34,9 @@ function initJQButtons()
 }
 $(document).ready(function()
 {	
+	// JSB: Restrict browsers from caching AJAX requests (IE 10)
+	$.ajaxSetup({ cache: false });
+	
 	//Put a non-breaking space in every empty TD (there you go, Internet Exporer - happy now?)
 	$("td:empty").html("&nbsp;");
 	
@@ -19,7 +46,7 @@ $(document).ready(function()
 	initJQButtons();
 	getMessages();
 	
-	$(document).not("button").tooltip();
+	$(document).tooltip({items: "[title]:not(:button)"});
 });
 
 // Limit scope pollution from any deprecated API
@@ -85,7 +112,7 @@ $(document).ready(function()
 	};
 })();
 (function()
-{
+{	
 	jQuery.query = function() {
 	    var r = {};
 	    var params = location.search.replace(/^\?/,'').split('&');
@@ -96,37 +123,6 @@ $(document).ready(function()
 	    return r;
 	 };
 	 
-	 $.fn.value = function(val){		
-		 var obj = $(this).get(0);
-		 
-		 if (!obj) return $(this);
-		 
-		 if (obj.tagName.toLowerCase() == "select")
-		 {
-			 return obj.options[obj.selectedIndex].value;
-		 }
-		 else
-		 {		 
-			if (val !== undefined)
-			{
-				$(this).attr("value", val);
-				return $(this);
-			}
-		
-			return $(this).attr("value");
-		 }
-	 };
-	 
-	 $.fn.fadeInContent = function (content, cb){
-	 	$(this).fadeOut('fast', function()
-	 	{ 
-	 		$(this).html(content); 
-	 		if (cb) cb();
-	 		$(this).fadeIn(350);
-	 	});
-	 	
-	 	return this;
-	 };
 	 $.fn.setWorking = function(caption)
 	 {		 
 		if (!caption)
@@ -140,34 +136,7 @@ $(document).ready(function()
 		 $(this).html(content);
 		 
 		 return this;
-	 };
-	 /*$.fn.setWorking = function(caption)
-	 {
-		var parent = $(this);
-		var capDisp = (caption ? caption : "Loading");		 
-		 
-		var obj = $("<div class='pr_waitingDiv'></div>").css(
-		{
-			backgroundImage: "url('themes/controls/jquery/ajax_loader.gif')",
-			backgroundRepeat: "no-repeat",
-			position: "relative",
-			float: "left",
-			margin: "10px auto 0px auto",
-			padding: "10px 0px 15px 30px",
-			minWidth: "175px",
-			textAlign: "center"
-		});
-		
-		var imgObj = $("<img src='themes/controls/jquery/ajax_loader.gif' style='float: right; margin: -10px 0px 0px 0px;' />").load(function()
-		{						 
-			//SNEAKY! Using the load event for this added image to get things properly positioned!
-			var newLeft = (parseInt(parent.outerWidth((parent.css("position") == "relative" ? false : true)))/2) - (parseInt($(this).parent().outerWidth(false))/2) + "px";
-			$(this).parent().css("left",newLeft); 
-		});
-		
-		parent.empty().append(obj);
-		obj.append(imgObj).append(":: " + capDisp + " ::");
-	 };*/
+	 };	 
 	 $.fn.clearWorking = function()
 	 {
 		 $(".pr_waitingDiv", this).fadeOut('normal', function() { $(this).remove(); });
