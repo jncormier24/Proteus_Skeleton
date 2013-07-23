@@ -69,7 +69,7 @@ class thickboxModule extends pageModule
 		
 		$this->addRequisiteModule(new jqueryUIModule());
 		
-		$this->addScriptObject(new javaControl("", "proteus/jquery/jquery.ui.thickbox.js"));
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/jquery.ui.thickbox.js"));
 	}	
 }
 class jqRedactorModule extends pageModule
@@ -121,6 +121,7 @@ class jqUpdateHelperModule extends pageModule
 class jqMaskedInputModule extends pageModule
 {
 	const mask_phone = "(999) 999-9999";
+	// Allows for 3 or 4 digit dimensions
 	const mask_dimensions = "~~~~~~~?~~";
 	
 	public function __construct()

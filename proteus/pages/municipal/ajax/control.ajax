@@ -135,6 +135,10 @@
 			toggleStaff($staffID);
 			break;
 			
+		case "clearStaffIcon":
+			clearStaffIcon($staffID);
+			break;
+			
 		case "uploadStaffIcon":
 			uploadStaffIcon($staffID);
 			break;
@@ -1071,8 +1075,37 @@ function uploadStaffIcon($staffID)
 		
 		pageClass::setNotify("Staff Icon Successfully Uploaded");
 		
-		$js->entityID = $sObj->entityID;
-		$js->filter = $sObj->inactive ? 2 : 1;
+		$js->entityID = $sObj->entityID;		
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);	
+}
+function clearStaffIcon($staffID)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		$sObj = new pmm_entityStaff($staffID);
+		if (!$sObj->id) throw new Exception("Error, that staff entry could not be found!");		
+		
+		if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$municipal_entity, permissions::write, $sObj->entityID)) $g_sec->security_error_a();
+		
+		$iconObj = $sObj->getIconObject($fLoc);
+		
+		if (!unlink($fLoc)) throw new Exception("File Error clearing staff icon");
+		
+		pageClass::setNotify("Staff Icon Successfully Cleared");
+		
+		$js->entityID = $sObj->entityID;		
 	}
 	catch(Exception $ex)
 	{		

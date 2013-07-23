@@ -170,6 +170,17 @@ a
 {
 	text-decoration: none;
 }
+a.clearIcon
+{
+	position: absolute;
+	
+	background-color: #C0402A;
+	
+	border: 1px solid #ffffff;
+	border-radius: 5px;
+	
+	box-shadow: 1px 1px 3px #dd6900;
+}
 select
 {
 	padding: 5px;

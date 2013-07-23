@@ -8,6 +8,8 @@ class fileHelper
 	}	
 	public static function getMimeType($file)
 	{		
+		if (!file_exists($file)) throw new Exception("No file found to query: $file");
+		
 		$finfo = finfo_open(FILEINFO_MIME_TYPE);
 		$mime = finfo_file($finfo, $file);
 		
@@ -26,7 +28,7 @@ class imageHelper
 		global $config;	
 	
 		$imgLoc = $config["baseAppDir"].$sourceImage;
-		$destLoc = $destFolder ? $destFolder : $imgLoc;
+		$destLoc = $destinationImage ? $config["baseAppDir"].$destinationImage : $imgLoc;
 		
 		$imType = imageHelper::getExtensionByMIME($imgLoc);
 		
@@ -37,74 +39,87 @@ class imageHelper
 		$im = imageHelper::getImageObject($imgLoc);		
 		if (!$im) throw new Exception("Unable to obtain image object - ensure file is a .gif or a .jpg and try again");	
 	
+		$iObj = imagecreatetruecolor($o_width, $o_height);
+		imagefill($iObj, 0, 0, 0);
+		
 		$imgSize = getimagesize($imgLoc);		
 
-		$xRatio = ($imgSize[0] > $width ? $imgSize[0]/$width : $width/$imgSize[0]);
-		$yRatio = ($imgSize[1] > $height ? $imgSize[1]/$height : $height/$imgSize[1]);
+		$srcWidth = $imgSize[0];
+		$srcHeight = $imgSize[1];
+		
+		$xRatio = ($srcWidth > $width ? $srcWidth/$width : $width/$srcWidth);
+		$yRatio = ($srcWidth > $height ? $srcHeight/$height : $height/$srcHeight);
 	
 		$src_x = 0;
 		$src_y = 0;
+		
+		$dst_x = 0;
+		$dst_y = 0;
 	
 		// Destination ratio
 		$dst_ratio = ($width > $height ? $width / $height : $height / $width);
 	
 		// Source ratio
-		$ratio = ($imgSize[0] > $imgSize[1] ? $imgSize[0] / $imgSize[1] : $imgSize[1] / $imgSize[0]);
+		$ratio = ($srcWidth > $srcHeight ? $srcWidth / $srcHeight : $srcHeight / $srcWidth);
 	
-		$src_width = $imgSize[0];
-		$src_height = $imgSize[1];
+		/* $src_width = $imgSize[0];
+		$src_height = $imgSize[1]; */
 		
-		$adjHeight = ($imgSize[0] < $imgSize[1] ? ($width*$ratio) : ($width/$ratio));
+		$adjHeight = ($srcWidth < $srcHeight ? ($width*$ratio) : ($width/$ratio));
+		$adjWidth = ($srcHeight < $srcWidth ? ($width*$ratio) : ($width/$ratio));
 
 		switch($aspect)
 		{
 			case 0:
-				// Clip
-				if ($adjHeight < $height)
-				{		
-					$diff = $height - $adjHeight;
-
-					$src_width = $src_width - ($diff*$xRatio);
+				// Clip - no ratio consideration, clip to closest boundaries				
+				if ($adjHeight > $height)
+				{					
+					$diff = ($adjHeight - $height);
+					$src_y = $diff / 2;
 					
-					//Adjust position to 1/2 the difference in new width
-					$src_x = ($imgSize[0] - $src_width) / 2;					
+					//$height -= $diff;
 				}
 				else
 				{
-					$yRatio = $imgSize[1]/$adjHeight;
+					$diff = ($height - $adjHeight);
 					
-					$diff = $adjHeight - $height;
-					$src_height = $src_height - ($diff*$yRatio);
-					
-					$src_y = $imgSize[1] * .15;
-					
-					if (($src_y + $src_height) > $imgSize[1])
-					{
-						$src_y = ($src_y + $src_height) - $imgSize[1];
-					}
+					$height -= $diff;
+					$dst_y = $diff / 2;
 				}
+				
+				imagecopyresampled($iObj, $im, $dst_x, $dst_y, $src_x, $src_y, $width, $height, $srcWidth, $srcHeight);
 				
 				break;
 			case 1:
 				// Retain
-				if ($adjHeight > $height)
+				if ($width > $srcWidth)
 				{
-					$diff = $adjHeight - $height;					
-					
-					$width = floor(($diff*$xRatio)/$ratio);
-					
-					$src_y = ($imgSize[1]/2) - ($src_height/2);
+					// Specified width is greater; offset the destination x coordinate
+					$dst_x = ($width - $srcWidth) / 2;
 				}
 				else
-				{		
-					$height = $adjHeight;					
+				{
+					// Specified width is less; offset the source x coordinate
+					$src_x = ($srcWidth - $width) / 2;
 				}
+				
+				if ($height > $srcHeight)
+				{
+					// Specified height is greater; offset the destination y coordinate
+					$dst_y = ($height - $srcHeight) / 2;
+				}
+				else
+				{
+					// Specified height is less; offset the source y coordinate
+					$src_y = ($srcHeight - $height) / 2;
+				}
+				
+				imagecopy($iObj, $im, $dst_x, $dst_y, $src_x, $src_y, $srcWidth, $srcHeight);
 				
 				break;
 			case 2:
-				// Stretch
-				$src_width = $width;
-				$src_height = $height;
+				// Stretch				
+				imagecopyresampled($iObj, $im, $dst_x, $dst_y, $src_x, $src_y, $width, $height, $srcWidth, $srcHeight);
 				
 				break;
 				
@@ -143,19 +158,16 @@ class imageHelper
 				
 		}
 	
-		$dst_width = round($width);
-		$dst_height = round($height);	
+		/* $dst_width = round($width);
+		$dst_height = round($height); */			
 	
-		$iObj = imagecreatetruecolor($o_width, $o_height);
-		imagefill($iObj, 0, 0, 0);	
-	
-		$dst_x = ($o_width / 2) - ($dst_width/2);
+		/* $dst_x = ($o_width / 2) - ($dst_width/2);
 		$dst_y = ($o_height / 2) - ($dst_height/2);
 
 		if ($dst_x < 0) $dst_x = 0;
-		if ($dst_y < 0) $dst_y = 0;	
+		if ($dst_y < 0) $dst_y = 0;	 */
 	
-		imagecopyresampled($iObj, $im, $dst_x, $dst_y, $src_x, $src_y, $dst_width, $dst_height, $src_width, $src_height);	
+		//imagecopyresampled($iObj, $im, $dst_x, $dst_y, $src_x, $src_y, $dst_width, $dst_height, $src_width, $src_height);	
 	
 		switch($imType)
 		{
@@ -179,7 +191,7 @@ class imageHelper
 	}
 	public static function getImageObject($fileName)
 	{	
-		switch(imageHelper::extensionByMIME($fileName))
+		switch(imageHelper::getExtensionByMIME($fileName))
 		{
 			case "jpg";
 			case "jpeg":

@@ -5,19 +5,51 @@
 	
 	switch($action)
 	{
+		case "deleteShowcaseItem":
+			deleteShowcaseItem($itemID);
+			break;
+			
+		case "uploadShowcaseImage":			
+			uploadShowcaseImage($showcaseID);
+			break;
+			
+		case "getShowcaseEntries":
+			getShowcaseEntries($showcaseID);
+			break;
+			
+		case "getShowcaseEntriesWin":
+			getShowcaseEntriesWin($showcaseID);
+			break;
+			
+		case "clearShowcaseIcon":
+			clearShowcaseIcon($showcaseID);
+			break;
+			
+		case "deleteShowcase":
+			deleteShowcase($showcaseID);
+			break;
+			
+		case "uploadShowcaseIcon":
+			uploadShowcaseIcon($showcaseID);
+			break;
+			
+		case "updateShowcase":
+			updateShowcase($showcaseID, $showcase, $cfg);
+			break;
+			
 		case "getShowcaseEdit":
 			getShowcaseEdit($showcaseID);
 			break;
 			
 		case "getShowcases":
-			getShowcases();
+			getShowcases($paging, $sortData, $filterColumns, $customColumns);
 			break;
 			
 		default:
 			die("Unauthorized");
 	}
 	
-function getShowcases()
+function getShowcases($paging, $sortData, $filterColumns, $customColumns)
 {
 	global $g_sec, $config;
 	
@@ -26,40 +58,74 @@ function getShowcases()
 	
 	try
 	{
-		if (!$g_sec->hasAccess(permissions::$manage_custom_content, permissions::read)) $g_sec->security_error();
+		$globRead = $g_sec->hasAccess(permissions::$manage_showcases, permissions::read);
+		if (!$globRead && !$g_sec->is(permissions::$modify_showcase)) $g_sec->security_error();
 		
-		$writeAccess = $g_sec->hasAccess(permissions::$manage_custom_content, permissions::write);
+		$globWrite = $g_sec->hasAccess(permissions::$manage_custom_content, permissions::write);
 		
 		$t = new tblBuilder("center", 0, 0, 5, "100%");
-		$t->class = "listTable";
+		$t->class = "listTable";		
 		
-		if ($writeAccess)
+		foreach((array)$customColumns as $cFilter)
 		{
-			$t->addClass("sortable");
-			$t->addAttribute("data-sort-type", tableSorter_core::$sort_showcase["sortType"]);
+			if (!strlen($cFilter["value"])) continue;
+				
+			switch($cFilter["key"])
+			{					
+				case "status":
+					if ($globWrite && !$cFilter["value"])
+					{
+						$t->addClass("sortable");
+						$t->addAttribute("data-sort-type", tableSorter_core::$sort_showcase["sortType"]);
+					}
+					
+					$wh[] = "showcase.inactive = {$cFilter["value"]}";
+					
+					break;
+			}
+		}		
+		
+		if (!$globRead)
+		{
+			// Limit to the showcase entries they are assigned to
+			$wh[] = "exists(select id 
+					from permissionsAssignment 
+					where userID={$g_sec->id} and permissionKey='".permissions::$modify_showcase["key"]."' and dataID = showcase.id)";
 		}
 		
-		$qry = "select id
-				from showcase
-				order by position asc";
-		$sQry = $d->qry($qry);
+		tableFilter::getWhereArray($filterColumns, $wh, $hvArr);
+		$whClause = tableFilter::getWhereClause($wh);
 		
-		$ct = 0;
+		$qry = "select showcase.id
+				from showcase			   
+				where 1 $whClause
+				".tableFilter::getHavingClause($hvArr)."
+				order by ".tableFilter::getOrderClause($sortData, "position asc");
+		
+		$totalCt = $d->qryRow($qry);
+		$sQry = $d->qry($qry.tableFilter::getLimitClause($paging));
+		
 		while($sh = $sQry->fetch_assoc())
-		{
+		{			
 			$sObj = new customShowcase($sh["id"]);
+			
+			$writeAccess = $globWrite || $g_sec->hasAccess(permissions::$modify_showcase, permissions::write, $sObj->id);
+			
+			$imgCount = count($sObj->showcaseItems);
 			
 			$sDiv = new phpDIV();
 			$sDiv->class = 'showcaseContainer shine_strong';
-				
+
+			$iconObj = $sObj->getIconObject($iconLoc, $iconDim);
+			
 			$iconDiv = new phpDIV();
 			$iconDiv->class = "showcaseLeft";
-			$iconDiv->addControl($sObj->getIconObject($iconLoc, $iconDim));
+			$iconDiv->addControl($iconObj);
 
 			if ($writeAccess)
 			{					
 				$ulDiv = new jqUI_uploader("showcaseIcon_".$sObj->id, "Upload new Icon ({$iconDim[0]}x{$iconDim[1]}):", "btnIcon_".$sObj->id, "Upload Icon", true);
-				$ulDiv->uploadButton->onclick = "return uploadEntityIcon({$sObj->id});";
+				$ulDiv->uploadButton->onclick = "return uploadShowcaseIcon({$sObj->id});";
 				$ulDiv->uploadButton->setIconClass("ui-icon-image");
 							
 				$iconDiv->addControl($ulDiv);
@@ -72,27 +138,36 @@ function getShowcases()
 			$btnEdit = new jqUI_button("", "Configure Showcase", "", "ui-icon-wrench", true);
 			$btnEdit->onclick = "getShowcaseEdit({$sObj->id})";
 
-			$btnEntries = new jqUI_button("", "Manage Images", "", "ui-icon-image", true);
-			$btnEntries->onclick = "getImagesWin({$sObj->id})";
+			$btnEntries = new jqUI_button("", "Manage Images ($imgCount)", "", "ui-icon-image", true);
+			$btnEntries->onclick = "getShowcaseEntriesWin({$sObj->id})";
 				
 			$dDiv->addControl($btnEdit);
 			$dDiv->addControl($btnEntries);				
+
+			if (!$imgCount)
+			{
+				$btnRemove = new jqUI_button("", "Delete Showcase", "ui-state-error", "ui-icon-trash", true);
+				$btnRemove->onclick = "deleteShowcase.call(this, {$sObj->id})";
+				$btnRemove->addAttribute("data-inactive", $sObj->inactive);
 				
+				$dDiv->addControl($btnRemove);
+			}
+			
 			$sDiv->addControl($iconDiv);
 			$sDiv->addControl($dDiv);			
 
 			$r = $t->addRow();
-			$r->addCell(new tblCell($sDiv));	
-
-			$ct = 0;
+			$r->addAttribute("data-id", $sh["id"]);
+			$r->addCell(new tblCell($sDiv));			
 		}		
 		
-		if (!$ct)
+		if (!$totalCt)
 		{
 			$r = $t->addRow();
 			$r->addCell(new tblCell(new phpParagraph("No Custom Showcases found"), "strong", "center"));
 		}
 		
+		$js->count = $totalCt;
 		$js->content = $t->render();
 	}
 	catch (Exception $ex)
@@ -121,15 +196,17 @@ function getShowcaseEdit($showcaseID)
 		}		
 		else
 		{
-			if (!$g_sec->hasAccess(permissions::$manage_showcases, permissions::read)) $g_sec->security_error_a();
+			if (!$g_sec->hasAccess(permissions::$manage_showcases, permissions::read) &&
+				!$g_sec->hasAccess(permissions::$modify_showcase, permissions::read, $sObj->id)) $g_sec->security_error_a();
 			
-			$writeAccess = $g_sec->hasAccess(permissions::$manage_showcases, permissions::write);			
+			$writeAccess = $g_sec->hasAccess(permissions::$manage_showcases, permissions::write) || $g_sec->hasAccess(permissions::$modify_showcase, permissions::write, $sObj->id);			
 		}
 				
 		$sWin = new jqUI_dialog("showcaseWin", true, 875, "", "Modify Custom Content");
 		$sWin->addClass("configWin");
 		$sWin->setOption("autoOpen", true);	
 		$sWin->setOption("autoResize", 1);
+		//$sWin->setOption("modal", 0);
 		
 		$sWin->addCloseButton();
 		
@@ -163,44 +240,44 @@ function getShowcaseEdit($showcaseID)
 		$aForm->addControl(new hiddenInput("showcaseID", $sObj->id));
 		
 		if ($sObj->id)
-		{			
-			$thumbDim = explode("::", $sObj->settings->thumbDim);
-			$txtThumbDim = new customText("config[thumbDim]", "{$thumbDim[0]}x{$thumbDim[1]}", 9, 9);
-			$txtThumbDim->setLabel("Thumbnail Width:");
+		{		
+			$txtThumbDim = new customText("cfg[thumbDim]", $sObj->settings->thumbDim, 9, 9);
+			$txtThumbDim->setLabel("Thumbnail Dimensions:");
+			$txtThumbDim->setDescription("Format: WxH", "desc");
 			
 			jqMaskedInputModule::setMask($txtThumbDim, jqMaskedInputModule::mask_dimensions);
 
-			$cboThumbAsp = new phpDDL("config[thumbAspect]");
-			$cboThumbAsp->setLabel("Thumbnail Aspect:");
-			$cboThumbAsp->selected = $sObj->settings->thumbAspect;
-			$cboThumbAsp->addListItem(new phpListItem("Clip", 0));
-			$cboThumbAsp->addListItem(new phpListItem("Retain", 1));
-			$cboThumbAsp->addListItem(new phpListItem("Stretch", 2));
+			$cboThumbAspect = new phpDDL("cfg[thumbAspect]");
+			$cboThumbAspect->setLabel("Thumbnail Aspect:");
+			$cboThumbAspect->selected = $sObj->settings->thumbAspect;
+			$cboThumbAspect->addListItem(new phpListItem("Clip", 0));
+			$cboThumbAspect->addListItem(new phpListItem("Retain", 1));
+			$cboThumbAspect->addListItem(new phpListItem("Stretch", 2));
 			
 			$fsShowcase->addControl($txtThumbDim);
-			$fsShowcase->addControl($cboItemThumbAspect);
+			//$fsShowcase->addControl($cboThumbAspect);
 			
-			$fsPhotos = new phpFormFieldset("Photo Entries");
+			$fsPhotos = new phpFormFieldset("Photo Entries");			
 			
-			$itemThumbDim = explode("::", $sObj->settings->itemThumbDim);
-			$txtItemThumbDim = new customText("config[itemThumbDim]", "{$itemThumbDim[0]}x{$itemThumbDim[1]}", 9, 9);
-			$txtItemThumbDim->setLabel("Item Thumbnail Width:");
+			$txtItemThumbDim = new customText("cfg[itemThumbDim]", $sObj->settings->itemThumbDim, 9, 9);
+			$txtItemThumbDim->setLabel("Item Thumbnail Dimensions:");
+			$txtItemThumbDim->setDescription("Format: WxH", "desc");
 
-			jqMaskedInputModule::setMask($itemThumbDim, jqMaskedInputModule::mask_dimensions);
+			jqMaskedInputModule::setMask($txtItemThumbDim, jqMaskedInputModule::mask_dimensions);
 	
-			$cboItemThumbAspect = clone $cboThumbAsp;
-			$cboItemThumbAspect->id = "config[itemThumbAspect]";
+			$cboItemThumbAspect = clone $cboThumbAspect;
+			$cboItemThumbAspect->id = "cfg[itemThumbAspect]";
 			$cboItemThumbAspect->setLabel("Item Thumb Aspect:");
-			$cboItemThumbAspect->selected = $sObj->settings->itemThumbAspect;
+			$cboItemThumbAspect->selected = $sObj->settings->itemThumbAspect;			
 			
-			$itemDim = explode("::", $sObj->settings->itemDim);
-			$txtItemDim = new customText("config[itemDim]", "{$thumbDim[0]}x{$thumbDim[1]}", 9, 9);
-			$txtItemDim->setLabel("Pictures Width:");			
+			$txtItemDim = new customText("cfg[itemDim]", $sObj->settings->itemDim, 9, 9);
+			$txtItemDim->setLabel("Picture Dimensions:");
+			$txtItemDim->setDescription("Format: WxH", "desc");			
 	
-			jqMaskedInputModule::setMask($itemDim, jqMaskedInputModule::mask_dimensions);
+			jqMaskedInputModule::setMask($txtItemDim, jqMaskedInputModule::mask_dimensions);
 			
-			$cboItemAspect = clone $cboThumbAsp;
-			$cboItemAspect->id = "config[itemAspect]";
+			$cboItemAspect = clone $cboThumbAspect;
+			$cboItemAspect->id = "cfg[itemAspect]";
 			$cboItemAspect->setLabel("Picture Aspect:");
 			$cboItemAspect->addListItem(new phpListItem("Dynamic (w/h = max)", 3));
 			$cboItemAspect->selected = $sObj->settings->itemAspect;		
@@ -225,12 +302,448 @@ function getShowcaseEdit($showcaseID)
 		
 		$sWin->addControl($aForm);		
 		
+		$js->addObject("content", $sWin->render(), false);
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function updateShowcase($showcaseID, $showcase, $cfg)
+{
+	global $g_sec, $config;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{			
+		$sObj = new customShowcase($showcaseID);
+		
+		if (!$sObj->id)
+		{
+			$writeAccess = $g_sec->hasAccess(permissions::$manage_showcases, permissions::insert);									
+		}		
+		else
+		{			
+			$writeAccess = $g_sec->hasAccess(permissions::$manage_showcases, permissions::write) || $g_sec->hasAccess(permissions::$modify_showcase, permissions::write, $sObj->id);			
+		}
+		
+		if (!$writeAccess) $g_sec->security_error_a();
+		
+		if (strlen($showcase["name"]) < 3) throw new Exception("Name must be at least 3 characters!");
+
+		$showcase["description"] = validation::prepMultiLineForStorage($showcase["description"]);
+		// Scrub lookup key
+		$showcase["lookupKey"] = preg_replace("/[^a-z0-9_-]/i", "", $showcase["lookupKey"]);		
+		
+		$sObj->name = "'{$showcase["name"]}'";
+		$sObj->description = "'{$showcase["description"]}'";
+		$sObj->lookupKey = "'{$showcase["lookupKey"]}'";
+		
+		if ($sObj->id)
+		{
+			// Check config values before saving
+			$keysArr = array("thumbDim", "itemThumbDim", "itemDim");
+			$aspectArr = array("thumbAspect", "itemThumbAspect", "itemAspect");
+			
+			foreach($keysArr as &$value)
+			{
+				// Check to make sure it's in the 999x999 or 9999x9999 format - bail out completely on error
+				if (!preg_match("/[0-9]{3,4}x[0-9]{3,4}/i", $cfg[$value])) throw new Exception("Error, `{$cfg["key"]}` is in the wrong format. Please try again.");
+			}
+						
+			foreach($aspectArr as $key=>&$aspect)
+			{
+				// Just make sure these are all integers
+				validation::ensureInt($aspect);
+			}			
+			
+			$sObj->save();
+			
+			foreach($cfg as $key=>$value)
+			{
+				$sObj->settings->$key = $value;
+			}
+			
+			pageClass::setNotify("Successfully updated Showcase");
+		}
+		else
+		{
+			$showcaseID = $sObj->insert();
+			
+			$js->showcaseID = $showcaseID;
+			
+			pageClass::setNotify("Successfully added Showcase");
+		}				
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function uploadShowcaseIcon($showcaseID)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		$sObj = new customShowcase($showcaseID);
+		if (!$sObj->id) throw new Exception("Error, that showcase could not be found!");		
+		
+		if (!$g_sec->hasAccess(permissions::$manage_showcases, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_showcase, permissions::write, $sObj->id)) $g_sec->security_error_a();
+		
+		$dim = $sObj->settings->thumbDim;
+		$tmp = explode("x",$dim);		
+		
+		if (count($tmp) != 2) throw new Exception("Error, missing Dimension information. Please try again.");
+		
+		$u = new upload($_FILES['showcaseIcon_'.$showcaseID]);		
+		$u->convertImage("png", $tmp);		
+		
+		if (!$u->uploadFile($config["baseAppDir"]."assets/showcases/$sObj->id/icon.png")) throw new Exception($u->err);		
+		
+		pageClass::setNotify("Showcase Icon Successfully Uploaded");
+		
+		$js->success = 1;
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);	
+}
+function deleteShowcase($showcaseID)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		$sObj = new customShowcase($showcaseID);
+		if (!$sObj->id) throw new Exception("Error, that showcase could not be found!");		
+		
+		if (!$g_sec->hasAccess(permissions::$manage_showcases, permissions::delete) &&
+			!$g_sec->hasAccess(permissions::$modify_showcase, permissions::write, $sObj->id)) $g_sec->security_error_a();
+		
+		if ($sObj->inactive)
+		{
+			// Permanently remove - deletes all files in the assets folder
+			$sObj->delete();
+			
+			pageClass::setNotify("Successfully deleted Showcase");
+		}
+		else
+		{
+			$sObj->inactive = 1;
+			$sObj->save();
+
+			pageClass::setNotify("Successfully deactivated Showcase");
+		}		
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);	
+}
+function clearShowcaseIcon($showcaseID)
+{
+	global $config, $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{		
+		$sObj = new customShowcase($showcaseID);
+		if (!$sObj->id) throw new Exception("Error, that showcase could not be found!");		
+		
+		if (!$g_sec->hasAccess(permissions::$manage_showcases, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_showcase, permissions::write, $sObj->id)) $g_sec->security_error_a();
+		
+		$iconObj = $sObj->getIconObject($fLoc);
+		
+		if (!unlink($fLoc)) throw new Exception("Error clearing icon");
+
+		pageClass::setNotify("Showcase icon cleared");
+	}
+	catch(Exception $ex)
+	{		
+		$js->error = $ex->getMessage();
+	}		
+	
+	echo $js->render();
+	exit(0);	
+}
+function getShowcaseEntriesWin($showcaseID)
+{
+	global $config, $g_sec;
+	
+	$d = new DAL(true);	
+	$js = new json_a();		
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_showcases, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$modify_showcase, permissions::read, $showcaseID)) $g_sec->security_error_a();		
+		
+		$sObj = new customShowcase($showcaseID);
+		if (!$sObj->id) throw new Exception("Error, that showcase could not be found.");
+
+		if ($sObj->inactive)
+		{
+			throw new Exception("Sorry, but this showcase is currently not active. Please activate to manage items.");	
+		}
+		
+		$ct = count($sObj->showcaseItems);
+		
+		$sWin = new jqUI_dialog("showcaseWin", true, 800, "", "Showcase: {$sObj->name} ($ct images)");
+		$sWin->setOption("autoOpen", 1);
+		$sWin->addClass("configWin");
+		$sWin->fitToViewport();
+		
+		$sWin->addCloseButton("Close");				
+		
+		if ($g_sec->hasAccess(permissions::$manage_showcases, permissions::insert) ||
+			$g_sec->hasAccess(permissions::$modify_showcase, permissions::insert, $showcaseID))
+		{					
+			$frm = new phpForm("post", "filesForm");
+				
+			$ulDiv = new jqUI_uploader("fileToUpload", "Upload a new Showcase Image:", "btnEntry_".$sObj->id, "Upload Image", true);
+			$ulDiv->uploadButton->onclick = "return uploadShowcaseImage({$sObj->id});";
+			$ulDiv->uploadButton->setIconClass("ui-icon-image");
+			
+			$frm->addControl($ulDiv);
+			
+			$sWin->addControl($frm);		
+		}
+		
+		$dv = new phpDIV();
+		$dv->id = "showcaseEntries";
+		
+		$sWin->addControl($dv);		
+			
 		$js->content = $sWin->render();
 	}
 	catch(Exception $ex)
 	{
 		$eWin = new jqUI_errorNotify($ex);
 		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+}
+function getShowcaseEntries($showcaseID)
+{
+	global $config, $g_sec;
+	
+	$d = new DAL(true);	
+	$js = new json_a();		
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_showcases, permissions::read) &&
+			!$g_sec->hasAccess(permissions::$modify_showcase, permissions::read, $showcaseID)) $g_sec->security_error_a();		
+		
+		$globWrite = $g_sec->hasAccess(permissions::$manage_showcases, permissions::write);
+			
+		$sObj = new customShowcase($showcaseID);
+		if (!$sObj->id) throw new Exception("Error, that showcase could not be found.");
+
+		$writeAccess = $globWrite ||  $g_sec->hasAccess(permissions::$modify_showcase, permissions::write, $sObj->id);		
+		$deleteAccess = $globWrite || $g_sec->hasAccess(permissions::$modify_showcase, permissions::delete, $sObj->id);
+		
+		if ($sObj->inactive)
+		{
+			throw new Exception("Sorry, but this showcase is currently not active. Please activate to manage items.");	
+		}		
+		
+		$t = new tblBuilder('center',0,0,4,'100%');
+		$t->class = "listTable";
+		
+		if ($writeAccess || $deleteAccess)
+		{
+			$t->addAttribute("data-sort-type", tableSorter_core::$sort_showcase_item["sortType"]);
+			$t->addClass("sortable");
+		}		
+		
+		$r = $t->addRow();		
+		$r->addCell(new tblHeader("Thumb:", null, "center", null, "1%"));		
+		$r->addHeader(new tblHeader("File Size (Mb):"));
+		$r->addHeader(new tblHeader("Dimensions (px):"));		
+		if ($writeAccess || $deleteAccess) $r->addHeader(new tblHeader("&nbsp;", null, "center", null, "1%"));
+		
+		$qry = "select id
+				from showcaseItems
+				where showcaseID = $showcaseID
+				order by position";
+		$pQry = $d->qry($qry);
+		
+		$pCt = 0;
+		
+		while($item = $pQry->fetch_assoc())
+		{
+			$itemObj = new customShowcaseItem($item["id"]);			
+			
+			$img = new image($itemObj->imageThumbLocation);
+			
+			try
+			{
+				$fSize = @round(filesize($config["baseAppDir"].$itemObj->imageLocation)/1024/1024, 2);
+				$fDim = @getimagesize($config["baseAppDir"].$itemObj->imageLocation);
+				
+				$ftDim = @getimagesize($config["baseAppDir"].$itemObj->imageThumbLocation);
+			}
+			catch(Exception $e)
+			{
+				$fDim = array("(n/a)", "(n/a)");
+			}
+			
+			$fDim = $fDim[0]." x ".$fDim[1];
+			$ftDim = $ftDim[0]." x ".$ftDim[1];
+			
+			$iLink = new phpHyperlink($itemObj->imageLocation, $img->render());
+			$iLink->class = "thickbox";
+			$iLink->addAttribute("rel", "gallery");
+			$iLink->addAttribute("title",$itemObj->description);			
+
+			$r = $t->addRow();	
+			$r->addAttribute("data-id", $itemObj->id);				
+
+			$r->addCell(new tblCell($iLink->render()."<br />$ftDim","","left"));
+			$r->addCell(new tblCell($fSize, "", "center"));
+			$r->addCell(new tblCell($fDim, "", "center"));
+
+			if ($writeAccess || $deleteAccess)
+			{
+				$mnu = new jqPopupMenu();
+				
+				if ($writeAccess)
+				{
+					$ctl = $mnu->addMenuItem("", "Edit Showcase Item", "", "ui-icon-pencil");
+					$ctl-> onclick = "editShowcaseEntry({$itemObj->id})";				
+				}
+				if ($deleteAccess)
+				{
+					$ctl = $mnu->addMenuItem("", "Delete Showcase Item", "ui-state-error", "ui-icon-trash");
+					$ctl-> onclick = "deleteShowcaseItem({$itemObj->id})";				
+				}				
+				
+				$r->addCell(new tblCell($mnu, "", "center"));				
+			}
+			
+			$pCt++;
+		}
+		
+		if (!$pCt)
+		{
+			$r = $t->addRow();
+			$r->addCell(new tblCell(new phpParagraph("No Showcase Items found"), "strong", "center", 4));
+		}
+			
+		$js->content = $t->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+}
+function uploadShowcaseImage($showcaseID)
+{
+	global $config, $g_sec;
+	
+	$d = new DAL(true);	
+	$js = new json_a();		
+	
+	try
+	{	
+		$sObj = new customShowcase($showcaseID);
+		if (!$sObj->id) throw new Exception("Error, that showcase could not be found.");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_showcases, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_showcase, permissions::insert, $sObj->id)) $g_sec->security_error_a();		
+		
+		$itemObj = new customShowcaseItem(0);
+		$itemObj->showcaseID = $sObj->id;
+		
+		$imgLoc = $itemObj->assetFolder;
+
+		$u = new upload($_FILES["fileToUpload"]);			
+		
+		//if ($d->qryCount("select id from showaseItems where image = {$u->p_Name}")) throw new Exception("Error, a showcase item with that image name already exists! Uploading would overwrite the existing file.");
+		
+		$u->uploadFile($config["baseAppDir"].$imgLoc."/");		
+				
+		$itemObj->image = "'{$u->p_Name}'";
+				
+		$itemID = $itemObj->insert();
+		
+		$itemObj->scale();
+		$itemObj->scaleThumb();		
+		
+		pageClass::setNotify("Successfully uploaded Showcase Image");
+		
+		$js->success = 1;
+	}
+	catch(Exception $ex)
+	{
+		$msg = $ex->getMessage();
+		
+		error_log("Showcase Image: ".$msg);
+		
+		$js->error = $msg;
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function deleteShowcaseItem($itemID)
+{
+	global $config, $g_sec;
+	
+	$d = new DAL(true);	
+	$js = new json_a();		
+	
+	try
+	{	
+		$itemObj = new customShowcaseItem($itemID);
+		if (!$itemObj->id) throw new Exception("Error, that Showcase Item could not be found.");		
+		
+		if (!$g_sec->hasAccess(permissions::$manage_showcases, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_showcase, permissions::delete, $itemObj->showcaseID)) $g_sec->security_error_a();		
+		
+		$js->showcaseID = $itemObj->showcaseID;
+		
+		$itemObj->delete();
+				
+		pageClass::setNotify("Successfully deleted Showcase Item");
+	}
+	catch(Exception $ex)
+	{
+		$msg = $ex->getMessage();
+		
+		error_log("Showcase Image: ".$msg);
+		
+		$js->error = $msg;
 	}
 	
 	echo $js->render();

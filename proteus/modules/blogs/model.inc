@@ -77,6 +77,17 @@ class customBlog extends phpDataset
 		
 		$this->settings = customBlog_core::getConfigObject();
 	}
+	public function insert($data="")
+	{
+		global $config;
+		
+		$id = parent::insert($data);
+		
+		$loc = $config["baseAppDir"].$this->assetFolder;
+		if (!file_exists($loc)) mkdir($loc);
+		
+		return $id;
+	}
 	public function delete()
 	{
 		$d = new DAL(true);
@@ -88,6 +99,16 @@ class customBlog extends phpDataset
 		
 		
 		parent::delete();	
+	}
+	public function __get($key)
+	{
+		switch($key)
+		{
+			case "assetFolder":
+				return "assets/blogs/{$this->id}";
+		}
+		
+		return parent::__get($key);
 	}
 	public function populateEntries($filter = 0, $blogEntryClass = "customBlogEntry")
 	{
@@ -136,26 +157,20 @@ class customBlog extends phpDataset
 		//Shouldn't ever be getting an icon object for a non-existent entity.
 		if (!$this->id) return false;
 		
-		$baseLoc = "assets/blogs/{$this->id}/";		
-		
-		if (!file_exists($config["baseAppDir"].$baseLoc))
-		{			
-			mkdir($config["baseAppDir"].$baseLoc);	
-		}
+		$baseLoc = $this->assetFolder;		
 			
-		$url = $baseLoc."icon.png";
-		$loc = $config["baseAppDir"].$url;
+		$url = $baseLoc."/icon.png";
+		$fileLocation = $config["baseAppDir"].$url;
 
 		$dimensions = explode("x", $this->settings->blogIconDim);
 		
-		if (file_exists($loc))
+		if (file_exists($fileLocation))
 		{
-			$fileLocation = "$url?rnd=".rand(0, 100);
-			$iconObject = new image($fileLocation, validation::prepForDisplay($this->title));
+			$iconObject = new image("$url?rnd=".rand(0, 100), validation::prepForDisplay($this->title));			
 		}
 		else
 		{
-			$iconObject = new phpDIV("<p>No Image Available<p>");
+			$iconObject = new phpDIV("<p>No Image Available</p>");
 		}
 		
 		$iconObject->addClass("blogIcon");
@@ -259,28 +274,22 @@ class customBlogEntry extends phpDataset
 		//Shouldn't ever be getting an icon object for a non-existent entity.
 		if (!$this->id) return false;
 		
-		$baseLoc = "assets/blogs/{$this->blogID}/{$this->id}/";		
-		
-		if (!file_exists($config["baseAppDir"].$baseLoc))
-		{			
-			mkdir($config["baseAppDir"].$baseLoc);	
-		}
+		$baseLoc = $this->assetFolder;
 			
-		$url = $baseLoc."icon.png";
-		$loc = $config["baseAppDir"].$url;
+		$url = $baseLoc."/icon.png";
+		$fileLocation = $config["baseAppDir"].$url;
 
 		$sObj = customBlog_core::getConfigObject();
 		
 		$dimensions = explode("x", $sObj->entryIconDim);
 		
-		if (file_exists($loc))
-		{
-			$fileLocation = "$url?rnd=".rand(0, 100);
-			$iconObject = new image($fileLocation, validation::prepForDisplay($this->title));
+		if (file_exists($fileLocation))
+		{			
+			$iconObject = new image("$url?rnd=".rand(0, 100), validation::prepForDisplay($this->title));
 		}
 		else
 		{
-			$iconObject = new phpDIV("<p>No Image Available<p>");
+			$iconObject = new phpDIV("<p>No Image Available</p>");
 		}
 		
 		$iconObject->addClass("blogIcon");
@@ -289,11 +298,22 @@ class customBlogEntry extends phpDataset
 
 		return $iconObject;
 	}
+	public function __get($key)
+	{		
+		switch($key)
+		{
+			case "assetFolder":
+				return "assets/blogs/{$this->blogID}/{$this->id}";
+		}
+		
+		return parent::__get($key);
+	}
 	public function delete()
 	{
+		global $config;
 		$d = new DAL(true);
 		
-		$baseLoc = $config["baseAppDir"]."assets/blogs/{$this->blogID}/{$this->id}";
+		$baseLoc = $config["baseAppDir"].$this->assetFolder;
 		
 		foreach(glob($baseLoc."/.*") as $file)
 		{
@@ -308,6 +328,17 @@ class customBlogEntry extends phpDataset
 		$d->qry("delete from comments where dataID = {$this->id} and comments.typeID = ".customComments::comment_blog_entry);		
 		
 		parent::delete();	
+	}
+	public function insert($data="")
+	{
+		global $config;
+		
+		$id = parent::insert($data);
+		
+		$loc = $config["baseAppDir"].$this->assetFolder;
+		if (!file_exists($loc)) mkdir($loc);
+		
+		return $id;
 	}
 }
 class customBlogFeed extends phpDataset

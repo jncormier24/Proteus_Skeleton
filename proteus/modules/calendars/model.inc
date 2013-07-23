@@ -227,7 +227,7 @@ class customCalendarEntry extends phpDataset
 		}
 		else
 		{
-			$iconObject = new phpDIV($dimensions[0] > 100 ? "<p>No Image Available<p>" : "<p style='padding: 1px 30px;'>X</p>");
+			$iconObject = new phpDIV($dimensions[0] > 100 ? "<p>No Image Available</p>" : "<p style='padding: 1px 30px;'>X</p>");
 			$iconObject->title = "No Icon Configured";
 		}
 		

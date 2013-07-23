@@ -184,6 +184,18 @@ function getStaff(entityID)
 			filterObj.filterHelper("setPaging", { totalCount: output.count }).filterHelper("initAll");
 			
 			initTableSort(true);
+			
+			$("div.entityLeft:has(img.entityIcon)", cont).each(function()
+			{	
+				var obj = $(this);
+				var staffID = obj.closest("tr").attr("data-id");
+				
+				obj.popupClearIcon(
+				{	
+					positionParent: "img.entityIcon",
+					clickMethod: function() { clearStaffIcon(staffID); }
+				});
+			});
 		}
 	});	
 }
@@ -250,7 +262,7 @@ function uploadStaffIcon(staffID)
 			}			
 			
 			getMessages();
-			getStaff(data.entityID, data.filter);
+			getStaff(data.entityID);
 		},
 		error : function(data, status, e)
 		{
@@ -259,6 +271,22 @@ function uploadStaffIcon(staffID)
 	});
 
 	return false;
+}
+function clearStaffIcon(staffID)
+{
+	$.jqConfirm("Are you sure you want to clear this Staff icon?", function()
+	{
+		$.showLoading("Clearing Showcase Icon");
+		
+		$.getJSON("admin/ajax/municipal", { action: "clearStaffIcon", staffID: staffID}).then(function(output)
+		{
+			if (!$.ajaxError(output, $))
+			{
+				getMessages();
+				getStaff(output.entityID);
+			}
+		});
+	});
 }
 function toggleStaff(staffID)
 {

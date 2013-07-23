@@ -27,19 +27,24 @@ class customShowcase extends phpDataset
 	public $p_settings;	
 	public $p_showcaseItems = array();
 	
-	private $defaults = array("itemThumbDim"=>"150::150", "itemThumbAspect"=>0, "itemDim"=>"800::600", "itemAspect"=>0, 
-							  "thumbDim"=>"150::150", "thumbAspect"=>0);
+	private $defaults = array("itemThumbDim"=>"150x150", "itemThumbAspect"=>0, "itemDim"=>"800x600", "itemAspect"=>0, 
+							  "thumbDim"=>"220x130", "thumbAspect"=>0);
 		
 	public function __construct($showcaseID=0)
 	{	
-		parent::__construct("showcase", $showcaseID, $showcaseID ? true : false);
+		parent::__construct("showcase", $showcaseID, $showcaseID ? true : false);		
 	}	
 	public function __get($key)
-	{
-		if (!$this->id) return false;
+	{		
+		global $config;
+		
+		if (!parent::__get("id")) return false;
 		
 		switch ($key)
 		{
+			case "assetFolder":
+				return "assets/showcases/{$this->id}";
+				
 			case "settings":
 				if (!$this->p_settings) $this->p_settings = new customConfig(proteus_core::$module_showcases["siteType"], $this->id, $this->defaults);
 				return $this->p_settings;
@@ -55,6 +60,7 @@ class customShowcase extends phpDataset
 	{
 		if (!$this->id) return false;
 		
+		$d = new DAL(true);
 		$items = array();
 		
 		$qry = "select id
@@ -77,26 +83,74 @@ class customShowcase extends phpDataset
 		//Shouldn't ever be getting an icon object for a non-existent showcase.
 		if (!$this->id) return false;
 		
-		$folder = "assets/showcases/{$this->id}/";		
-		$absFolder = $config["baseAppDir"].$folder;		
+		$baseLoc = $this->assetFolder;
 			
-		$file = "icon.png";
+		$url = $baseLoc."/icon.png";
+		$fileLocation = $config["baseAppDir"].$url;
 
-		$dimensions = explode("x", $this->settings->iconDim);
+		$sObj = customBlog_core::getConfigObject();
 		
-		if (file_exists($absFolder.$file))
+		$dimensions = explode("x", $sObj->entryIconDim);
+		
+		if (file_exists($fileLocation))
 		{			
-			$iconObject = new image($folder.$file."?rnd=".rand(0, 100), validation::prepForDisplay($this->name));
+			$iconObject = new image("$url?rnd=".rand(0, 100), validation::prepForDisplay($this->name));
 		}
 		else
 		{
-			$iconObject = new phpDIV("<p>No Image Available<p>");
+			$iconObject = new phpDIV("<p>No Image Available</p>");
 		}
 		
 		$iconObject->addClass("showcaseIcon");
 		$iconObject->style = "width: {$dimensions[0]}px; height: {$dimensions[1]}px;";
 
 		return $iconObject;
+	}
+	public function insert($data="")
+	{
+		global $config;
+		$d = new DAL(true);
+		
+		// Take care of setting the position when inserting here
+		$max = $d->qryCount("select max(position) from showcase");
+		if (!$max) $max = 0;
+		$max++;
+			
+		$this->position = $max;
+		
+		$id = parent::insert($data);
+		
+		$loc = $config["baseAppDir"].$this->assetFolder;
+		if (!file_exists($loc)) mkdir($loc);
+		
+		$loc = $config["baseAppDir"].$this->assetFolder."/thumbs";
+		if (!file_exists($loc)) mkdir($loc);
+		
+		return $id;
+	}
+	public function delete()
+	{
+		global $config;
+		
+		$baseLoc = $config["baseAppDir"].$this->assetFolder."/thumbs";
+		
+		foreach(glob($baseLoc."/*") as $file)
+		{
+			@unlink($file);
+		}
+		
+		@rmdir($baseLoc);
+		
+		$baseLoc = $config["baseAppDir"].$this->assetFolder;
+		
+		foreach(glob($baseLoc."/*") as $file)
+		{
+			@unlink($file);
+		}
+		
+		@rmdir($baseLoc);
+		
+		return parent::delete();
 	}
 }
 class customShowcaseItem extends phpDataset
@@ -106,39 +160,72 @@ class customShowcaseItem extends phpDataset
 		parent::__construct("showcaseItems", $showcaseItemID, $showcaseItemID ? true : false);
 	}	
 	public function __get($key)
-	{
-		if (!$this->id) return false;
-		
+	{		
 		global $config;
 		
 		switch($key)
 		{
+			case "assetFolder":
+				return "assets/showcases/{$this->showcaseID}";
+				
 			case "showcase":
 				return new customShowcase($this->showcaseID);
 				
 			case "imageThumbLocation":
-				return $config["baseAppDir"]."assets/showcases/{$this->showcaseID}/thumbs/{$this->image}";
+				if (!$this->id) return false;		
+				return $this->assetFolder."/thumbs/{$this->image}";
 				
 			case "imageLocation":
-				return $config["baseAppDir"]."assets/showcases/{$this->showcaseID}/{$this->image}";
+				if (!$this->id) return false;		
+				return $this->assetFolder."/{$this->image}";
 								
 		}
 		
 		return parent::__get($key);
 	}
+	public function insert($data="")
+	{
+		global $config;
+		$d = new DAL(true);
+		
+		// Take care of setting the position when inserting here
+		$max = $d->qryCount("select max(position) from showcaseItems");
+		if (!$max) $max = 0;
+		$max++;
+			
+		$this->position = $max;
+		
+		$id = parent::insert($data);
+		
+		$loc = $config["baseAppDir"].$this->assetFolder;
+		if (!file_exists($loc)) mkdir($loc);		
+		
+		return $id;
+	}
+	public function delete()
+	{
+		global $config;
+		
+		$baseLoc = $config["baseAppDir"].$this->assetFolder;
+		
+		@unlink($baseLoc."/thumbs/".$this->image);
+		@unlink($baseLoc."/".$this->image);		
+			
+		return parent::delete();
+	}
 	public function scale()
 	{
 		$showcase = $this->showcase;
-		$dim = $showcase->settings->itemDim;
+		$dim = explode("x", $showcase->settings->itemDim);
 		
 		imageHelper::scaleImage($this->imageLocation, $dim[0], $dim[1], $showcase->settings->itemAspect);
 	}
 	public function scaleThumb()
 	{
 		$showcase = $this->showcase;
-		$dim = $showcase->settings->itemThumbDim;
+		$dim = explode("x", $showcase->settings->itemThumbDim);
 		
-		imageHelper::scaleImage($this->imageThumbLocation, $dim[0], $dim[1], $showcase->settings->itemThumbAspect);
+		imageHelper::scaleImage($this->imageLocation, $dim[0], $dim[1], $showcase->settings->itemThumbAspect, $this->imageThumbLocation);
 	}
 }
 ?>

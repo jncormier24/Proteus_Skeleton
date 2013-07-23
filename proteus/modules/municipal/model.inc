@@ -167,6 +167,17 @@ class pmm_entity extends phpDataset
 			}
 		}
 	}	
+	public function insert($data="")
+	{
+		global $config;
+		
+		$id = parent::insert($data);
+		
+		$loc = $config["baseAppDir"]."assets/municipal/$id";
+		if (!file_exists($loc)) mkdir($loc);
+		
+		return $id;
+	}
 	public function getIconObject(&$fileLocation='', &$dimensions='')
 	{
 		global $config;
@@ -183,13 +194,14 @@ class pmm_entity extends phpDataset
 		
 		if (file_exists($absFolder.$file))
 		{			
-			$iconObject = new image($folder.$file."?rnd=".rand(0, 100), validation::prepForDisplay($this->title), "entityIcon");
+			$iconObject = new image($folder.$file."?rnd=".rand(0, 100), validation::prepForDisplay($this->title));
 		}
 		else
 		{
-			$iconObject = new phpDIV("<p>No Image Available<p>", "entityIcon");
+			$iconObject = new phpDIV("<p>No Image Available</p>");
 		}
 		
+		$iconObject->addClass("entityIcon");
 		$iconObject->style = "width: {$dimensions[0]}px; height: {$dimensions[1]}px;";
 
 		return $iconObject;
@@ -405,15 +417,18 @@ class pmm_entityStaff extends phpDataset implements entityChild
 		$cfg = pmm_core::getConfigObject();
 		$dimensions = explode("x", $cfg->staffIconDim);
 		
-		if (file_exists($absFolder.$file))
+		$fileLocation = $absFolder.$file;
+		
+		if (file_exists($fileLocation))
 		{
-			$iconObject = new image($folder.$file."?rnd=".rand(0, 100), validation::prepForDisplay($this->title), "entityIcon");
+			$iconObject = new image($folder.$file."?rnd=".rand(0, 100), validation::prepForDisplay($this->title));
 		}
 		else
 		{
-			$iconObject = new phpDIV("<p>No Image Available<p>", "entityIcon");			
+			$iconObject = new phpDIV("<p>No Image Available</p>");			
 		}		
 
+		$iconObject->addClass("entityIcon");
 		$iconObject->style = "width: {$dimensions[0]}px; height: {$dimensions[1]}px;";
 		
 		return $iconObject;
@@ -480,7 +495,7 @@ class pmm_entityFaq extends phpDataset implements entityChild
 			@unlink($file);
 		}
 		
-		rmdir($baseLoc);
+		@rmdir($baseLoc);
 		
 		return parent::delete();
 	}
@@ -509,13 +524,14 @@ class pmm_entityPosting extends phpDataset implements entityChild
 		
 		if (file_exists($absFolder.$file))
 		{			
-			$iconObject = new image($folder.$file."?rnd=".rand(0, 100), validation::prepForDisplay($this->title), "entityIcon");
+			$iconObject = new image($folder.$file."?rnd=".rand(0, 100), validation::prepForDisplay($this->title));
 		}
 		else
 		{
-			$iconObject = new phpDIV("<p>No Image Available<p>", "entityIcon");
+			$iconObject = new phpDIV("<p>No Image Available</p>");
 		}
 		
+		$iconObject->addClass("entityIcon");
 		$iconObject->style = "width: {$dimensions[0]}px; height: {$dimensions[1]}px;";
 
 		return $iconObject;
@@ -567,7 +583,7 @@ class pmm_entityPosting extends phpDataset implements entityChild
 			@unlink($file);
 		}
 	
-		rmdir($baseLoc);
+		@rmdir($baseLoc);
 	
 		return parent::delete();
 	}
@@ -789,7 +805,7 @@ class pmm_entityAgenda extends phpDataset implements entityChild
 			@unlink($file);
 		}
 		
-		rmdir($baseLoc);
+		@rmdir($baseLoc);
 		
 		return parent::delete();	
 	}

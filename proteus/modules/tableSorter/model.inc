@@ -19,6 +19,7 @@ class tableSorter_core
 	public static $sort_blog_feed = array("sortType"=>6, "dataTable"=>"blogFeeds");
 	public static $sort_content_page = array("sortType"=>3, "dataTable"=>"customContent");
 	public static $sort_showcase = array("sortType"=>4, "dataTable"=>"customShowcase");
+	public static $sort_showcase_item = array("sortType"=>12, "dataTable"=>"showcaseItems");
 	
 	public static function getSortTypes()
 	{
@@ -46,6 +47,9 @@ class tableSorter_core
 		
 		switch($sortType)
 		{
+			case tableSorter_core::$sort_showcase_item["sortType"]:
+				return new customShowcaseItem($dataID);
+				
 			case tableSorter_core::$sort_showcase["sortType"]:
 				return new customShowcase($dataID);
 				
@@ -73,6 +77,9 @@ class tableSorter_core
 		
 		switch($sortType)
 		{			
+			case tableSorter_core::$sort_showcase_item["sortType"]:
+				return $sec->hasAccess(permissions::$manage_showcases, permissions::write) || $sec->hasAccess(permissions::$modify_showcase, permissions::write, $obj->showcaseID);
+								
 			case tableSorter_core::$sort_showcase["sortType"]:				
 				return $sec->hasAccess(permissions::$manage_showcases, permissions::write);
 				

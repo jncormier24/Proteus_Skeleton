@@ -60,7 +60,7 @@ class proteus_core
 	public $queries = array("config"=>array("insert into config (keyName, keyValue) values('hitCount',0)",
 											"insert into config (keyName, keyValue) values('defaultEmailTemplate','default.tpl')",
 											"insert into config (keyName, keyValue) values('version','4.0')",
-											"insert into config (keyName, keyValue) values('siteType','2::4::5::6')"));
+											"insert into config (keyName, keyValue) values('siteType','3')"));
 	
 	public static function getModulesArray()
 	{
@@ -1125,10 +1125,7 @@ class upload
 		{
 			if ($this->p_TmpName) @unlink($this->p_TmpName);
 				
-			$this->err = $exc->getMessage();
-			error_log($this->err);
-				
-			return false;
+			throw $exc;
 		}
 
 		return true;

@@ -158,7 +158,7 @@ function getBlogs($paging, $sortData, $filterColumns, $customColumns)
 		if (!$globRead && !$g_sec->is(permissions::$modify_blog_category)) $g_sec->security_error_a();
 			
 		$t = new tblBuilder('center',0,0,0,'100%');	
-		$t->class = "listTable hoverTable";
+		$t->class = "listTable";
 		$t->id = "blogCatTable";
 		$t->addAttribute("data-sort-type", tableSorter_core::$sort_blog_category["sortType"]);		
 		
@@ -169,13 +169,21 @@ function getBlogs($paging, $sortData, $filterColumns, $customColumns)
 			switch($cFilter["key"])
 			{					
 				case "status":
-					if (!$cFilter["value"]) $t->addClass("sortable");
+					if ($globWrite && !$cFilter["value"]) $t->addClass("sortable");
 					
 					$wh[] = "blogs.inactive = {$cFilter["value"]}";
 					
 					break;
 			}
 		}		
+		
+		if (!$globRead)
+		{
+			// Limit to the Blog Categories they are assigned to
+			$wh[] = "exists(select id 
+					from permissionsAssignment 
+					where userID={$g_sec->id} and permissionKey='".permissions::$modify_blog_category["key"]."' and dataID = blogs.id)";
+		}
 		
 		tableFilter::getWhereArray($filterColumns, $wh, $hvArr);
 		$whClause = tableFilter::getWhereClause($wh);
@@ -212,14 +220,14 @@ function getBlogs($paging, $sortData, $filterColumns, $customColumns)
 
 				$iconDiv->addControl($ulDiv);
 				
-				if(get_class($iObj) == "image")
+				/* if(get_class($iObj) == "image")
 				{
 					//we have an image, add a clear btn
 					$btnClear = new jqUI_button("", "Clear Image", "clearIcon", "ui-icon-trash", true);
 					$btnClear->onclick = "clearBlogIcon({$bObj->id})";
 					
 					$iconDiv->addControl($btnClear);
-				}
+				} */
 			}
 				
 			$dDiv = new phpDIV();
@@ -349,7 +357,9 @@ function clearBlogIcon($blogID)
 		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
 			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $blog->id)) $g_sec->security_error_a();
 		
-		@unlink($config["baseAppDir"]."assets/blogs/{$blog->id}/icon.png");		
+		$iconObj = $blog->getIconObject($fLoc);
+		
+		if (!unlink($fLoc)) throw new Exception("File Error clearing Blog icon");		
 		
 		pageClass::setNotify("Successfully cleared Blog Icon.");
 	}
@@ -1650,6 +1660,7 @@ function getBlogEntries($blogID, $paging, $sortData, $filterColumns, $customColu
 				
 			$bDiv = new phpDIV();
 			$bDiv->class = 'blogContainer';
+			$bDiv->addAttribute("data-id", $entry->id);
 			
 			$iconDiv = new phpDIV();
 			$iconDiv->class = "blogLeft";
@@ -1664,13 +1675,6 @@ function getBlogEntries($blogID, $paging, $sortData, $filterColumns, $customColu
 				$ulDiv->uploadButton->setIconClass("ui-icon-image");				
 
 				$iconDiv->addControl($ulDiv);
-				if(get_class($iconObject) == "image")
-				{
-					//we have an image, add a clear btn
-					$btnClear = new jqUI_button("btnClear_".$entry->id, "Clear Image", "clearIcon", "ui-icon-trash", true);
-					$btnClear->onclick = "clearBlogEntryIcon({$entry->id})";
-					$iconDiv->addControl($btnClear);
-				}
 			}
 			
 			$cpObj = new customComments($entry->id, 1, 0);
@@ -1890,19 +1894,17 @@ function uploadBlogIcon($blogID)
 		if (!$bObj->id) throw new Exception("Error, that blog could not be found.");
 		
 		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
-			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $bObj->id)) $g_sec->security_error_a();
-				
+			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $bObj->id)) $g_sec->security_error_a();				
+		
 		$dim = $bObj->settings->blogIconDim;
 		$tmp = explode("x",$dim);		
 		
 		if (count($tmp) != 2) throw new Exception("Error, missing Dimension information. Please try again.");
 		
 		$u = new upload($_FILES['blogCatIcon_'.$bObj->id]);		
-		$u->convertImage("png", $tmp);		
+		$u->convertImage("png", $tmp);
 		
-		$file = "assets/blogs/{$bObj->id}/icon.png";
-		
-		if (!$u->uploadFile($config["baseAppDir"].$file)) throw new Exception($u->err);		
+		if (!$u->uploadFile($config["baseAppDir"].$bObj->assetFolder."/icon.png")) throw new Exception($u->err);		
 		
 		pageClass::setNotify("Blog Icon Successfully Uploaded");
 		
@@ -1968,9 +1970,9 @@ function clearBlogEntryIcon($entryID)
 		if (!$g_sec->hasAccess(permissions::$manage_blogs, permissions::write) &&
 			!$g_sec->hasAccess(permissions::$modify_blog_category, permissions::write, $eObj->blogID)) $g_sec->security_error_a();
 						
-		
-		$file = $config["baseAppDir"]."assets/blogs/{$eObj->blogID}/{$eObj->id}/icon.png";
-		@unlink($file);		
+		$iconObj = $eObj->getIconObject($fLoc);
+				
+		if (!unlink($fLoc)) throw new Exception("Error clearing Blog Entry Icon");		
 		
 		pageClass::setNotify("Successfully removed Blog Entry Icon");
 	}

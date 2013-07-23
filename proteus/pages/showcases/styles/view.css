@@ -2,6 +2,14 @@
 {
 	min-height: 500px;
 }
+fieldset
+{
+	margin-bottom: 8px;
+}
+fieldset legend
+{
+	font-weight: bold;
+}
 div.panelBlockContainer h1 div.jqPopupMenu
 {
 	position: absolute !important;
@@ -27,7 +35,7 @@ div.showcaseIcon
 div.showcaseIcon p
 {
 	text-align: center;
-	padding: 15px 0px;	
+	padding: 15px 10px;	
 }
 div.showcaseLeft
 {
@@ -42,6 +50,10 @@ div.showcaseLeft div.uploadDiv
 }
 div.showcaseLeft div.uploadDiv label
 {
+	float: left;
+	clear: left;
+	
+	margin-top: 6px;
 	top: 0px;
 	
 	font-size: 10px;
@@ -61,6 +73,7 @@ div.showcaseLeft div.uploadDiv button
 div.showcaseLeft .fileinput-wrapper
 {
 	float: left;
+	clear: left;
 }
 div.showcaseLeft div.uploadDiv .ui-button .ui-button-text
 {
@@ -135,4 +148,29 @@ div.showcaseContainer > div.functions button
 	
 	margin: 2px 0px 3px 5px;
 	width: 200px;
+}
+#filesForm
+{
+	position: absolute;
+	
+	left: 0px;		
+	
+	padding-top: 10px;
+}
+#filesForm label
+{
+	float: left;
+	
+	margin: 4px 5px 0px 15px;	
+	
+	text-align: right;
+}
+#filesForm button
+{
+	float: right;
+	margin-top: 0px;
+}
+#filesForm button span.ui-button-text
+{
+	padding: 3px 10px 4px 28px
 }

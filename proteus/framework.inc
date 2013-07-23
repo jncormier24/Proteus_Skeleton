@@ -7,7 +7,7 @@
 	if (!$config["baseAppDir"]) $config["baseAppDir"] = getcwd()."/";	
 	
 	// Get the library installation directory
-	$config["libraryDir"] = $config[baseAppDir]."proteus/"; //dirname(__FILE__)."/";
+	$config["libraryDir"] = $config["baseAppDir"]."proteus/"; //dirname(__FILE__)."/";
 	
 	// This will be overidden by the administration panel
 	if( (!$config["pageDir"])) $config["pageDir"] = "pages";

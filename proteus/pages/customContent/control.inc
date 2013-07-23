@@ -18,9 +18,6 @@ function showContentPages()
 	$a->addPageModule(new jqPopupMenuModule());
 	$a->addPageModule(new jqUpdateHelperModule());
 	
-	
-	$a->addPageModule(new jqMaskedInputModule());
-	
 	$g_sec = $a->authUser;
 	
 	if (!$g_sec->hasAccess(permissions::$manage_custom_content, permissions::read)) $g_sec->security_error();	

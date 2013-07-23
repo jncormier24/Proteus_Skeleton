@@ -390,6 +390,9 @@ class phpDataset
 
 		$this->p_dataID = $this->id = $insID;
 		
+		// Refill the object (to remove quotes, mysql functions, etc)
+		$this->fill();
+		
 		return $this->p_dataID;
 	}
 	public function cleanDirtyCols()

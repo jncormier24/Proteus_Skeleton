@@ -74,7 +74,7 @@ class admin_navigation extends phpDIV
 				$ul->addListItem(new htmlListItem($lnk->render()));
 			}
 
-			if ($conf->moduleEnabled(proteus_core::$module_showcases["siteType"]) && $secObj->is(permissions::$manage_showcases))
+			if ($conf->moduleEnabled(proteus_core::$module_showcases["siteType"]) && ($secObj->is(permissions::$manage_showcases) || $secObj->is(permissions::$modify_showcase)))
 			{	
 				$lnk = new jqUI_hyperlink("admin/showcases", "Custom Showcases", "", "ui-icon-image");
 				$ul->addListItem(new htmlListItem($lnk->render()));

@@ -36,11 +36,9 @@ img.blogIcon, div.blogIcon
 	float: left;
 	
 	border: 1px solid #808080;
-	box-shadow: 2px 2px 3px #333333;
 	border-radius: 3px;
 	
-	max-width: 167px !important;
-	max-height: 100px !important;		
+	box-shadow: 2px 2px 3px #333333;
 }
 div.blogIcon
 {

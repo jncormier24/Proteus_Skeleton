@@ -17,6 +17,18 @@ function getBlogs()
 			filterObj.filterHelper("setPaging", { totalCount: output.count }).filterHelper("initAll");
 		
 			initTableSort();
+			
+			$("div.blogLeft:has(img.blogIcon)", cont).each(function()
+			{	
+				var obj = $(this);
+				var blogID = obj.closest("tr").attr("data-id");
+				
+				obj.popupClearIcon(
+				{	
+					positionParent: "img.blogIcon",
+					clickMethod: function() { clearBlogIcon(blogID); }
+				});
+			});
 		}
 	});
 }
@@ -82,6 +94,18 @@ function getBlogEntries(blogID)
 			cont.html(output.content).tableRowAlternate();
 			
 			filterObj.filterHelper("setPaging", { totalCount: output.count }).filterHelper("initAll");
+			
+			$("div.blogLeft:has(img.blogIcon)", cont).each(function()
+			{	
+				var obj = $(this);
+				var entryID = obj.closest(".blogContainer").attr("data-id");
+				
+				obj.popupClearIcon(
+				{	
+					positionParent: "img.blogIcon",
+					clickMethod: function() { clearBlogEntryIcon(entryID); }
+				});
+			});
 		}
 	});
 }
