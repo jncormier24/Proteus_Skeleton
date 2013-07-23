@@ -51,7 +51,7 @@ function updateShowcase()
 	var dfd = $.Deferred();
 	var win = $("#showcaseWin");
 	var frm = $("#frmShowcase", win);
-	var showcaseID = parseInt($("#showcaseID", frm));
+	var showcaseID = parseInt($("#showcaseID", frm).val());
 	
 	$.showLoading(showcaseID ? "Saving Showcase" : "Adding new Showcase");
 	
@@ -63,7 +63,7 @@ function updateShowcase()
 			
 			win.updateHelper("reset").dialog("close");
 			
-			if (!parseInt(showcaseID))	
+			if (!showcaseID)	
 			{				
 				getShowcaseEdit(output.showcaseID);
 			}				
@@ -236,4 +236,57 @@ function deleteShowcaseItem(itemID)
 			}
 		});
 	});
+}
+function getShowcaseItemEdit(itemID)
+{
+	$.showLoading("Loading Showcase Item Data");
+	
+	$.getJSON("admin/ajax/showcases", { action: "getShowcaseItemEdit", itemID: itemID }).then(function(output)
+	{
+		if (!$.ajaxError(output, $))
+		{			
+			$.hideDialogs(true);
+			
+			$(output.content).appendTo("body");
+			
+			var win = $("#showcaseItemWin");
+			
+			$(".wysiwyg", win).assetRedactor(-6, output.showcaseID, itemID);
+			
+			win.dialog("option", "close", function()
+			{
+				$.showDialogs(true);
+				$(this).remove();				
+			}).updateHelper(updateShowcaseItem, { closeConfirmOnly: true, disableControls: output.disabled });
+		}
+	});
+}
+function updateShowcaseItem()
+{
+	var dfd = $.Deferred();
+	var win = $("#showcaseItemWin");
+	var frm = $("#frmShowcaseItem", win);	
+	
+	$.showLoading("Saving Showcase Item");
+	
+	$.post("admin/ajax/showcases", frm.serialize(), null, "json").then(function(output)
+	{
+		if (!$.ajaxError(output, $))
+		{
+			getMessages();
+			
+			win.updateHelper("reset").dialog("close");
+			
+			getShowcaseItems(output.showcaseID);
+			getShowcases();			
+			
+			dfd.resolve();
+		}
+		else
+		{
+			dfd.reject();
+		}			
+	});
+	
+	return dfd.promise();
 }

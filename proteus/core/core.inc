@@ -561,17 +561,8 @@ class validation
 			}
 		}
 		else
-		{
-			if (get_magic_quotes_gpc())
-			{
-				$tmp = stripslashes($inVar);
-			}
-			else
-			{
-				$tmp = $inVar;
-			}				
-
-			$inVar = mysqli_real_escape_string($config[dbLink], $tmp);
+		{			
+			$inVar = mysqli_real_escape_string($config["dbLink"], $tmp);
 		}
 	}
 	public static function quotedArray($valueList, $exceptions='')
@@ -613,6 +604,7 @@ class validation
 	}
 	public static function prepMultiLineForStorage($strVal, $sanitize=true)
 	{
+		// SWB (7/13) - this function has been deprecated now that magic quotes is no longer used
 		$strVal = str_replace("\\r\\n","\r\n", $strVal);
 		if ($sanitize) validation::sanitizeWYSIWYG($strVal);
 

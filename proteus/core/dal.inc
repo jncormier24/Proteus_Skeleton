@@ -1,30 +1,4 @@
 <?
-class dbConnect
-{	
-	function __construct()
-	{
-		/*
-		//Support for newer sites that reference the site type in the DB, not in the settings.php file.
-		$d = new DAL(false);
-		$d->suppressErrors = true;
-		
-		if ($d->qryCount("show tables like 'config'"))
-		{
-			$qry = "select *
-					from config";
-			$cQry = $d->qry($qry);
-			
-			if (!$cQry) throw new Exception();
-			
-			while($c = $cQry->fetch_assoc())
-			{
-				//Only store the config entries marked as a type of 0 (base config)
-				if (!$c[typeID]) $config[$c[keyName]] = $c[keyValue];	
-			}
-		}		
-		$config[siteTypeConfig] = true; */
-	}	
-}
 class DAL
 {	
 	private $resultSets = array();

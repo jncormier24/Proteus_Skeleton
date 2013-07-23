@@ -256,21 +256,21 @@ class proteus_header extends pageContent
 
 class image extends webControl
 {	
-	function image($url, $alt='', $class='')
+	function image($url, $alt="", $class="")
 	{		
 		$this->src = $url;
 		
 		$this->controlTag = "img";		
 		
 		//Always define an alt tag, even its empty!
-		$this->setAltTag($alt ? $alt : '&nbsp;');
+		$this->setAltTag($alt ? $alt : " ");
 		
 		if ($class) $this->class = $class;
 	}
 	function setAltTag($text)
 	{
-		$this->addAttribute('alt',$text);
-		$this->addAttribute('title',$text);
+		$this->addAttribute("alt", $text);
+		if (trim($text)) $this->addAttribute("title", $text);
 	}	
 }
 class resizedImage extends image 
@@ -556,7 +556,7 @@ class phpUploader extends phpForm
 }
 class tblCell extends webControl
 {		
-	function tblCell($content='', $class='', $align='', $colspan='', $width = '')
+	public function __construct($content = "", $class = "", $align = "", $colspan = "", $width = "")
 	{		
 		if (is_object($content) && is_callable(array($content, "render")))
 		{
@@ -576,62 +576,71 @@ class tblCell extends webControl
 			$this->controlData = $content;
 		}
 		
-		$this->class = $class;
-		$this->width = $width;
+		if ($class) $this->class = $class;
+		if ($width) $this->width = $width;
 		
-		if ($align) $this->addAttribute("align", $align);
-		if ($colspan) $this->addAttribute('colspan', $colspan);
+		if ($align) $this->align = $align;
+		if ($colspan) $this->colspan = $colspan;
 		
-		$this->controlTag = "TD";
+		$this->controlTag = "td";
 		$this->controlCloseTag = true;				
 	}
 }
 class tblHeader extends tblCell
 {		
-	function tblHeader($content='', $class='', $align='', $colspan='', $width = '')
+	public function __construct($content='', $class='', $align='', $colspan='', $width = '')
 	{		
-		$this->tblCell($content, $class, $align, $colspan, $width);
+		parent::__construct($content, $class, $align, $colspan, $width);
 
 		//Override just this tag	
-		$this->controlTag = "TH";		
+		$this->controlTag = "th";		
 	}
 }
 class tblRow extends webControl
-{	
-	//I'd rather use a type-of and loop through the control set but this seems more efficient... ??
-	var $cellCount;
-	var $headerCount;
+{
+	private $p_cellCount;
+	private $p_headerCount;
 	
-	function tblRow($class='', $bgColor='', $align='')
+	public function __construct($class="")
 	{	
-		$this->class = $class;
+		if ($class) $this->class = $class;		
 		
-		if ($bgColor) $this->addAttribute("bgcolor",$bgColor);
-		if ($align) $this->addAttribute("align",$align);
-		
-		$this->controlTag = "TR";
+		$this->controlTag = "tr";
 		$this->controlCloseTag = true;	
 		$this->renderOrder = 2;
+	}
+	public function __get($key)
+	{
+		switch($key)
+		{
+			case "cellCount":
+				return $this->p_cellCount;
+				
+			case "headerCount":
+				return $this->p_headerCount;
+		}
 	}	
-	function &addCell($cell='')
+	public function &addCell($cell='')
 	{
 		if (empty($cell))
 		{
 			$cell = new tblCell();	
 		}
+		
 		$this->addControl($cell);
-		$this->cellCount++;
+		$this->p_cellCount++;
 		
 		return $cell;
 	}
-	function &addHeader($header='')
+	public function &addHeader($header='')
 	{
 		if (empty($header))
 		{
 			$header = new tblHeader();	
 		}
+		
 		$this->addControl($header);
-		$this->headerCount++;
+		$this->p_headerCount++;
 		
 		return $header;
 	}	
@@ -640,21 +649,22 @@ class tblBuilder extends webControl
 {
 	var $rows;	
 	
-	function tblBuilder($align='', $border='', $cellspacing='', $cellpadding='', $width='')
+	public function __construct($align="center", $border=0, $cellspacing=0, $cellpadding=5, $width="100%")
 	{
-		$this->addAttribute("align",$align);
-		$this->addAttribute("border",$border);
-		$this->addAttribute("cellspacing",$cellspacing);
-		$this->addAttribute("cellpadding",$cellpadding);
+		$this->align = $align;
+		$this->border = $border;
+		
+		$this->cellspacing = $cellspacing;
+		$this->cellpadding = $cellpadding;
 		
 		$this->width = $width;
 		
-		$this->controlTag = "TABLE";
+		$this->controlTag = "table";
 		$this->controlCloseTag = true;		
 		
 		$this->addControl(new phpLiteral("<thead>"));
 	}	
-	function &addRow($tblRow='')
+	public function &addRow($tblRow='')
 	{		
 		if (empty($tblRow))
 		{				
@@ -664,7 +674,7 @@ class tblBuilder extends webControl
 		$this->addControl($tblRow);	
 		return $tblRow;	
 	}			
-	function render()
+	public function render()
 	{			
 		foreach($this->controls as $key=>$tRow)
 		{
@@ -1259,70 +1269,6 @@ class viewControl extends jqUI_button
 		return new phpHyperlink($this->origUrl, $display);	
 	}	
 }
-class positionControl
-{
-	var $tableName;
-	var $id;	
-	var $customPage;
-	var $customAction;
-	var $max;
-	var $showUp;
-	var $showDown;
-	var $redirectURL;
-	var $customWhClause;
-	
-	function positionControl($tableName, $id, $redirectURL, $customPage='', $customAction='', $customWhereclause='')
-	{
-		$this->tableName = $tableName;
-		$this->id = $id;
-		$this->redirectURL = $redirectURL;
-		
-		$this->customPage = $customPage;
-		$this->customAction = $customAction;
-		$this->customWhClause = $customWhereclause;
-		
-		$this->showUp = true;
-		$this->showDown = true;
-	}
-	function render()
-	{
-		global $config;
-		
-		$upImg = new image($config[theme].'/images/up.gif');
-		$downImg = new image($config[theme].'/images/down.gif');
-		
-		$page = ($this->customPage ? $this->customPage : 'index.php');
-		$action = ($this->customAction ? $this->customAction : 'modifyPosition');
-		
-		//Use session to redirect afterward -- is this always reliable?
-		$_SESSION[redirect] = $this->redirectURL;
-		
-		$url = "$page?action=$action&id={$this->id}&table={$this->tableName}".($this->customWhClause ? "&{$this->customWhClause}" : "")."&direction=";
-		
-		if ($this->showUp)
-		{
-			$upLink = new phpHyperlink($url."1", $upImg->render());
-			$upLink->postContent = '&nbsp;';
-		}
-		else
-		{
-			//Just so stupid IE will show an empty table...
-			$upLink = new phpLiteral();
-		}
-		
-		if ($this->showDown)
-		{
-			$downLink = new phpHyperlink($url."2", $downImg->render());			
-		}
-		else
-		{
-			$downLink = new phpFiller();	
-		}
-		
-		//Add a non breaking space for stupid IE
-		return '&nbsp;'.$upLink->render().$downLink->render();
-	}
-}
 class phpButton extends webControl
 {
 	public function __construct($id="", $label="", $class="")
@@ -1335,22 +1281,6 @@ class phpButton extends webControl
 		$this->controlData = $label;
 		$this->type = "button";
 	}
-}
-class customButton extends formInput 
-{
-	function customButton($name, $type, $value='')
-	{	
-		$this->name = $this->id = $name; 
-		$this->class = 'button';
-			
-		$this->addAttribute("type",$type);
-		$this->addAttribute("value",$value);
-		
-		$this->addAttribute("onmouseover","$(this).addClass('buttonOver')");
-		$this->addAttribute("onmouseout","$(this).removeClass('buttonOver')");		
-		
-		$this->controlTag = "input";		
-	}	
 }
 class customText extends formInput 
 {

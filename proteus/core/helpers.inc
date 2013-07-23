@@ -71,7 +71,7 @@ class imageHelper
 		switch($aspect)
 		{
 			case 0:
-				// Clip - no ratio consideration, clip to closest boundaries				
+				// Retain - attempts to retain aspect ratio and fit within boundaries (will clip vertical if necessary to retain aspect)
 				if ($adjHeight > $height)
 				{					
 					$diff = ($adjHeight - $height);
@@ -91,7 +91,7 @@ class imageHelper
 				
 				break;
 			case 1:
-				// Retain
+				// Clip - no image resample/size, no ratio consideration, clip to closest boundaries				
 				if ($width > $srcWidth)
 				{
 					// Specified width is greater; offset the destination x coordinate
@@ -118,57 +118,53 @@ class imageHelper
 				
 				break;
 			case 2:
-				// Stretch				
+				// Stretch - forced, irrespective of aspect ratio				
 				imagecopyresampled($iObj, $im, $dst_x, $dst_y, $src_x, $src_y, $width, $height, $srcWidth, $srcHeight);
 				
 				break;
 				
 			case 3:
-				$width = $imgSize[0];
-				$height = $imgSize[1];
-				
-				$wRatio = $width / $height;
-				$hRatio = $height / $width;
+				// Dynamic sizing; uses max values, retains aspect				
+				$wRatio = $srcWidth / $srcHeight;
+				$hRatio = $srcHeight / $srcWidth;
 				
 				// Make 2 passes at most to attempt a ratio reduction within dynamic boundaries
 				$ct = 0;
 		
-				while(($width > $o_width || $height > $o_height) && ++$ct < 2)
+				while(($srcWidth > $width || $srcHeight > $height) && ++$ct < 2)
 				{			
-					if ($width > $o_width)
+					if ($srcWidth > $width)
 					{
-						$width = $o_width;
-						$height = $width * $hRatio;	
+						$height = $srcWidth * $hRatio;	
+					}
+					else
+					{
+						$height = $srcHeight;	
 					}
 					
-					if ($height > $o_height)
+					if ($srcHeight > $height)
+					{					
+						$width = $srcHeight * $wRatio;	
+					}
+					else
 					{
-						$height = $o_height;
-						$width = $height * $wRatio;	
+						$width = $srcWidth;
 					}
 				}
 				
-				$o_width = $width;
-				$o_height = $height;
+				// Need to recreate this here since we're dealing with dynamic sizing
+				$iObj = imagecreatetruecolor($width, $height);
+				imagefill($iObj, 0, 0, 0);
+				
+				imagecopyresampled($iObj, $im, $dst_x, $dst_y, $src_x, $src_y, $width, $height, $srcWidth, $srcHeight);			
 				
 				break;
 				
 			default:
 				throw new Exception("Invalid aspect specified.");
 				
-		}
-	
-		/* $dst_width = round($width);
-		$dst_height = round($height); */			
-	
-		/* $dst_x = ($o_width / 2) - ($dst_width/2);
-		$dst_y = ($o_height / 2) - ($dst_height/2);
-
-		if ($dst_x < 0) $dst_x = 0;
-		if ($dst_y < 0) $dst_y = 0;	 */
-	
-		//imagecopyresampled($iObj, $im, $dst_x, $dst_y, $src_x, $src_y, $dst_width, $dst_height, $src_width, $src_height);	
-	
+		}	
+			
 		switch($imType)
 		{
 			case "jpg":							

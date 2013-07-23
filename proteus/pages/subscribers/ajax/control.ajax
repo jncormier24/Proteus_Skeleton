@@ -334,8 +334,8 @@ function getSubscribers($paging, $sortData, $filterColumns, $customColumns)
 		$t->id = "subscribersTable";
 
 		$r = $t->addRow();
-		$r->addHeader(new tblHeader("Email", "email"));
-		$r->addHeader(new tblHeader("Account", "login"));
+		$r->addHeader(new tblHeader("Email", "email", "", "", 200));
+		$r->addHeader(new tblHeader("Account", "login", "", "", 175));
 		$r->addHeader(new tblHeader("Channels"));
 		$r->addHeader(new tblHeader("Joined"));
 		$r->addHeader(new tblHeader("&nbsp;"));

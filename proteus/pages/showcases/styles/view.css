@@ -174,3 +174,34 @@ div.showcaseContainer > div.functions button
 {
 	padding: 3px 10px 4px 28px
 }
+#showcaseItemWin .redactor_box
+{
+	float: left;
+	width: 650px;
+}
+#itemsTable tr
+{
+	float: left;
+	clear: none;
+}
+#itemsTable tr td
+{
+	background-color: #e2e2e2;
+	
+	border: 1px solid #808080;
+	border-radius: 5px;
+	
+	box-shadow: 2px 2px 3px #333333;
+}
+/* #itemsTable tr td > span
+{
+	display: none;
+	font-size: 10px;
+	
+	color: #ffffff;
+	background-color: #e2e2e2;
+	
+	border-radius: 5px;
+	
+	padding: 3px 4px;
+} */

@@ -63,7 +63,7 @@ function ui_tb_show(caption, url, group)
 	var urlType = baseURL.toLowerCase().match(urlString);
 
 	var dvName = "jqui_thickbox_" + Math.round(Math.random()*1000);
-	$("body").append("<div class='uitb_window' id='" + dvName + "'><p></p></div>");
+	$("body").append("<div class='uitb_window' id='" + dvName + "'></div>");
 	
 	if(urlType == '.jpg' || urlType == '.jpeg' || urlType == '.png' || urlType == '.gif' || urlType == '.bmp')
 	{	
@@ -107,7 +107,7 @@ function ui_tb_show(caption, url, group)
 			winWidth = imageWidth + 30;
 			winHeight = imageHeight + 120;
 			
-			$("#"+dvName+" p").append("<img src='" + url + "' alt='" + caption + "' width=" + imageWidth + " height=" + imageHeight + " />");
+			$("#"+dvName).append("<img src='" + url + "' alt='" + caption + "' width=" + imageWidth + " height=" + imageHeight + " />");
 			init_dialog(dvName, caption, winWidth, winHeight, false);
 		}
 		
@@ -159,8 +159,7 @@ function init_dialog(dvName, caption, winWidth, winHeight, iFrame)
 		modal: true,
 		draggable: true,
 		autoResize: true,
-		width: winWidth,
-		height: winHeight,
+		width: winWidth,		
 		title: caption,
 		buttons:  
 		{

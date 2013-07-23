@@ -88,6 +88,11 @@ class customContentData extends phpDataSet
 		
 		switch($typeID)
 		{
+			case -6:
+				$data = new customShowcase($dataID);
+				$imgDir = "showcases/{$data->id}/$contentID";
+				
+				break;				
 			case -5:
 				// Blog Entry
 				$data = new customBlog($dataID);

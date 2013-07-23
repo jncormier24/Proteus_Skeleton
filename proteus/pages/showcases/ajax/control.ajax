@@ -5,6 +5,14 @@
 	
 	switch($action)
 	{
+		case "updateShowcaseItem":
+			updateShowcaseItem($itemID, $item);
+			breal;
+			
+		case "getShowcaseItemEdit":
+			getShowcaseItemEdit($itemID);
+			break;
+			
 		case "deleteShowcaseItem":
 			deleteShowcaseItem($itemID);
 			break;
@@ -337,7 +345,6 @@ function updateShowcase($showcaseID, $showcase, $cfg)
 		
 		if (strlen($showcase["name"]) < 3) throw new Exception("Name must be at least 3 characters!");
 
-		$showcase["description"] = validation::prepMultiLineForStorage($showcase["description"]);
 		// Scrub lookup key
 		$showcase["lookupKey"] = preg_replace("/[^a-z0-9_-]/i", "", $showcase["lookupKey"]);		
 		
@@ -575,7 +582,8 @@ function getShowcaseEntries($showcaseID)
 		}		
 		
 		$t = new tblBuilder('center',0,0,4,'100%');
-		$t->class = "listTable";
+		//$t->class = "listTable";
+		$t->id = "itemsTable";
 		
 		if ($writeAccess || $deleteAccess)
 		{
@@ -583,11 +591,11 @@ function getShowcaseEntries($showcaseID)
 			$t->addClass("sortable");
 		}		
 		
-		$r = $t->addRow();		
+		/* $r = $t->addRow();		
 		$r->addCell(new tblHeader("Thumb:", null, "center", null, "1%"));		
 		$r->addHeader(new tblHeader("File Size (Mb):"));
 		$r->addHeader(new tblHeader("Dimensions (px):"));		
-		if ($writeAccess || $deleteAccess) $r->addHeader(new tblHeader("&nbsp;", null, "center", null, "1%"));
+		if ($writeAccess || $deleteAccess) $r->addHeader(new tblHeader("&nbsp;", null, "center", null, "1%")); */
 		
 		$qry = "select id
 				from showcaseItems
@@ -621,14 +629,15 @@ function getShowcaseEntries($showcaseID)
 			$iLink = new phpHyperlink($itemObj->imageLocation, $img->render());
 			$iLink->class = "thickbox";
 			$iLink->addAttribute("rel", "gallery");
-			$iLink->addAttribute("title",$itemObj->description);			
+			$iLink->addAttribute("title","Image Dimensions: $fDim, Thumb Dimensions: $ftDim");			
 
 			$r = $t->addRow();	
 			$r->addAttribute("data-id", $itemObj->id);				
 
-			$r->addCell(new tblCell($iLink->render()."<br />$ftDim","","left"));
-			$r->addCell(new tblCell($fSize, "", "center"));
-			$r->addCell(new tblCell($fDim, "", "center"));
+			$cell = new tblCell($iLink, "", "center");			
+			
+			/* $r->addCell(new tblCell($fSize, "", "center"));
+			$r->addCell(new tblCell($fDim, "", "center")); */
 
 			if ($writeAccess || $deleteAccess)
 			{
@@ -637,7 +646,7 @@ function getShowcaseEntries($showcaseID)
 				if ($writeAccess)
 				{
 					$ctl = $mnu->addMenuItem("", "Edit Showcase Item", "", "ui-icon-pencil");
-					$ctl-> onclick = "editShowcaseEntry({$itemObj->id})";				
+					$ctl-> onclick = "getShowcaseItemEdit({$itemObj->id})";				
 				}
 				if ($deleteAccess)
 				{
@@ -645,8 +654,10 @@ function getShowcaseEntries($showcaseID)
 					$ctl-> onclick = "deleteShowcaseItem({$itemObj->id})";				
 				}				
 				
-				$r->addCell(new tblCell($mnu, "", "center"));				
+				$cell->addControl($mnu);				
 			}
+			
+			$r->addCell($cell);
 			
 			$pCt++;
 		}
@@ -666,6 +677,7 @@ function getShowcaseEntries($showcaseID)
 	}
 	
 	echo $js->render();
+	exit(0);
 }
 function uploadShowcaseImage($showcaseID)
 {
@@ -739,11 +751,108 @@ function deleteShowcaseItem($itemID)
 	}
 	catch(Exception $ex)
 	{
-		$msg = $ex->getMessage();
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getShowcaseItemEdit($itemID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+
+	try
+	{
+		$itemObj = new customShowcaseItem($itemID);
+		if (!$itemObj->id) throw new Exception("Error, that Showcase Item could not be found.");
+
+		if (!$g_sec->hasAccess(permissions::$manage_showcases, permissions::read) &&
+		!$g_sec->hasAccess(permissions::$modify_showcase, permissions::read, $itemObj->showcaseID)) $g_sec->security_error_a();
 		
-		error_log("Showcase Image: ".$msg);
+		$writeAccess = $g_sec->hasAccess(permissions::$manage_showcases, permissions::write) ||
+					   $g_sec->hasAccess(permissions::$modify_showcase, permissions::write, $itemObj->showcaseID);
+
+		$sWin = new jqUI_dialog("showcaseItemWin", true, 925, "", "Modify Showcase Item");
+		$sWin->addClass("configWin");
+		$sWin->setOption("autoOpen", 1);
+		$sWin->setOption("autoResize", 1);
+		$sWin->setOption("modal", 0);
 		
-		$js->error = $msg;
+		$sWin->addCloseButton("Close");			
+
+		$txtDesc = new phpTextArea("item[description]", $itemObj->description, 10, 80, "wysiwyg");
+		$txtDesc->setLabel("Description:");
+		
+		$txtTitle = new customText("item[title]", validation::prepTextForInput($itemObj->title),70, 75);
+		$txtTitle->setLabel("Title:");
+		
+		$txtURL = new customText("item[url]", validation::prepTextForInput($itemObj->url),70, 255);
+		$txtURL->setLabel("URL:");		
+			
+		if ($writeAccess)
+		{			
+			$sWin->addButton("Save Item Detail", "updateShowcaseItem");			
+		}		
+		else 
+		{
+			$js->disabled = 1;	
+		}
+		
+		$frm = new phpForm("post", "frmShowcaseItem");
+		$frm->addControl($txtTitle);
+		$frm->addControl($txtURL);
+		$frm->addControl($txtDesc);
+		$frm->addControl(new hiddenInput("action", "updateShowcaseItem"));
+		$frm->addControl(new hiddenInput("itemID", $itemID ));
+		
+		$sWin->addControl($frm);
+		
+		$js->content = $sWin->render();				
+		
+		$js->showcaseID = $itemObj->showcaseID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function updateShowcaseItem($itemID, $item)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+
+	try
+	{
+		$itemObj = new customShowcaseItem($itemID);
+		if (!$itemObj->id) throw new Exception("Error, that Showcase Item could not be found.");
+
+		if (!$g_sec->hasAccess(permissions::$manage_showcases, permissions::write) &&
+		!$g_sec->hasAccess(permissions::$modify_showcase, permissions::write, $itemObj->showcaseID)) $g_sec->security_error_a();
+		
+		foreach($item as $key=>$value)
+		{
+			$itemObj->$key = "'$value'";
+		}		
+		
+		$itemObj->save();
+
+		pageClass::setNotify("Successfully updated Showcase Item");
+		$js->showcaseID = $itemObj->showcaseID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
 	}
 	
 	echo $js->render();
