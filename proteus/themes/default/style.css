@@ -1,4 +1,7 @@
 /* Default Stylesheet */
+@import url(http://fonts.googleapis.com/css?family=Denk+One);
+@import url(http://fonts.googleapis.com/css?family=Roboto);
+
 body 
 {
 	margin: 0px;
@@ -9,7 +12,7 @@ body
 	background-color: #e2e2e2;
 	background-image: url(images/layout/background.jpg);
 	
-	font-family: Verdana, Helvetica, sans-serif;
+	font-family: 'Roboto', Verdana, Helvetica, sans-serif;
 	font-size: 14px;
 	
 	z-index: 1;
@@ -45,9 +48,41 @@ body > #container
 	border: 1px solid #999999;
 	border-radius: 5px 5px 0px 0px;
 		
-	background-color: #ffffff;
+	background-image: url(images/row_shine.png);
+    background-position: 0 74px;
+    background-repeat: repeat-x;
+	background-color: #444444;
+	
+	padding: 0px 0px 0px 25px;
 	
 	height: 150px;
+}
+#container > #headerContent img.logo
+{
+	font-family: 'Denk One';
+	font-size: 30px;
+	
+	margin: 12px 0px 4px 0px;
+	
+	color: #dd6900;
+}
+#container > #headerContent h2
+{
+	font-family: 'Denk One';
+	font-size: 20px;
+	
+	color: #9f9f9f;
+	
+	margin: -20px 0px 4px 145px;
+}
+#container > #headerContent h2 .ui-icon
+{
+	display: inline-block;
+	position: relative;
+	
+	margin: 0px 5px 0px 0px;
+	
+	top: -3px;
 }
 #container > #headerContent div.authUser
 {
@@ -55,10 +90,16 @@ body > #container
 	
 	top: 5px;
 	right: 5px;
+	
+	color: #9f9f9f;
 }
 #container > #headerContent div.authUser .ui-icon
 {
 	display: inline-block;
+}
+#container > #headerContent div.authUser strong
+{
+	color: #dd6900;
 }
 #container > #navContent
 {
@@ -180,6 +221,13 @@ a.clearIcon
 	border-radius: 5px;
 	
 	box-shadow: 1px 1px 3px #dd6900;
+}
+fieldset legend
+{
+	font-size: 16px;
+	font-weight: bold;	
+	
+	color: #dd6900;
 }
 select
 {

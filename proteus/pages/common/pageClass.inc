@@ -135,10 +135,16 @@ class admin_header extends phpDIV
 {
 	public function __construct($secObj)
 	{
+		global $config;
+		
 		$this->id = "headerContent";
 		parent::__construct();
 	
-		$this->addControl(new phpHeader(1, "Proteus IV Content Management Framework"));
+		$img = new image("themes/{$config["theme"]}/images/proteus_logo.png", "Proteus IV CMF", "logo");		
+		
+		$this->addControl($img);
+		//$this->addControl(new phpHeader(1, "Proteus IV"));
+		$this->addControl(new phpHeader(2, "<span class='ui-icon ui-icon-arrowreturnthick-1-e'>&nbsp;</span>Content Management Framework"));
 		
 		if ($secObj->id)
 		{

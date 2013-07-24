@@ -32,7 +32,7 @@ function show()
 	$txtBusName = new customText("data[businessName]", validation::prepTextForInput($conf->businessName), 50, 255);
 	$txtBusName->setLabel("Business Name:");
 		
-	$txtAddr = new phpTextArea("data[businessAddr]", validation::prepTextForInput($conf->businessAddr), 3, 45);
+	$txtAddr = new phpTextArea("data[businessAddr]", validation::prepTextForInput($conf->businessAddr), 3, 65);
 	$txtAddr->setLabel("Business Address:");
 		
 	$txtPhone = new customText("data[contactPhone]", validation::prepTextForInput($conf->contactPhone), 18, 14);

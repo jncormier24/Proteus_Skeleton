@@ -562,7 +562,7 @@ class validation
 		}
 		else
 		{			
-			$inVar = mysqli_real_escape_string($config["dbLink"], $tmp);
+			$inVar = mysqli_real_escape_string($config["dbLink"], $inVar);
 		}
 	}
 	public static function quotedArray($valueList, $exceptions='')

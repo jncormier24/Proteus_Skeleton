@@ -2,6 +2,10 @@
 {
 	min-height: 500px;
 }
+#showcaseEntries
+{
+	padding: 5px 10px 0px 10px;
+}
 fieldset
 {
 	margin-bottom: 8px;
@@ -183,6 +187,8 @@ div.showcaseContainer > div.functions button
 {
 	float: left;
 	clear: none;
+	
+	margin: 0px 4px 8px 0px;
 }
 #itemsTable tr td
 {

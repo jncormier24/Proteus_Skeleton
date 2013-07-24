@@ -8,14 +8,9 @@ div fieldset
 	float: right;
 	
 	margin: 10px 8px 8px 15px;
-	padding: 15px;
+	padding: 15px 15px 15px 5px;
 	
 	border-radius: 5px;
-}
-div fieldset legend
-{
-	font-size: 15px;
-	font-weight: bold;
 }
 div fieldset span
 {
@@ -27,9 +22,11 @@ div fieldset span
 div fieldset span.label strong
 {
 	display: inline-block;	
-	width: 180px;
+	width: 160px;
 	
-	margin-right: 6px;
+	margin-right: 10px;
+	
+	color: #333333;
 	
 	text-align: right;
 }

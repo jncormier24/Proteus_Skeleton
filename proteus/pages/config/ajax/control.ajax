@@ -26,11 +26,8 @@ function updateConfig($data)
 		$conf = new siteConfig();
 		
 		foreach($data as $key=>$value)
-		{
-			if (stristr($value, '\r\n')) $value = validation::prepMultiLineForStorage($value);
-			
-			validation::makeSafe($value);			
-
+		{			
+			validation::makeSafe($value);
 			$conf->$key = $value;	
 		}
 		
