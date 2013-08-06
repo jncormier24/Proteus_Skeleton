@@ -1,0 +1,1 @@
+$(function(){ $.jqAlert("JS Include Function test: OK"); });

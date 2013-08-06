@@ -20,6 +20,7 @@ class proteus_core
 	public static $module_blogs = array("siteType"=>8, "required"=>false, "location"=>"proteus/modules/blogs", "caption"=>"Blogs", "class"=>"customBlog_core");
 	public static $module_customCategories = array("siteType"=>2, "required"=>false, "location"=>"proteus/modules/customCategories", "caption"=>"Custom Categories", "class"=>"customCategory_core");
 	public static $module_showcases = array("siteType"=>4, "required"=>false, "location"=>"proteus/modules/customShowcase", "caption"=>"Custom Showcases", "class"=>"customShowcase_core");
+	public static $module_customForms = array("siteType"=>6, "required"=>false, "location"=>"proteus/modules/customForms", "caption"=>"Custom Forms", "class"=>"customForms_core");
 	
 	public static $module_comments = array("siteType"=>0, "required"=>true, "location"=>"proteus/modules/comments", "caption"=>"Comments", "class"=>"customComments_core");
 	public static $module_customContent = array("siteType"=>3, "required"=>true, "location"=>"proteus/modules/customContent", "caption"=>"Custom Content, Inline Editor", "class"=>"customContent_core");
@@ -52,7 +53,7 @@ class proteus_core
 									  `data` text NOT NULL,
 									  `lastAccess` datetime NOT NULL,
 									  `lastPage` int(11) NOT NULL,
-									  `ipAddress` int(11) unsigned NOT NULL,
+									  `ipAddress` int(11) NOT NULL,
 									  `views` int(11) NOT NULL,
 									  PRIMARY KEY (`session_id`)
 									) ENGINE=InnoDB DEFAULT CHARSET=utf8;");
@@ -106,6 +107,7 @@ class proteus_core
 	}
 	public static function includeAllModules()
 	{
+		// Include all configured module model.inc files
 		$conf = new siteConfig();
 		$mods = proteus_core::getModulesArray();
 		
@@ -116,6 +118,7 @@ class proteus_core
 	}
 	public static function includeModule(array $module)
 	{
+		// Include an individual module manually by including the model.inc
 		global $config;
 		include_once($config["baseAppDir"].$module["location"]."/model.inc");
 		
@@ -144,29 +147,22 @@ class proteus_core
 				$db->syncModule($obj);
 			}
 		}
-		
-		//Sync all the core Proteus modules
-		/*$db->syncModule(new proteus_core());
-		$db->syncModule(new customComments_core());
-		$db->syncModule(new customContent_core());
-		
-		// Always use the users module
-		$db->syncModule(new proteus_user_core());*/
-		
-		//$conf = new siteConfig();
-		
-		// Sync all the installed Proteus admin modules
-		/* if ($conf->checkSiteType(proteus_core::module_categoryItems)) $db->syncModule(new customCategory_core());
-		if ($conf->checkSiteType(proteus_core::module_showcase)) $db->syncModule(new customShowcase_core());
-		if ($conf->checkSiteType(proteus_core::module_calendars)) $db->syncModule(new customCalendar_core());
-		if ($conf->checkSiteType(proteus_core::module_inventory)) $db->syncModule(new customInventory_core());
-		if ($conf->checkSiteType(proteus_core::module_customForms)) $db->syncModule(new customForm_core());
-		if ($conf->checkSiteType(proteus_core::module_blogs)) $db->syncModule(new customBlog_core());
-		if ($conf->checkSiteType(proteus_core::module_twitter)) $db->syncModule(new twitter_core());
-		if ($conf->checkSiteType(proteus_core::module_metaData)) $db->syncModule(new metaData_core());
-		if ($conf->checkSiteType(proteus_core::module_municipal)) $db->syncModule(new pmm_core());
-		if ($conf->checkSiteType(proteus_core::module_subscribers)) $db->syncModule(new subscriber_core()); */
 	}
+}
+interface customAdminPage
+{	
+	// Check Menu Access: This method is requires as it determines the menu availability of the Custom Admin page in the backend navigation.
+	// It only accepts a security class because it's going to check for READ access only, then the control file for the custom admin page will 
+	// determine any additional security restrictions.	
+	public static function checkMenuAccess(security $sec);	
+	
+	// Since Interfaces cannot declare variables, have to use public getters for admin page options
+	public static function getCaption();
+	public static function getIconClass();
+
+	// This function returns the key to a menu block within Proteus, or an array containing a new Menu dropdown caption and 
+	// subsequent key (for re-use)
+	public static function getMenuKey();
 }
 class customSession
 {
@@ -573,29 +569,20 @@ class validation
 		if (!is_array($valueList)) return;
 
 		//Exceptions is an array of keys NOT to encapsulate in quotes - aggregates, public functions, etc
-		foreach($valueList as $key=>$value)
+		foreach($valueList as $key=>&$value)
 		{
 			if (!in_array($key, $exceptions))
 			{
-				if (substr($value,0,1) == "'" && substr($value, strlen($value)-1,1) == "'")
+				if (!preg_match("/^'.*'$/", $value))					
 				{
-					//If it starts with a quote and ends with a quote - handle it.
-					$tmp = substr($value, 1, strlen($value)-2);
+					$value = validation::ensureString($value);
+					$value = str_replace('$', "&#36;", $value);
+					
+					if (!is_numeric($value)) $value = "'".$value."'";
 				}
-				else
-				{
-					$tmp = $value;
-				}
-
-				$tmp = stripslashes($tmp);
-				$tmp = mysqli_real_escape_string($config[dbLink], $tmp);
-				$tmp = str_replace('$', "&#36;", $tmp);
-
-				//If it's non-numeric, or starts with Zero, encapsulate it in quotes
-				if ($tmp[0] == 0 || !is_numeric($tmp)) $tmp = "'".$tmp."'";
-				$valueList[$key] = $tmp;
 			}
 		}
+		
 		return $valueList;
 	}
 	public static function isIPValid($ip)
@@ -1104,7 +1091,7 @@ class upload
 			else
 			{
 				$loc = $location;
-			}
+			}			
 							
 			if (!move_uploaded_file($this->p_TmpName, $loc))
 			{
@@ -1143,9 +1130,12 @@ class upload
 
 		return imageHelper::getImageObject($this->p_TmpName);		
 	}
-	public function convertImage($newType, $resizeDimensions)
+	public function convertImage($newType, $resizeDimensions="")
 	{
 		if ($this->uploadComplete) throw new Exception("Error, the upload for this file has already been completed.");
+		
+		// No size conversion, use the source dimensions (no scaling)
+		if (!$resizeDimensions) $resizeDimensions = getimagesize($this->p_TmpName);
 
 		$destImg = imagecreatetruecolor($resizeDimensions[0], $resizeDimensions[1]);
 		$srcImg = $this->getSourceImageObject();

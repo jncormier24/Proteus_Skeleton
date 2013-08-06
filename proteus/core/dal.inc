@@ -323,6 +323,8 @@ class phpDataset
 			if (!$this->fill()) return;	
 		}
 		
+		if (!$this->id) return;
+		
 		$d = new DAL(true);
 		return $d->qry("delete from {$this->p_table} where id={$this->id}")->affectedRows;
 	}
@@ -355,7 +357,7 @@ class phpDataset
 		{
 			foreach($data as $key=>$value)
 			{				
-				$this->$key = "'".validation::prepMultiLineForStorage($value)."'";	
+				$this->$key = "'$value'";	
 			}
 		}
 		

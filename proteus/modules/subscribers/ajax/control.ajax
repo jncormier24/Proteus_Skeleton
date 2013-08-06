@@ -110,6 +110,14 @@ function getSubscriptionSendWin($optionID, $entryID, $typeID, $dataID, $template
 		
 		switch($typeID)
 		{
+			case subscriber_core::type_blog_entry:
+				$bObj = new customBlogEntry($dataID);
+				
+				$eData["subject"] = "Blog Entry: ".validation::prepForDisplay($bObj->title, false);
+				$eData["body"] = $bObj->body;
+				
+				$tabAnchor = "admin/blogs";
+				break;
 			case subscriber_core::type_municipal_agenda:
 				$aObj = new pmm_entityAgenda($dataID);
 				
@@ -152,7 +160,7 @@ function getSubscriptionSendWin($optionID, $entryID, $typeID, $dataID, $template
 		
 		if ($tplFile)
 		{
-			$p = new fileParser($tplFile, true);
+			$p = new fileParser($tplFile);
 			$p->pushParam("content", $eData["body"]);
 			$p->pushParam("businessName", $conf->businessName);
 			$p->pushParam("businessAddr", $conf->businessAddr);

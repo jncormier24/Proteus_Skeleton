@@ -15,11 +15,24 @@
 	$config["jsrev"] = 1;
 	$config["auto_include_folders"] = Array("scripts"=>Array("js"), "styles"=>Array("css"));
 	
-	$config["uploaded_image_quality"] = 85;
-	$config["upload_max_size"] = 1024000; 
+	// Setting this to TRUE will override the backend index interface and use the page located at /pages/admin/index, which will need to 
+	// use the adminPage pageClass to function properly, or override entirely with internal model.inc for a completely custom backend.
+	// Default: FALSE (use internal index)
+	$config["useCustomAdminIndex"] = false;
+	
+	// Set this to FALSE to prevent the bundled backend from scanning /pages/admin/ folder for custom admin pages
+	// Default: TRUE
+	$config["useCustomAdmin"] = true;
+	
+	$config["uploaded_image_quality_jpg"] = 85;	 
+	$config["uploaded_image_quality_png"] = 8;
+	$config["uploaded_image_max_width"] = 500;
+	$config["uploaded_image_max_height"] = 500;
+	
+	$config["upload_max_size"] = 1024000;
 	
 	// Define the permission class used for this site. To implement custom security options, use the bundled "permissions" as a template 
-	// and extend from that class.
+	// and extend from that class. (typically won't be necessary unless completely overriding bundled backend)
 	$config["permission_class"] = "permissions";
 	
 	// Set this to true to issue technical errors instead of generic. This is also required for other forms of error reporting

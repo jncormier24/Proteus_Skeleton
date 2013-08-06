@@ -1,0 +1,131 @@
+#customFormContainer
+{
+	padding: 0px 13px;
+	text-align: left;
+	
+	overflow: hidden;
+}
+#btnSubmit
+{
+	float: left;
+	clear: left;
+	
+	margin: 10px 0px 10px 150px;
+}
+h1.customForm_header
+{
+	margin: 6px 0px 8px 0px;
+}
+form.customForm
+{
+	float: left;
+	clear: both;
+	
+	margin: 0px auto;
+	
+	overflow: hidden;
+}
+form.customForm fieldset
+{
+	float: left;
+	clear: left;
+	
+	padding: 12px 0px 12px 18px;
+	
+	border-radius: 5px;	
+
+	width: 90%;
+}
+form.customForm fieldset legend
+{
+	font-weight: bold;
+	font-size: 16px;
+}
+form.customForm span.example
+{
+	display: block;
+	
+	font-size: 10px;
+	font-style: italic;
+	
+	line-height: 10px;
+}
+form.customForm label, form.customForm span.label
+{
+	float: left;
+	clear: left;	
+	
+	font-weight: bold;
+	
+	margin: 0px 10px 10px 0px;
+}
+form.customForm label
+{
+	width: 150px;
+}
+form.customForm input[type='text'], form.customForm textarea
+{
+	float: left;
+	clear: none;
+	
+	margin: 0px 5px 10px 0px;
+	
+	border-radius: 3px;
+	
+	border: 1px solid #cfcfcf;
+	
+	background-color: #DFDFDF;
+	background-image: url(/themes/default/images/row_shine_strong.png);
+	background-repeat: repeat-x;
+	
+	font-size: 15px;
+	font-weight: bold;
+	font-family: sans-serif;
+}
+form.customForm textarea
+{
+	padding: 6px;
+}
+form.customForm span.required
+{
+	float: left;
+	clear: none;
+	
+	position: relative;
+	
+	width: 50px;
+	margin: 0px 0px 0px 5px;
+	
+	color: #ff0000;
+	top: -2px;
+	font-size: 11px;
+}
+div.customForm_desc
+{
+	padding: 0px 20px 10px 5px;
+	text-align: justify;
+	
+	font-size: 16px;
+	margin: 4px 0px 0px 0px;
+}
+p.customForm_notePar
+{
+	padding: 0px 40px 50px 8px;
+	text-align: right;
+}
+p.customForm_notePar strong
+{
+	color: #ff0000;
+}
+p.customForm_notePar span.required
+{
+	float: none;
+	top: 0px;
+	font-size: 13px;
+}
+.invalidField
+{
+	background-color: #EF2C2C !important;
+	color: #e2e2e2 !important;
+	border-color: #FFFF00 !important;
+}

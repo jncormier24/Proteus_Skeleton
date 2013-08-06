@@ -251,7 +251,7 @@ function getShowcaseItemEdit(itemID)
 			
 			var win = $("#showcaseItemWin");
 			
-			$(".wysiwyg", win).assetRedactor(-6, output.showcaseID, itemID);
+			$(".wysiwyg", win).assetRedactor(4, output.showcaseID, itemID);
 			
 			win.dialog("option", "close", function()
 			{

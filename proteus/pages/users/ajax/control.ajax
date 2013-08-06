@@ -425,7 +425,7 @@ function getPermissions($userID)
 			if (!$conf->moduleEnabled($permission["siteType"])) continue;
 
 			 switch($permission["siteType"])
-			{
+			 {
 				case proteus_core::module_categoryItems:
 					$obj = new customCategory($assn["dataID"]);
 					if (!$obj->id) continue;
@@ -459,7 +459,7 @@ function getPermissions($userID)
 					
 					break;
 				case proteus_core::module_customForms:					
-					$obj = $d->qryArray("select * from formBuilder where id={$assn["dataID"]}");
+					$obj = $d->qryArray("select * from customForms where id={$assn["dataID"]}");
 					if (!$obj["id"]) continue;
 					
 					$title = $obj["title"];
@@ -798,7 +798,7 @@ function getLinkedOptions($permKey, $userID)
 					break;
 				case proteus_core::module_customForms:					
 					$qry = "select id, title 'name'
-							from formBuilder
+							from customForms
 							where disabled = 0
 							order by title asc";					
 					break;

@@ -66,8 +66,8 @@ abstract class permission_base
 		{
 			if (!$permissionMask || ($entry[bitValue] & $permissionsMask))
 			{
-				$perms[$entry[id]] = new security($entry[userID]);
-				$perms[$entry[id]]->permDataID = $entry[dataID];		
+				$perms[$entry["id"]] = new security($entry["userID"]);
+				$perms[$entry["id"]]->permDataID = $entry["dataID"];		
 			}
 		}			
 		
@@ -78,7 +78,7 @@ abstract class permission_base
 		$assn = self::getPermissionEntry($permissionEntryID);		
 		
 		$d = new DAL(true);		
-		$d->qry("delete from permissionsAssignment where id=$assn[id]");
+		$d->qry("delete from permissionsAssignment where id={$assn["id"]}");
 		
 		return true;	
 	}
@@ -268,13 +268,13 @@ class security
 	{
 		return $this->hasAccess($permission, 1, $dataID, $explicit);	
 	}
-	public function hasAccess($permission, $accessLevels, $dataID = '', $explicit=false)
+	public function hasAccess($permission, $accessLevels, $dataID = 0, $explicit=false)
 	{			
 		if (!$explicit && $this->global_admin) return true;
 		if (!$this->userID) return false;
 		
 		//Stored array of access keys with Bitwise comparison. Stops multiple DB lookups for the same key.
-		if (!$dataID && (($this->key_access[$permission[key]] & $accessLevels) || ($this->key_access[$permission[key]] && !$accessLevels))) return true;		
+		if (!$dataID && (($this->key_access[$permission["key"]] & $accessLevels) || ($this->key_access[$permission["key"]] && !$accessLevels))) return true;		
 		
 		if (!$permission[key]) return false;		
 
@@ -284,7 +284,7 @@ class security
 		//BITWISE COMPARISON!
 		if (($permAssn[bitValue] & $accessLevels) || !$accessLevels)
 		{
-			$this->key_access[$permission[key]] = $permAssn[bitValue];
+			$this->key_access[$permission["key"]] = $permAssn["bitValue"];
 			return true;
 		}	
 		

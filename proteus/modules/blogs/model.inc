@@ -179,6 +179,15 @@ class customBlog extends phpDataset
 		
 		return $iconObject;
 	}
+	public function hasAccess(security $sec, $permission, $throwException = false)
+	{
+		$access = $sec->hasAccess(permissions::$manage_blogs, $permission) || 
+			   	  $sec->hasAccess(permissions::$modify_blog_category, $permission, $this->id);
+		
+		if (!$access && $throwException) $sec->security_error_a();
+		
+		return $access;
+	}
 }
 class customBlogEntry extends phpDataset
 {		
@@ -339,6 +348,15 @@ class customBlogEntry extends phpDataset
 		if (!file_exists($loc)) mkdir($loc);
 		
 		return $id;
+	}
+	public function hasAccess(security $sec, $permission, $throwException = false)
+	{
+		$access = $sec->hasAccess(permissions::$manage_blogs, $permission) || 
+			   	  $sec->hasAccess(permissions::$modify_blog_category, $permission, $this->blogID);
+		
+		if (!$access && $throwException) $sec->security_error_a();
+		
+		return $access;
 	}
 }
 class customBlogFeed extends phpDataset

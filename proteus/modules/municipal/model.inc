@@ -167,6 +167,16 @@ class pmm_entity extends phpDataset
 			}
 		}
 	}	
+	public function __get($key)
+	{
+		switch($key)
+		{
+			case "assetFolder":
+				return "assets/municipal/{$this->id}";
+		}
+		
+		return parent::__get($key);
+	}
 	public function insert($data="")
 	{
 		global $config;
@@ -389,6 +399,15 @@ class pmm_entity extends phpDataset
 		if (!$this->id) return;
 		return customCalendar::getCalendars(customCalendar::calendar_municipal_entity, $this->id);
 	}
+	public function hasAccess(security $sec, $permission, $throwException = false)
+	{
+		$access = $sec->hasAccess(permissions::$manage_municipal_entities, $permission) || 
+			   	  $sec->hasAccess(permissions::$municipal_entity, $permission, $this->id);
+		
+		if (!$access && $throwException) $sec->security_error_a();
+		
+		return $access;
+	}
 }
 interface entityChild
 {
@@ -484,6 +503,36 @@ class pmm_entityFaq extends phpDataset implements entityChild
 				
 		return $d->qry($qry, false);	
 	}		
+	public function __get($key)
+	{
+		global $config;		
+		
+		switch($key)
+		{
+			case "parent":
+				return $this->getParentEntity();
+				
+			case "assetFolder":
+				return "assets/municipal/{$this->entityID}/faq/{$this->id}";
+		}
+		
+		return parent::__get($key);	
+	}
+	public function insert($data="")
+	{
+		global $config;
+		$d = new DAL(true);		
+		
+		$id = parent::insert($data);
+		
+		$loc = $config["baseAppDir"].$this->parent->assetFolder."/faq";
+		if (!file_exists($loc)) mkdir($loc);
+		
+		$loc = $config["baseAppDir"].$this->assetFolder;
+		if (!file_exists($loc)) mkdir($loc);
+		
+		return $id;
+	}
 	public function delete()
 	{
 		global $config;
@@ -498,6 +547,15 @@ class pmm_entityFaq extends phpDataset implements entityChild
 		@rmdir($baseLoc);
 		
 		return parent::delete();
+	}
+	public function hasAccess(security $sec, $permission, $throwException = false)
+	{
+		$access = $sec->hasAccess(permissions::$manage_municipal_entities, $permission) || 
+			   	  $sec->hasAccess(permissions::$municipal_entity, $permission, $this->entityID);
+		
+		if (!$access && $throwException) $sec->security_error_a();
+		
+		return $access;
 	}
 }
 class pmm_entityPosting extends phpDataset implements entityChild
@@ -514,15 +572,17 @@ class pmm_entityPosting extends phpDataset implements entityChild
 		//Shouldn't ever be getting an icon object for a non-existent entity.
 		if (!$this->id) return false;
 		
-		$folder = "assets/municipal/{$this->entityID}/";
+		$folder = $this->assetFolder;
 		$absFolder = $config["baseAppDir"].$folder;
 			
-		$file = "posticon_{$this->id}.png";
+		$file = "/posticon_{$this->id}.png";
 		
 		$cfg = pmm_core::getConfigObject();
 		$dimensions = explode("x", $cfg->postIconDim);
 		
-		if (file_exists($absFolder.$file))
+		$fileLocation = $absFolder.$file;
+		
+		if (file_exists($fileLocation))
 		{			
 			$iconObject = new image($folder.$file."?rnd=".rand(0, 100), validation::prepForDisplay($this->title));
 		}
@@ -540,20 +600,31 @@ class pmm_entityPosting extends phpDataset implements entityChild
 	{
 		global $config;		
 		
-		if ($key == "icon")
-		{			
-			$folder = "assets/municipal/{$this->entityID}/";
-			$absFolder = $config[baseAppDir].$folder;
-			
-			$file = "posticon_{$this->id}.png";
-			
-			if (!$this->id || !file_exists($absFolder.$file)) return false;
-
-			return $folder.$file."?rnd=".rand(0, 100);
+		switch($key)
+		{
+			case "parent":
+				return $this->getParentEntity();
+				
+			case "assetFolder":
+				return "assets/municipal/{$this->entityID}/postings/{$this->id}";
 		}
 		
 		return parent::__get($key);	
-	}		
+	}	
+	public function insert($data="")
+	{
+		global $config;
+		
+		$id = parent::insert($data);
+		
+		$loc = $config["baseAppDir"].$this->parent->assetFolder."/postings";
+		if (!file_exists($loc)) mkdir($loc);
+		
+		$loc = $config["baseAppDir"].$this->assetFolder;
+		if (!file_exists($loc)) mkdir($loc);
+		
+		return $id;
+	}	
 	public function getParentEntity()
 	{
 		//Multiple inheritance would be nice here...
@@ -586,6 +657,15 @@ class pmm_entityPosting extends phpDataset implements entityChild
 		@rmdir($baseLoc);
 	
 		return parent::delete();
+	}
+	public function hasAccess(security $sec, $permission, $throwException = false)
+	{
+		$access = $sec->hasAccess(permissions::$manage_municipal_entities, $permission) || 
+			   	  $sec->hasAccess(permissions::$municipal_entity, $permission, $this->entityID);
+		
+		if (!$access && $throwException) $sec->security_error_a();
+		
+		return $access;
 	}
 }
 class pmm_entityFile extends phpDataset implements entityChild
@@ -776,6 +856,19 @@ class pmm_entityAgenda extends phpDataset implements entityChild
 		validation::ensureInt($agendaID);		
 		parent::__construct("pmm_entityAgendas", $agendaID, $agendaID ? true : false);		
 	}
+	public function __get($key)
+	{
+		switch($key)
+		{
+			case "parent":
+				return $this->getParentEntity();
+				
+			case "assetFolder":
+				return "assets/municipal/{$this->entityID}/agendas/{$this->id}";
+		}
+		
+		return parent::__get($key);
+	}
 	public function getParentEntity()
 	{
 		//Multiple inheritance would be nice here...
@@ -786,6 +879,21 @@ class pmm_entityAgenda extends phpDataset implements entityChild
 	{
 		if (!$this->id) return false;
 		return pmm_core::getLinkedFiles(2, $this->id);
+	}
+	public function insert($data="")
+	{
+		global $config;
+		$d = new DAL(true);		
+		
+		$id = parent::insert($data);
+		
+		$loc = $config["baseAppDir"].$this->parent->assetFolder."/agendas";
+		if (!file_exists($loc)) mkdir($loc);
+		
+		$loc = $config["baseAppDir"].$this->assetFolder;
+		if (!file_exists($loc)) mkdir($loc);
+		
+		return $id;
 	}
 	public function delete()
 	{
@@ -824,6 +932,15 @@ class pmm_entityAgenda extends phpDataset implements entityChild
 				$limit";
 				
 		return $d->qry($qry, false);	
+	}
+	public function hasAccess(security $sec, $permission, $throwException = false)
+	{
+		$access = $sec->hasAccess(permissions::$manage_municipal_entities, $permission) || 
+			   	  $sec->hasAccess(permissions::$municipal_entity, $permission, $this->entityID);
+		
+		if (!$access && $throwException) $sec->security_error_a();
+		
+		return $access;
 	}
 }
 ?>

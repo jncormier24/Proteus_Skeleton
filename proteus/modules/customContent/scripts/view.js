@@ -7,7 +7,7 @@ $(function()
 	{
 		var opts = {};
 		
-		if (contentID)
+		if (dataID || contentID)
 		{
 			opts = 
 			{

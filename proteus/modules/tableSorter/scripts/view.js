@@ -49,6 +49,7 @@ function initTableSort()
 					if (!$.ajaxError(output, $))
 					{
 						getMessages();
+						if (obj.parent().is(".striped") && $.isFunction($.fn.tableRowAlternate)) obj.parent().tableRowAlternate();
 					}
 				});				
 			}				

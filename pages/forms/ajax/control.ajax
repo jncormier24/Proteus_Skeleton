@@ -1,0 +1,134 @@
+<?php 
+	$g_sec = permissions::getAuthorizedUser();
+	proteus_core::includeAllModules();
+	
+	switch($action)
+	{
+		case "submitForm":
+			submitForm($formID, $fields);
+			break;
+			
+		default:
+			die("Unauthorized");
+	}
+	
+function submitForm($formID, $fields)
+{
+	global $config, $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		$formObj = new customForm($formID);
+		if (!$formObj->id) throw new Exception("Error, that form could not be found.");
+			
+		$delay = 60*15; //15 minute window to complete a form.		
+		
+		if (!$fields["token"]) throw new Exception("Error, no verification provided - please ensure Javascript and Cookies are enabled in your browser and try again!");
+		if (!$_COOKIE["form_token"]) throw new Exception("Error, cookies do not appear to be enabled in your browser. Please enable cookies and try again (we're attempting to verify that you're a human, and not a spam bot!)");
+		
+		$tokenArr = explode("_", $fields["token"]);
+				
+		//Stop sending nice/useful messages at this point (obvious hack attempt)
+		if (count($tokenArr) != 2 || $tokenArr[0] != $formObj->id || $_COOKIE["form_token"] != md5("proteus".$tokenArr[1]))
+		{
+			throw new Exception("Error processing form submission.");
+		}
+
+		if (($tokenArr[1] + $delay) < time()) throw new Exception("We're sorry, but the 15 minute timeout for form completion has lapsed. Please try submitting again now that we've refreshed your session.");
+
+		unset($fields["token"]);
+		
+		foreach($fields as $key=>$value)
+		{
+			$fObj = new customFormField($key);
+			if ($fObj->formID != $formObj->id) throw new Exception("Error, maligned field found. Unable to proceed.");
+
+			if (!$fObj->validate($value)) $eArr[] = $key;			
+			
+			$disp[] = array($fObj->caption, $value);
+		}
+		
+		if (count($eArr))
+		{
+			$js->error_fields = implode(",", $eArr);
+			throw new Exception("Error submitting data; There are missing required fields and/or fields in the incorrect format. Please correct highlighted fields and try again.");
+		}		
+		
+		$ipAddr = ip2long($_SERVER["REMOTE_ADDR"]);
+		
+		//Check for rate-limiting
+		$qry = "select count(*)
+				from customFormSubmissions
+				where ipAddress=$ipAddr and (dateTime + INTERVAL 5 MINUTE) > now()";
+		if (!$d->qryCount($qry) > 3) throw new Exception("Error, you have submitted too many requests in the last 5 minutes. Please wait a little while and then try again. Thank you!");
+
+		$subObj = new customFormSubmission(0);
+		$subObj->formID = $formObj->id;
+		$subObj->ipAddress = $ipAddr;
+		if ($g_sec->id) $subObj->userID = $g_sec->id;
+		
+		$subID = $subObj->insert();		
+		if (!$subID) throw new Exception("Error adding form submission! Please try again.");		
+		
+		foreach($fields as $key=>$value)
+		{			
+			$subObj->addResponse($key, $value);
+		}
+		
+		foreach($disp as $line)
+		{			
+			$eContent .= "<strong>{$line[0]}:</strong> $line[1] <br />";	
+		}		
+		
+		$conf = new siteConfig();
+		
+		//Determine the default destination address (form configured, or config set)
+		$defaultEmail = ($formObj->customEmail ? $formObj->customEmail : $conf->sitemail);
+
+		$body = "A new form submission has been processed, details are as follows:<br /><br />
+$eContent <br /><br />
+This data has also been recorded in the Proteus database and can be found in the Custom Forms administration interface here:
+<br /><br />
+{$config["scripturl"]}admin/customForms
+<br /><br />";
+		
+		$eml = new proteusEmail($defaultEmail, "[New Form Submission] - ".$formObj->title, $body);
+		$eml->fromName = "Proteus Mailer Daemon";
+		$eml->fromAddress = $conf->sitemail;
+				
+		$eml->send();
+		
+		if ($formObj->responseText)
+		{
+			$respText = validation::prepForDisplay($formObj->responseText);	
+		}
+		else
+		{
+			$respText = "Successfully submitted request. Someone will be in touch with you shortly.";	
+		}
+		
+		$sWin = new jqUI_dialog("sWin", false, 525, "", "Submission Successful");
+		$sWin->setOption("autoOpen", true);
+		$sWin->setOption("autoResize", true);
+		$sWin->addControl(new phpParagraph($respText));
+		// Set a custom close handler that calls the submissionComplete() function if it exists; passes jQuery Dialog as context		
+		$sWin->addButton("Ok", "function() { submissionComplete_callback.call(this); }");				
+		
+		$js->content = $sWin->render();
+		$js->formID = $formObj->id;
+	}
+	catch(Exception $ex)
+	{				
+		$eWin = new jqUI_errorNotify($ex);
+		$eWin->addControl(new jqLoader("updateToken({$formObj->id})"));
+				
+		$js->error = $eWin->render();		
+	}	
+	
+	echo $js->render();
+	exit(0);
+}
+?>

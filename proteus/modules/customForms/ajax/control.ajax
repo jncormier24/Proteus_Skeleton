@@ -1,0 +1,31 @@
+<?php 
+	proteus_core::includeAllModules();
+	
+	switch($action)
+	{
+		case "getToken":
+			getToken($formID);
+			break;
+			
+		default:
+			die("Unauthorized");
+	}
+	
+function getToken($formID)
+{
+	$js = new json_a();
+	
+	$formObj = new customForm($formID);
+	if (!$formObj->id) die();
+	
+	$ct = time();
+	$tk = md5('proteus'.$ct);
+	
+	setcookie("form_token", $tk, 0, '/');
+	
+	$js->token = $formObj->id."_".$ct;
+	
+	echo $js->render();
+	exit(0);
+}
+?>

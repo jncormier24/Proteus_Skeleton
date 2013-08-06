@@ -422,8 +422,8 @@ function getEntities($typeID)
 					
 					if ($optData[id])
 					{
-						$btnEmail = new jqUI_button("btnEmail_$entity[id]", "Email Subscribers", "", "ui-icon-mail-closed", true);
-						$btnEmail->onclick = "getSubscriptionSendWin($optData[id], 0, ".subscriber_core::type_municipal_generic.", $entity[id])";
+						$btnEmail = new jqUI_button("", "Email Subscribers", "", "ui-icon-mail-closed", true);
+						$btnEmail->onclick = "getSubscriptionSendWin({$optData["id"]}, 0, ".subscriber_core::type_municipal_generic.", {$entity["id"]})";
 						
 						$dDiv->addControl($btnEmail);
 					}
@@ -433,8 +433,8 @@ function getEntities($typeID)
 				if ($conf->moduleEnabled(proteus_core::$module_calendars))
 				{
 					
-					$btnEvents = new jqUI_button("btnEvents_$entity[id]", "Misc. Events", "", "ui-icon-calendar", true);
-					$btnEvents->onclick = "getEventsWin($entity[id])";
+					$btnEvents = new jqUI_button("", "Misc. Events", "", "ui-icon-calendar", true);
+					$btnEvents->onclick = "getEventsWin({$entity["id"]})";
 						
 					$dDiv->addControl($btnEvents);
 				}
@@ -469,11 +469,12 @@ function getEntityEdit($entityID)
 	$js = new json_a();
 	
 	try
-	{		
-		if (!$entityID) 
-		{
-			$entityID = 0;
+	{	
+		$eObj = new pmm_entity($entityID);
 			
+		if (!$eObj->id) 
+		{
+			$entityID = 0;			
 			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::insert)) $g_sec->security_error_a();
 		
 		}
@@ -482,8 +483,6 @@ function getEntityEdit($entityID)
 			if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) &&
 				!$g_sec->hasAccess(permissions::$municipal_entity, permissions::read, $entityID)) $g_sec->security_error_a();	
 		}
-		
-		$eObj = new pmm_entity($entityID);
 		
 		$entityWin = new jqUI_dialog("entityWin", true, 875, "", $entityID ? "Modify Entity" : "Add new Entity");
 		$entityWin->addClass("configWin");

@@ -22,10 +22,12 @@ class pageContent
 	}
 	function render()
 	{
+		global $config;
 		$content = "";
 		
 		foreach($this->controls as $control)
 		{
+			if ($config["debugMode"] && !is_callable(array($control, "render"))) throw new Exception("Invalid Control render attempt:".print_r($control, true));
 			$content .= $control->render();
 		}
 		
@@ -53,9 +55,9 @@ class webControl extends pageContent
 	public $preContent = "";
 	public $postContent = "";
 	
-	function addAttribute($method, $value)
+	function addAttribute($key, $value)
 	{
-		$this->$method = $value;	
+		$this->$key = $value;	
 	}
 	function addClass($class)
 	{
@@ -1248,7 +1250,7 @@ class viewControl extends jqUI_button
 	
 	function __construct($url='', $customGif=false, $format=false, $newWindow=false)
 	{	
-		parent::__construct("btnView_".md5($url ? $url : pageClass::generateRandomString()),"","actionControl","ui-icon-search", true);
+		parent::__construct("btnView_".md5($url ? $url : proteus_core::generateRandomString()),"","actionControl","ui-icon-search", true);
 		$this->title = 'View';
 		
 		$this->origUrl = $url;		

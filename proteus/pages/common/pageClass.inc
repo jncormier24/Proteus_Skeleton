@@ -46,6 +46,11 @@ class admin_navigation extends phpDIV
 	
 		if ($secObj->id)
 		{
+			global $config;
+			
+			$menus= array();
+			$dirs = array();
+			
 			$conf = new siteConfig();
 			
 			$lnk = new jqUI_hyperlink("admin", "Admin Home", "", "ui-icon-home");
@@ -54,11 +59,18 @@ class admin_navigation extends phpDIV
 			$lnk = new jqUI_hyperlink("javascript:void(0)", "Content", "", "ui-icon-star");
 			$li = new htmlListItem($lnk->render());
 			
-			$ul = new phpUnOrderedList();
+			$ul = new phpUnOrderedList();			
+			$menus["content"] = $ul;
 			
-			if ($conf->moduleEnabled(proteus_core::$module_municipal["siteType"]) && $secObj->is(permissions::$manage_municipal_entities))
+			if ($conf->moduleEnabled(proteus_core::$module_municipal) && $secObj->is(permissions::$manage_municipal_entities))
 			{
 				$lnk = new jqUI_hyperlink("admin/municipal", "Municipal", "", "ui-icon-flag");
+				$ul->addListItem(new htmlListItem($lnk->render()));
+			}
+			
+			if ($conf->moduleEnabled(proteus_core::$module_calendars) && ($secObj->is(permissions::$manage_calendars) || $secObj->is(permissions::$modify_calendar)))
+			{	
+				$lnk = new jqUI_hyperlink("admin/calendars", "Calendars & Events", "", "ui-icon-calendar");
 				$ul->addListItem(new htmlListItem($lnk->render()));
 			}
 			
@@ -68,15 +80,21 @@ class admin_navigation extends phpDIV
 				$ul->addListItem(new htmlListItem($lnk->render()));
 			}			
 			
-			if ($conf->moduleEnabled(proteus_core::$module_blogs["siteType"]) && ($secObj->is(permissions::$manage_blogs) || $secObj->is(permissions::$modify_blog_category)))
+			if ($conf->moduleEnabled(proteus_core::$module_blogs) && ($secObj->is(permissions::$manage_blogs) || $secObj->is(permissions::$modify_blog_category)))
 			{	
 				$lnk = new jqUI_hyperlink("admin/blogs", "Blogs", "", "ui-icon-signal-diag");
 				$ul->addListItem(new htmlListItem($lnk->render()));
 			}
 
-			if ($conf->moduleEnabled(proteus_core::$module_showcases["siteType"]) && ($secObj->is(permissions::$manage_showcases) || $secObj->is(permissions::$modify_showcase)))
+			if ($conf->moduleEnabled(proteus_core::$module_showcases) && ($secObj->is(permissions::$manage_showcases) || $secObj->is(permissions::$modify_showcase)))
 			{	
 				$lnk = new jqUI_hyperlink("admin/showcases", "Custom Showcases", "", "ui-icon-image");
+				$ul->addListItem(new htmlListItem($lnk->render()));
+			}
+			
+			if ($conf->moduleEnabled(proteus_core::$module_customForms) && ($secObj->is(permissions::$manage_custom_forms) || $secObj->is(permissions::$modify_custom_form)))
+			{
+				$lnk = new jqUI_hyperlink("admin/customForms", "Custom Forms", "", "ui-icon-contact");
 				$ul->addListItem(new htmlListItem($lnk->render()));
 			}
 			
@@ -90,6 +108,7 @@ class admin_navigation extends phpDIV
 			$li = new htmlListItem($lnk->render());
 			
 			$ul = new phpUnOrderedList();
+			$menus["management"] = $ul;
 			
 			if ($secObj->is(permissions::$site_configuration))
 			{	
@@ -97,15 +116,9 @@ class admin_navigation extends phpDIV
 				$ul->addListItem(new htmlListItem($lnk->render()));
 			}
 			
-			if ($conf->moduleEnabled(proteus_core::$module_subscribers["siteType"]) && $secObj->is(permissions::$manage_subscribers))
+			if ($conf->moduleEnabled(proteus_core::$module_subscribers) && $secObj->is(permissions::$manage_subscribers))
 			{	
 				$lnk = new jqUI_hyperlink("admin/subscribers", "Subscriptions Management", "", "ui-icon-mail-closed");
-				$ul->addListItem(new htmlListItem($lnk->render()));
-			}
-			
-			if ($conf->moduleEnabled(proteus_core::$module_municipal["siteType"]) && ($secObj->is(permissions::$manage_calendars) || $secObj->is(permissions::$modify_calendar)))
-			{	
-				$lnk = new jqUI_hyperlink("admin/calendars", "Calendars & Events", "", "ui-icon-calendar");
 				$ul->addListItem(new htmlListItem($lnk->render()));
 			}
 			
@@ -116,8 +129,78 @@ class admin_navigation extends phpDIV
 			}
 			
 			$li->addControl($ul);
-			
 			if (count($ul->listItems)) $this->menu->addListItem($li);
+			
+			if ($config["useCustomAdmin"])
+			{
+				$customLoc = $config["baseAppDir"]."/pages/admin";
+				
+				foreach (new DirectoryIterator($customLoc) as $file) 
+				{
+	        		if ($file->isDir() && !$file->isDot())
+	        		{        			
+	            		$dirs[] = $file->getFilename();
+	        		}
+	    		}
+	    		
+				if (count($dirs))
+	    		{
+	    			// Get the custom admin model (permissions, etc)
+	    			include_once($customLoc."/model.inc");	
+	    			
+	    			foreach($dirs as $dir)
+	    			{
+	    				include_once($customLoc."/$dir/model.inc");
+	    			}
+	    			
+	    			// Now that all the models are included, lets pick out all the models that implement the customAdminPage interface
+	    			$classes = get_declared_classes();
+					
+					foreach($classes as $cls) 
+					{
+	   					$reflect = new ReflectionClass($cls);
+	   					
+	   					if ($reflect->implementsInterface("customAdminPage"))
+	   					{
+	   						if ($cls::disabled) continue;
+	   						
+	   						$dirName = basename(dirname($reflect->getFileName()));   						
+	   						
+	   						if (array_search($dirName, $dirs) !== false && $cls::checkMenuAccess($secObj))
+	   						{
+	   							$key = $cls::getMenuKey();
+	   							
+	   							if (is_array($key))
+	   							{	
+									if (!$menus[$key[1]])
+									{
+										$lnk = new jqUI_hyperlink("javascript:void(0)", $key[0], "", $key[2]);
+										$li = new htmlListItem($lnk->render());
+										
+										$this->menu->addListItem($li);
+									
+										$ul = new phpUnOrderedList();
+										$menus[$key[1]] = $ul;
+										
+										$li->addControl($ul);
+									}
+									else
+									{
+										$ul = $menus[$key[1]];
+									}
+	   							}
+	   							else
+	   							{
+	   								$ul = $menus[$key];	
+	   							}   							
+	   							
+	   							$lnk = new jqUI_hyperlink("admin/$dirName", $cls::getCaption(), "", $cls::getIconClass());
+								$ul->addListItem(new htmlListItem($lnk->render()));
+	   						}
+	   					}      				
+					}
+	    		}
+			}
 		}
 		
 		$lnk = new jqUI_hyperlink("index", "Back to Site", "", "ui-icon-seek-prev");

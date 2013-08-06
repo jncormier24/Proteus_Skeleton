@@ -54,34 +54,22 @@ class contentParser
 }
 class fileParser extends contentParser
 {
-	public $pFile;
-	public $absolute = false;
+	public $pFile;	
 	
-	function __construct($file, $absolute=false)
+	function __construct($file)
 	{
 		global $config;
 		
 		$this->pFile = $file;
-		$this->absolute = $absolute;
-		
+				
 		$this->pushParam("scripturl", $config["scripturl"]);		
 		$this->pushParam("theme", $config["theme"]);
 	}
 	function render()
 	{
-		global $config;
+		global $config;		
 		
-		if ($this->absolute)
-		{
-			$filename = $this->pFile;	
-		}
-		else
-		{
-			//$filename = $config[baseAppDir].($config[adminTheme] ? "admin/" : "").$config[theme]."/".$this->pFile;
-			$filename = $config["baseAppDir"]."themes/".$config["theme"]."/".$this->pFile;						
-		}
-		
-		$this->templateContent = @file_get_contents($filename);
+		$this->templateContent = @file_get_contents($this->pFile);
 		
 		return parent::render();
 	}

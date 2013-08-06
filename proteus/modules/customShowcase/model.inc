@@ -87,10 +87,8 @@ class customShowcase extends phpDataset
 			
 		$url = $baseLoc."/icon.png";
 		$fileLocation = $config["baseAppDir"].$url;
-
-		$sObj = customBlog_core::getConfigObject();
 		
-		$dimensions = explode("x", $sObj->entryIconDim);
+		$dimensions = explode("x", $this->settings->thumbDim);
 		
 		if (file_exists($fileLocation))
 		{			
@@ -151,6 +149,15 @@ class customShowcase extends phpDataset
 		@rmdir($baseLoc);
 		
 		return parent::delete();
+	}
+	public function hasAccess(security $sec, $permission, $throwException = false)
+	{
+		$access = $sec->hasAccess(permissions::$manage_showcases, $permission) || 
+			   	  $sec->hasAccess(permissions::$modify_showcase, $permission, $this->id);
+		
+		if (!$access && $throwException) $sec->security_error_a();
+		
+		return $access;
 	}
 }
 class customShowcaseItem extends phpDataset
@@ -226,6 +233,6 @@ class customShowcaseItem extends phpDataset
 		$dim = explode("x", $showcase->settings->itemThumbDim);
 		
 		imageHelper::scaleImage($this->imageLocation, $dim[0], $dim[1], $showcase->settings->itemThumbAspect, $this->imageThumbLocation);
-	}
+	}	
 }
 ?>

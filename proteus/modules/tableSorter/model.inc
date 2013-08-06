@@ -16,10 +16,11 @@ class tableSorter_core
 	public static $sort_municipal_staff = array("sortType"=>10, "dataTable"=>"pmm_entityStaff");
 	public static $sort_municipal_faq = array("sortType"=>11, "dataTable"=>"pmm_entityFaq");
 	public static $sort_blog_category = array("sortType"=>5, "dataTable"=>"blogs");
-	public static $sort_blog_feed = array("sortType"=>6, "dataTable"=>"blogFeeds");
+	public static $sort_blog_feed = array("sortType"=>9, "dataTable"=>"blogFeeds");
 	public static $sort_content_page = array("sortType"=>3, "dataTable"=>"customContent");
 	public static $sort_showcase = array("sortType"=>4, "dataTable"=>"customShowcase");
 	public static $sort_showcase_item = array("sortType"=>12, "dataTable"=>"showcaseItems");
+	public static $sort_form_field = array("sortType"=>6, "dataTable"=>"customFormFields");
 	
 	public static function getSortTypes()
 	{
@@ -41,14 +42,24 @@ class tableSorter_core
 		
 		return false;
 	}	
-	public static function getSortableObject($sortType, $dataID)
+	public static function getSortableObject($sortType, $dataID, &$quantifyArray="")
 	{
 		if (is_array($sortType)) $sortType = $sortType["sortType"];
+		if (!is_array($quantifyArray)) $quantifyArray = array();
 		
 		switch($sortType)
 		{
+			case tableSorter_core::$sort_form_field["sortType"]:
+				$obj = new customFormField($dataID);				
+				$quantifyArray[] = "formID={$obj->formID}";
+				
+				return $obj;
+				
 			case tableSorter_core::$sort_showcase_item["sortType"]:
-				return new customShowcaseItem($dataID);
+				$obj = new customShowcaseItem($dataID);
+				$quantifyArray[] = "showcaseID={$obj->showcaseID}";
+			
+				return $obj;
 				
 			case tableSorter_core::$sort_showcase["sortType"]:
 				return new customShowcase($dataID);
@@ -63,10 +74,16 @@ class tableSorter_core
 				return new customBlog($dataID);
 				
 			case tableSorter_core::$sort_municipal_staff["sortType"]:
-				return new pmm_entityStaff($dataID);
+				$obj = new pmm_entityStaff($dataID);
+				$quantifyArray[] = "entityID={$obj->entityID}";
+				
+				return $obj;
 				
 			case tableSorter_core::$sort_municipal_faq["sortType"]:
-				return new pmm_entityFaq($dataID); 
+				$obj = new pmm_entityFaq($dataID);
+				$quantifyArray[] = "entityID={$obj->entityID}";
+				
+				return $obj; 
 		}
 		
 		return false;
@@ -76,7 +93,10 @@ class tableSorter_core
 		if (is_array($sortType)) $sortType = $sortType["sortType"];
 		
 		switch($sortType)
-		{			
+		{	
+			case tableSorter_core::$sort_form_field["sortType"]:
+				return $sec->hasAccess(permissions::$manage_custom_forms, permissions::write) || $sec->hasAccess(permissions::$modify_custom_form, permissions::write, $obj->formID);
+				
 			case tableSorter_core::$sort_showcase_item["sortType"]:
 				return $sec->hasAccess(permissions::$manage_showcases, permissions::write) || $sec->hasAccess(permissions::$modify_showcase, permissions::write, $obj->showcaseID);
 								
@@ -99,6 +119,25 @@ class tableSorter_core
 		
 		return false;
 	}
+	public static function realignSorts($sortType, $quantifiers = array())
+	{
+		$d = new DAL(true);
+				
+		$wh = count($quantifiers) ? "and ".implode(" and ", $quantifiers) : "";
+
+		$qry = "select id 
+				from {$sortType["dataTable"]}
+				where 1 $wh 
+				order by position asc";
+		$eQry = $d->qry($qry);
+		
+		$ct = 1;
+		while($entry = $eQry->fetch_assoc())
+		{
+			$cv["position"] = $ct++;
+			$d->qryUpdateByArray($sortType["dataTable"], $cv, "id={$entry["id"]}");
+		}
+	}
 } 
 class sortable
 {
@@ -120,7 +159,7 @@ class sortable
 		
 		$this->p_type = tableSorter_core::getSortByType($sortType);		
 		
-		$this->curObj = tableSorter_core::getSortableObject($this->p_type, $sortID);
+		$this->curObj = tableSorter_core::getSortableObject($this->p_type, $sortID, $quantifier);
 		$this->replaceObj = tableSorter_core::getSortableObject($this->p_type, $replacementID);
 		
 		if (!tableSorter_core::hasAccess($sec, $this->p_type, $this->curObj) || !tableSorter_core::hasAccess($sec, $this->p_type, $this->replaceObj)) throw new Exception("You do not have access to sort these items.");
@@ -133,6 +172,12 @@ class sortable
 			
 			// Restrict the updates to this quantifier
 			$this->quantifier[] = "typeID={$curObj->typeID}";
+		}
+		
+		// Loop through any quantifiers set in the getSortableObject call (passed by reference)
+		foreach($quantifier as $q)
+		{
+			$this->quantifier[] = $q;
 		}
 		
 		// Take inactive items into consideration as a quantifier (if the table structure includes that column)
@@ -168,6 +213,9 @@ class sortable
 		// Set the current objec to the new position
 		$this->curObj->position = $newPos;
 		$this->curObj->save();
+		
+		// Realign all the items in the table just to be safe
+		tableSorter_core::realignSorts($this->p_type, $this->quantifier);
 	} 
 }
 ?>

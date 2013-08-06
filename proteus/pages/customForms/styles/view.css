@@ -1,0 +1,59 @@
+div.panelBlockContainer h1 div.jqPopupMenu
+{
+	position: absolute !important;
+	
+	top: 5px;
+	right: 4px;
+}
+#customForms
+{
+	min-height: 500px;
+}
+#formWin .redactor_box
+{
+	float: left;
+	
+	margin-bottom: 8px;
+	
+	width: 630px;
+	min-height: 360px;
+}
+#formFieldWin a.addNew
+{
+	float: left;
+	
+	margin-left: 6px;
+	margin-top: 8px;
+}
+#formFieldWin a.addNew .ui-icon
+{
+	display: inline-block;
+	position: relative;
+	
+	margin-right: 6px;
+	
+	top: 2px;
+}
+#fieldsContainer
+{
+	clear: both;
+}
+#btnAddField
+{
+	float: right;
+	
+	margin: 3px 5px 8px 0px;
+}
+#viewSubDiv hr
+{
+	width: 100%;
+}
+#viewSubDiv > span, #viewSubDiv hr
+{
+	float: left;
+	margin: 4px 0px 2px 5px;
+}
+#viewSubDiv > span.label, #viewSubDiv hr
+{
+	clear: left;
+}

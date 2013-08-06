@@ -8,7 +8,7 @@ class customComments_core
 										 `comment` text NOT NULL,
 										 `rating` int(11) NOT NULL,
 										 `approved` tinyint(4) NOT NULL,
-										 `addedIPAddress` int(11) UNSIGNED NOT NULL,
+										 `addedIPAddress` int(11) NOT NULL,
 										 `addedEmailAddress` varchar(75) NOT NULL,
 										 `fullName` varchar(75) NOT NULL,
 										 `socialNetworkData` varchar(50) NOT NULL,

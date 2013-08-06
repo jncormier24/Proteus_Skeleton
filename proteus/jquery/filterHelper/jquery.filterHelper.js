@@ -76,47 +76,14 @@
 		{
 			var thisObj = $(this);
 			
-			thisObj.removeClass("emptyFilter");			
+			thisObj.removeClass("emptyFilter").data("isDirty", true);
 			
-			switch(evt.which)
+			switch(evt.keyCode)
 			{
 				case 13:
 					obj.filterHelper();
-					return;
-					
-				case KeyEvent.DOM_VK_UP:
-				case KeyEvent.DOM_VK_DOWN:
-				case KeyEvent.DOM_VK_LEFT:
-				case KeyEvent.DOM_VK_RIGHT:
-				case KeyEvent.DOM_VK_TAB:
-				case KeyEvent.DOM_VK_SHIFT:
-				case KeyEvent.DOM_VK_CONTROL:					
-				case KeyEvent.DOM_VK_END:
-				case KeyEvent.DOM_VK_HOME:
-				case KeyEvent.DOM_VK_ALT:
-				case KeyEvent.DOM_VK_INSERT:					
-					return;											
+					return;							
 			}
-			
-			var pos = thisObj.position();			
-			
-			if (!thisObj.data("isDirty") && !thisObj.is("select"))
-			{
-				var span = $("<span>&nbsp;</span>").addClass("ui-icon ui-icon-search jqFilterIcon").click(function() { obj.filterHelper() });
-				
-				thisObj.after(span);
-				
-				var width = thisObj.parent().width();
-				width -= (thisObj.outerWidth() - thisObj.width());
-				
-				$("span", thisObj.parent()).each(function(){
-					width -= $(this).width();
-				});				
-				
-				thisObj.width(width);
-			}
-			
-			thisObj.data("isDirty", true);
 		};
 		
 		var toggleFilterRow = function(opts, row)
@@ -124,7 +91,7 @@
 			var dfd = $.Deferred();
 			var visible = row.is(":visible");
 			
-			// Fade in/out, reoslve deferred on animation complete (allows for setting focus when clicking icon handler)
+			// Fade in/out, resolve deferred on animation complete (allows for setting focus when clicking icon handler)
 			row.stop().fadeToggle("normal", function() { dfd.resolve(); });
 			
 			// We're fading out - don't adjust again
@@ -165,26 +132,33 @@
 				
 				if (item.selector)
 				{
-					var itemObj = $(item.selector, opts.tableSelector);
+					var itemObj = $(item.selector, opts.tableSelector);					
+					var span = $("<span>&nbsp;</span>").addClass("ui-icon ui-icon-search jqFilterIcon").click(function() { obj.filterHelper(); });
 					
 					nextRow = itemObj.parent().next().hide();
 					if (!nextRow.has("th")) return;
+					
+					var toggleFilters = function()
+					{
+						$.when(toggleFilterRow(opts, nextRow)).then(function() { ctlClone.focus(); });						
+					};
+					
+					var filterCaption = itemObj.html();
+					var filterLink = $("<a href='javascript:void(0)'>" + filterCaption + "</a>").addClass("columnFilter").click(toggleFilters);
 					
 					var idx = itemObj.index();									
 					var filterCell = $("th", nextRow).eq(idx).addClass("sort");
 					
 					if (ctl.val().length) showFilter = true;
 					
-					var filterCtl = $("<span></span>").addClass("ui-icon ui-icon-tag sortControl").click(function()
-					{
-						$.when(toggleFilterRow(opts, nextRow)).then(function() { ctlClone.focus(); });						
-					}).attr("title", "Filter results");
+					var filterCtl = $("<span></span>").addClass("ui-icon ui-icon-tag sortControl").click(toggleFilters).attr("title", "Filter results");
 					
-					itemObj.append(filterCtl);
+					itemObj.html("").append(filterLink).append(filterCtl); 
 					
 					ctlClone.show().appendTo(filterCell)
-					
-					if (item.mask.length && ctlClone.setMask)
+					ctlClone.after(span);
+				 
+					if (item.mask.length && $.isFunction(ctlClone.setMask))
 					{
 						ctlClone.setMask(item.mask);
 					}
@@ -225,7 +199,7 @@
 				
 				if (ctlClone.prop("tagName").match(/textarea|input/i))
 				{
-					ctlClone.keyup(dirtyFunc);				
+					ctlClone.keypress(dirtyFunc);				
 				}
 				else
 				{

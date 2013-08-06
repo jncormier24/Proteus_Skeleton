@@ -9,12 +9,6 @@
 	top: 5px;
 	right: 4px;
 }
-.ui-dialog button.delete
-{
-	position: absolute;
-	
-	left: 10px;	
-}
 #btnSettings, #btnNewEntity
 {
 	float: right;

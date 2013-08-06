@@ -36,24 +36,41 @@ class customCalendar extends phpDataSet
 	const calendar_standalone = 0;
 	const calendar_municipal_entity = 1;
 	
-	public $entries;
-	public $settings;
+	private $p_entries;
+	private $p_settings;
+	private $defaults;
 	
-	public function __construct($calID, $fillEntries = true)
+	public function __construct($calID)
 	{
 		parent::__construct("calendars", $calID, $calID ? true : false);
 		
-		if ($calID)
-		{
-			// Set the default icon size for each entry to 50x50 - this can be changed in Proteus backend, this is only used if
-			// this value is not defined in the config manually. See the 'loadDefaults' method in the 'customConfig' class above.
-			$this->settings = new customConfig(proteus_core::$module_calendars["siteType"], $calID, array("iconSize"=>"50x50"));
-						
-			//Get all the entries for this Calendar (set fillEntries to false to filter this list by hand instead of getting all of them)
-			if ($fillEntries) $this->fillEntries();
-		}
+		// Set the default icon size for each entry to 50x50 - this can be changed in Proteus backend, this is only used if
+		// this value is not defined in the config manually. See the 'loadDefaults' method in the 'customConfig' class above.
+		$this->defaults = array("iconSize"=>"50x50");
 	}
-	public function hasAccess(security $sec, $permission)
+	public function __get($key)
+	{		
+		global $config;
+
+		if (!parent::__get("id")) return false;
+		
+		switch ($key)
+		{
+			case "assetFolder":
+				return "assets/calendars/{$this->id}";
+				
+			case "settings":
+				if (!$this->p_settings) $this->p_settings = new customConfig(proteus_core::$module_calendars["siteType"], $this->id, $this->defaults);
+				return $this->p_settings;
+				
+			case "entries":
+				if (!$this->p_entries) $this->fillEntries();
+				return $this->p_entries;
+				
+		}
+		return parent::__get($key);	
+	}
+	public function hasAccess(security $sec, $permission, $throwException = false)
 	{
 		if ($sec->hasAccess(permissions::$manage_calendars, permissions::write)) return true;		
 		if (!$this->id) return false;
@@ -65,9 +82,12 @@ class customCalendar extends phpDataSet
 			case customCalendar::calendar_municipal_entity:
 				if ($sec->hasAccess(permissions::$manage_municipal_entities, permissions::write)) return true;
 				if ($permission > permissions::read && $sec->hasAccess(permissions::$municipal_entity, permissions::write, $this->dataID)) return true;
-				return $sec->is(permissions::$municipal_entity, $this->dataID);
+				if ($sec->is(permissions::$municipal_entity, $this->dataID)) return true;
+				
+				break;
 		}
 		
+		if ($throwException) $sec->security_error_a();
 		return false;
 	}
 	private function fillEntries($includeInactive = false)
@@ -170,11 +190,40 @@ class customCalendar extends phpDataSet
 		$iQry = $d->qry($qry);
 
 		while($cal = $iQry->fetch_assoc())
-		{
-			$arr[$cal[id]] = new customCalendar($cal[id]);
+		{			
+			$arr[$cal["id"]] = new customCalendar($cal["id"]);			
 		}
 		
 		return $arr;
+	}
+	public function insert($data="")
+	{
+		global $config;
+		
+		$id = parent::insert($data);
+		
+		$loc = $config["baseAppDir"]."assets/calendars";
+		if (!file_exists($loc)) mkdir($loc);
+		
+		$loc = $config["baseAppDir"].$this->assetFolder;
+		if (!file_exists($loc)) mkdir($loc);
+		
+		return $id;
+	}
+	public function delete()
+	{
+		global $config;		
+		
+		$baseLoc = $config["baseAppDir"].$this->assetFolder;
+		
+		foreach(glob($baseLoc."/*") as $file)
+		{
+			@unlink($file);
+		}
+		
+		@rmdir($baseLoc);
+		
+		return parent::delete();
 	}
 }
 class customCalendarEntry extends phpDataset

@@ -104,7 +104,7 @@ function getCalendars($typeID, $dataID)
 				
 				break;
 		}
-			
+		
 		$t = new tblBuilder('center',0,0,8,'100%');	
 		$t->class = "listTable hoverTable";
 		
@@ -116,7 +116,7 @@ function getCalendars($typeID, $dataID)
 		$r->addHeader(new tblHeader('&nbsp;', "", "", "", 80));
 			
 		foreach($calendars as $calID=>$cal)
-		{
+		{			
 			if (!$typeID && (!$g_sec->hasAccess(permissions::$manage_calendars, permissions::read) &&
 							 !$g_sec->hasAccess(permissions::$modify_calendar, permissions::read, $cal->id))) continue;			
 			

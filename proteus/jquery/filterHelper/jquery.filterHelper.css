@@ -164,3 +164,7 @@
 	float: right;
 	cursor: pointer;	
 }
+a.columnFilter
+{
+	color: inherit;
+}

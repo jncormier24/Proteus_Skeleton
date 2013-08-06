@@ -1,0 +1,1172 @@
+<?php 
+	$g_sec = permissions::getAuthorizedUser();
+	
+	proteus_core::includeAllModules();
+	
+	switch($action)
+	{
+		case "deleteSubmission":
+			deleteSubmission($subID);
+			break;
+			
+		case "viewSubmission":
+			viewSubmission($subID);
+			break;
+			
+		case "getSubmissions":
+			getSubmissions($formID, $paging, $sortData, $filterColumns, $customColumns);			
+			break;
+			
+		case "getSubmissionsWin":
+			getSubmissionsWin($formID);
+			break;
+			
+		case "deleteFormField":
+			deleteFormField($fieldID);
+			break;
+			
+		case "setFieldStat":
+			setFieldStat($fieldID, $typeID, $val);
+			break;
+			
+		case "updateFormField":
+			updateFormField($fieldID, $field, $formID);
+			break;
+			
+		case "addFieldset":
+			addFieldset($caption);
+			break;
+
+		case "getFieldsetAdd":
+			getFieldsetAdd();
+			break;
+			
+		case "getFieldsets":
+			getFieldsets();
+			break;
+			
+		case "getFieldEdit":
+			getFieldEdit($fieldID, $formID);
+			break;
+			
+		case "getFormFields":
+			getFormFields($formID);
+			break;
+
+		case "updateForm":
+			updateForm($formID, $form);
+			break;
+			
+		case "getFormEdit":
+			getFormEdit($formID);
+			break;
+			
+		case "getForms":
+			getForms($paging, $sortData, $filterColumns, $customColumns);
+			break;			
+		
+		default:
+			die("Unauthorized");
+	}
+	
+	//$sj = new sajaxModule("getFormFields", "addField", "removeField", "saveField");
+	//$sj->initiate();
+
+function getForms($paging, $sortData, $filterColumns, $customColumns)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		if (!$g_sec->is(permissions::$manage_custom_forms) && !$g_sec->is(permissions::$modify_custom_form)) $g_sec->security_error_a();		
+		
+		$t = new tblBuilder();
+		$t->class = "listTable";
+		$t->id = "formsTable";		
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("Form Title"));
+		$r->addHeader(new tblHeader("Fields"));
+		$r->addHeader(new tblHeader("Submissions"));
+		$r->addHeader(new tblHeader("&nbsp;"));
+		
+		foreach((array)$customColumns as $cFilter)
+		{
+			if (!strlen($cFilter["value"])) continue;
+				
+			switch($cFilter["key"])
+			{					
+				case "status":
+					
+					$wh[] = "customForms.inactive = {$cFilter["value"]}";
+					
+					break;
+			}
+		}		
+		
+		tableFilter::getWhereArray($filterColumns, $wh, $hvArr);
+		$whClause = tableFilter::getWhereClause($wh);
+		
+		$qry = "select customForms.id
+				from customForms	   
+				where 1 $whClause
+				".tableFilter::getHavingClause($hvArr)."
+				order by ".tableFilter::getOrderClause($sortData, "title asc");
+		
+		$totalCt = $d->qryRow($qry);
+		$fQry = $d->qry($qry.tableFilter::getLimitClause($paging));
+		
+		while($frm = $fQry->fetch_assoc())
+		{
+			$formObj = new customForm($frm["id"]);
+			
+			$fields = count($formObj->fields);
+			$submissions = count($formObj->submissions);			
+			
+			$mnu = new jqPopupMenu();
+			
+			if ($formObj->hasAccess($g_sec, permissions::write))
+			{
+				$ctl = $mnu->addMenuItem("", "Edit Custom Form", "", "ui-icon-pencil");
+				$ctl->onclick = "getFormEdit({$formObj->id})";
+			}
+			
+			$ctl = $mnu->addMenuItem("", "View Submissions", "", "ui-icon-contact");
+			$ctl->onclick = "getSubmissionsWin({$formObj->id})";
+			
+			if ($formObj->hasAccess($g_sec, permissions::delete))
+			{
+				$ctl = $mnu->addMenuItem("", $formObj->inactive ? "Permanently Delete" : "Deactivate Custom Form", "ui-state-error", "ui-icon-trash");
+				$ctl->onclick = "deactivateForm({$formObj->id})";
+			}			
+			
+			$r = $t->addRow();
+			$r->addCell(new tblCell($formObj->title));
+			$r->addCell(new tblCell($fields, "", "center"));
+			$r->addCell(new tblCell($submissions, "", "center"));
+			$r->addCell(new tblCell($mnu, "", "center"));
+		}
+		
+		if (!$totalCt)
+		{
+			$r = $t->addRow();
+			$r->addHeader(new tblHeader(new phpParagraph("No Custom Forms found"), "strong"));
+		}
+		
+		$js->count = $totalCt;
+		$js->content = $t->render();
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_notify($ex);
+		$js->error = $eWin->render();
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getFormEdit($formID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		$formObj = new customForm($formID);
+			
+		if (!$formObj->id) 
+		{						
+			if (!$g_sec->hasAccess(permissions::$manage_custom_forms, permissions::insert)) $g_sec->security_error_a();		
+		}
+		else
+		{
+			if (!$formObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
+			
+			$writeAccess = $formObj->hasAccess($g_sec, permissions::write);
+		}		
+		
+		$tabs = new jqUI_tabControl("formTabs", 0, "admin/customForms");
+		
+		$formWin = new jqUI_dialog("formWin", true, 900, "", $formObj->id ? "Modify Custom Form" : "Add new Custom Form");
+		$formWin->addClass("configWin");
+		$formWin->setOption("autoOpen", true);
+		$formWin->fitToViewport();		
+		
+		// Redactor will not function inside a modal window.
+		$formWin->setOption("modal", 0);
+		
+		$formWin->addCloseButton($formObj->id ? "Close" : "Cancel");
+		
+		if ($formObj->id)
+		{					
+			if ($writeAccess)
+			{
+				$formWin->addButton("Save","function() { updateForm(); }");
+			}
+			else
+			{
+				$js->disabled = 1;
+			}
+		}
+		else
+		{
+			$formWin->addButton("Add Form","function() { updateForm(); }");
+			
+			$msg = "<strong>NOTE:</strong> Some editor features (file and image uploads, etc.), as well as form field editing, are unavailable 
+					until a form has been added.<br /><br />
+					Please fill out the basic information, then click the add button to enable all features.";
+			
+			$formWin->insertControl(new jqUI_dismissableMessage($g_sec, "new_custom_form", $msg));		
+		}		
+		
+		$txtTitle = new customText("form[title]", $formObj->title, 50, 255);
+		$txtTitle->setLabel("Form Title:");	
+	
+		$txtDesc = new phpTextArea("form[description]", $formObj->description, 8, 92, "wysiwyg");	
+		$txtDesc->setLabel("Form Description:");	
+			
+		// SWB 7/13: I Don't think this needs to be used anymore (keys)
+		/* $txtKey = new customText("formData[lookupKey]", $formData[lookupKey], 10, 255, 'floating textBox');
+		$txtKey->setLabel("Lookup Key:", "longLabel floating");
+		$txtKey->breakAfter = true; */
+
+		$conf = new siteConfig();
+	
+		$txtEmail = new customText("form[customEmail]", $formObj->customEmail, 50, 255);
+		$txtEmail->setLabel("Destination Email:");			
+		$txtEmail->setRequired("Leave blank for Default ({$conf->sitemail})", "desc");
+	
+		$txtResponse = new phpTextArea("form[responseText]", $formObj->responseText, 2, 84);
+		$txtResponse->setLabel("Submission Response Text:");	
+	
+		$fForm = new phpForm("post", "frmForm");
+		$fForm->addControl($txtTitle);
+		$fForm->addControl($txtResponse);
+		$fForm->addControl($txtDesc);
+		$fForm->addControl($txtEmail);		
+		//$fForm->addControl($txtKey);		
+		$fForm->addControl(new hiddenInput("action", "updateForm"));
+		$fForm->addControl(new hiddenInput("formID", $formObj->id));
+		
+		$tpDetail = new jqUI_tabPage("form_detail", "Form Detail", "ui-icon-wrench");
+		$tpDetail->addControl($fForm);
+		
+		$tabs->addTabPage($tpDetail);
+		
+		$formWin->addControl($tabs);
+		
+		if ($formObj->id)
+		{
+			$tpFields = new jqUI_tabPage("form_fields", "Form Fields", "ui-icon-arrowthickstop-1-s");
+
+			if ($writeAccess)
+			{
+				$btnAdd = new jqUI_button("btnAddField", "Add Field", "", "ui-icon-document", true);
+				$btnAdd->onclick = "getFieldEdit(0, {$formObj->id});";			
+		
+				$tpFields->addControl($btnAdd);			
+			}			
+			
+			$dv = new phpDIV();
+			$dv->id = "fieldsContainer";
+			
+			$tpFields->addControl($dv);
+			
+			$tabs->addTabPage($tpFields);			
+		}
+		
+		// use addObject so that the strip format parameter can be set
+		$js->addObject("content", $formWin->render(), false);
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getFormFields($formID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		$formObj = new customForm($formID);
+			
+		if (!$formObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();				
+		
+		$writeAccess = $formObj->hasAccess($g_sec, permissions::write);
+				
+		$pc = new pageContent();
+		
+		$tArr = customForms_core::getFormFieldTypes();
+		
+		$t = new tblBuilder();
+		$t->class = "listTable";
+
+		if ($writeAccess)
+		{
+			$t->addClass("sortable");
+			$t->addAttribute("data-sort-type", tableSorter_core::$sort_form_field["sortType"]);
+		}
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("Caption"));
+		$r->addHeader(new tblHeader("Fieldset"));
+		$r->addHeader(new tblHeader("Type"));
+		$r->addHeader(new tblHeader("Required?"));
+		$r->addHeader(new tblHeader("Summary Field?"));
+		$r->addHeader(new tblHeader("&nbsp;"));		
+		
+		$qry = "select id
+				from customFormFields
+				where formID={$formObj->id}
+				order by position asc";
+		$fQry = $d->qry($qry);
+
+		while($field = $fQry->fetch_assoc())
+		{				
+			$fieldObj = new customFormField($field["id"]);
+					
+			$r = $t->addRow();
+			$r->addAttribute("data-id", $fieldObj->id);
+			
+			$eCtl = new editControl();
+			$eCtl->onclick = "getFieldEdit({$fieldObj->id})";
+			
+			$chkReq = new formInput("req_".$fieldObj->id, 'checkbox', 1);
+			if ($fieldObj->required) $chkReq->addParameter('checked');
+			
+			if ($writeAccess)
+			{
+				$chkReq->onclick = "setFieldStat.call(this, {$fieldObj->id}, 1);";
+			}
+			else
+			{
+				$chkReq->addParameter("disabled");
+			}
+			
+			$chkSum = new formInput("sum_".$fieldObj->id, 'checkbox', 1);
+			if ($fieldObj->summaryField) $chkSum->addParameter('checked');
+			
+			if ($writeAccess)
+			{
+				$chkSum->onclick = "setFieldStat.call(this, {$fieldObj->id}, 2);";
+			}
+			else
+			{
+				$chkSum->addParameter("disabled");
+			}
+			
+			$typeDisp = array_keys($tArr, $fieldObj->typeID)[0];
+			
+			$r->addControl(new tblCell($fieldObj->caption, "", "left"));
+			$r->addControl(new tblCell($fieldObj->fieldset["caption"], "", "left"));
+			$r->addControl(new tblCell($typeDisp, "", "left"));
+			$r->addControl(new tblCell($chkReq, 'evenCell', 'center'));
+			$r->addControl(new tblCell($chkSum, 'oddCell', 'center'));			
+			$r->addControl(new tblCell($eCtl, "", "center"));
+		}
+		
+		$pc->addControl($t);		
+		
+		$js->content = $pc->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function addField($formID, $caption)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json();
+	
+	try
+	{
+		if (!$g_sec->hasAccess(permissions::$manage_custom_forms, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_custom_form, permissions::write, $formID)) $g_sec->security_error_a();
+			
+		validation::ensureString($caption);
+		if (!$caption) throw new Exception("Error, no caption specified!");
+		
+		$max = $d->qryCount("select max(id) from customFormFields where formID=$formID");
+		if (!$max) $max = 0;
+		
+		$max++;
+		
+		$cv[caption] = ($caption == -1 ? "''" : "'$caption'");
+		$cv[typeID] = ($caption == -1 ? -1 : 1);
+		$cv[formID] = $formID;
+		$cv[position] = $max;
+		
+		$fieldID = $d->qryInsertByArray("customFormFields", $cv);
+		if (!$fieldID) throw new Exception("Error adding field - please try again.");
+		
+		$r = getFormFields($formID, $fieldID);
+		$js->output = $r->render();
+		$js->formID = $formID;
+		
+		pageClass::setNotify("Successfully added Form Field");
+	}
+	catch(Exception $ex)
+	{
+		$js->error = $ex->getMessage();	
+	}
+	
+	return $js->render();
+}
+function removeField($fieldID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json();
+	
+	try
+	{
+		validation::ensureInt($fieldID);
+		if (!$fieldID) throw new Exception("Error, no field specified!");
+		
+		$formID = $d->qryCount("select formID from formFields where id=$fieldID");
+		if (!$formID) throw new Exception("Error, that field cannot be found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_custom_forms, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_custom_form, permissions::write, $formID)) $g_sec->security_error_a();
+		
+		$d->qry("delete from formFields where id=$fieldID");
+		$d->qry("delete from customFormResponses where fieldID=$fieldID");
+		
+		//Realign positions
+		$qry = "select id
+				from formFields
+				where formID=$formID
+				order by position asc";				
+		$fQry = $d->qry($qry);
+		
+		$ct = 1;		
+		while($field = $fQry->fetch_assoc())
+		{
+			$cv[position] = $ct++;
+			$d->qryUpdateByArray("formFields", $cv, "id=$field[id]");
+		}
+		
+		$js->fieldID = $fieldID;
+		
+		pageClass::setNotify("Successfully removed Form Field");
+	}
+	catch(Exception $ex)
+	{
+		$js->error = $ex->getMessage();	
+	}
+	
+	return $js->render();
+}
+function saveField($fieldID, $caption, $type, $verification, $custom, $required, $summary, $exampleText)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json();
+	
+	try
+	{
+		validation::ensureString($caption);
+		if (!$caption) throw new Exception("Error, all fields must have a caption!");
+		
+		validation::ensureInt($fieldID);
+		if (!$fieldID) throw new Exception("Error, no field specified!");
+		
+		$formID = $d->qryCount("select formID from formFields where id=$fieldID");
+		if (!$formID) throw new Exception("Error, that field cannot be found!");
+		
+		if (!$g_sec->hasAccess(permissions::$manage_custom_forms, permissions::write) &&
+			!$g_sec->hasAccess(permissions::$modify_custom_form, permissions::write, $formID)) $g_sec->security_error_a();
+		
+		if ($verification == -1 && !$custom) throw new Exception("All fields with Data Verification set to custom MUST define a custom validation expression!");
+		
+		$cv[typeID] = $type;
+		$cv[caption] = $caption;
+		$cv[verification] = "'$verification'";
+		$cv[extraData] = $custom;
+		$cv[required] = $required;
+		$cv[summaryField] = $summary;
+		$cv[exampleText] = $exampleText;
+		
+		$qCv = validation::quotedArray($cv, array("verification"));
+		
+		$d->qryUpdateByArray("formFields", $qCv, "id=$fieldID");		
+		
+		$js->fieldID = $fieldID;
+		
+		pageClass::setNotify("Form Field Saved");
+	}
+	catch(Exception $ex)
+	{
+		$js->error = $ex->getMessage();	
+	}
+	
+	return $js->render();
+}
+function getFieldEdit($fieldID, $formID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		$fieldObj = new customFormField($fieldID);
+			
+		if (!$fieldObj->id) 
+		{						
+			$formObj = new customForm($formID);
+			if (!$formObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();			
+		}
+		else
+		{
+			$formObj = $fieldObj->form;
+			if (!$formObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
+
+			$writeAccess = $formObj->hasAccess($g_sec, permissions::write);
+			$deleteAccess = $formObj->hasAccess($g_sec, permissions::delete);
+		}		
+		
+		$dArr = customForms_core::getFormDataTypes();
+		$tArr = customForms_core::getFormFieldTypes();
+		
+		$fieldWin = new jqUI_dialog("formFieldWin", true, 875, "", $formObj->id ? "Modify Form Field" : "Add new Form Field");
+		$fieldWin->addClass("configWin");
+		$fieldWin->setOption("autoOpen", true);
+		$fieldWin->setOption("autoResize", true);		
+		
+		$fieldWin->addCloseButton($fieldObj->id ? "Close" : "Cancel");
+		
+		if ($fieldObj->id)
+		{					
+			if ($writeAccess)
+			{
+				$fieldWin->addButton("Save","function() { updateFormField(); }");
+			}
+			else
+			{
+				$js->disabled = 1;
+			}
+			
+			if ($deleteAccess)
+			{
+				$fieldWin->addButton("Delete","function() { deleteFormField({$fieldObj->id}); }", "delete");
+			}
+		}
+		else
+		{
+			$fieldWin->addButton("Add Form Field","function() { updateFormField(); }");			
+		}
+
+		$txtCap = new customText("field[caption]", validation::prepTextForInput($fieldObj->caption), 50, 255);					
+		$txtCap->setLabel("Caption:");				
+				
+		$txtEx = new customText("field[exampleText]", validation::prepTextForInput($fieldObj->exampleText), 50, 255);					
+		$txtEx->setLabel("Optional Description:");
+
+		$ddlSet = new phpDDL("field[fieldsetID]");
+		$ddlSet->setLabel("Field Set:");
+		$ddlSet->addAttribute("data-selected", $fieldObj->fieldsetID);
+		
+		$lnkNew = new jqUI_hyperlink("javascript:getFieldsetAdd()", "Add new Fieldset", "addNew", "ui-icon-plusthick");		
+		
+		$ddlType = new phpDDL("field[typeID]");
+		$ddlType->setLabel("Field Type:");
+		$ddlType->selected = $fieldObj->typeID;
+		$ddlType->bindByArray($tArr);
+		$ddlType->onchange = "toggleFieldType()";
+				
+		$customObj = new customText("field[extraData]", '', 15, 255);
+		$customObj->setLabel("&nbsp;", "custom");
+		$customObj->style = "display: none;";
+		
+		$ddlVer = new phpDDL("field[verification]");
+		$ddlVer->setLabel("Verification:");
+		$ddlVer->selected = $fieldObj->verification;
+		$ddlVer->bindByArray($dArr);
+		$ddlVer->onchange = "toggleVerifyCustom()";
+		
+		switch($fieldObj->typeID)
+		{
+			case 1:					
+				if ($fieldObj->verification == -1)
+				{
+					$customObj->value = validation::prepTextForInput($fieldObj->verification);
+				}
+				else
+				{
+					$customObj->value = validation::prepTextForInput($fieldObj->extraData);
+				}
+				
+				break;
+			case 3:					
+				$customObj->value = validation::prepTextForInput($fieldObj->extraData);										
+				break;
+		}			
+		
+		$fForm = new phpForm("post", "frmField");
+		$fForm->addControl($txtCap);
+		$fForm->addControl($txtEx);
+		$fForm->addControl($ddlSet);
+		$fForm->addControl($lnkNew);
+		$fForm->addControl($ddlType);
+		$fForm->addControl($ddlVer);
+		$fForm->addControl($customObj);
+		$fForm->addControl(new hiddenInput("action", "updateFormField"));
+		$fForm->addControl(new hiddenInput("fieldID", $fieldObj->id));
+		$fForm->addControl(new hiddenInput("formID", $formObj->id));
+		
+		$fieldWin->addControl($fForm);
+		
+		$js->content = $fieldWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function updateForm($formID, $form)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		$formObj = new customForm($formID);
+			
+		if (!$formObj->id) 
+		{						
+			if (!$g_sec->hasAccess(permissions::$manage_custom_forms, permissions::insert)) $g_sec->security_error_a();
+		
+		}
+		else
+		{
+			if (!$formObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();	
+		}
+		
+		if (!$form["title"]) throw new Exception("Error, no Title specified. All forms must have a title!");
+		//if (!$form["lookupKey"]) throw new Exception("Error, no Lookup Key specified - this is required for forms to work properly!");		
+		
+		//$formData[lookupKey] = preg_replace("/[^a-z0-9]/is", "_", $formData[lookupKey]);
+		
+		foreach($form as $key=>$value)
+		{
+			$formObj->$key = "'$value'";
+		}
+		
+		if ($formObj->id)
+		{
+			$formObj->save();
+			pageClass::setNotify("Form Saved");
+		}
+		else
+		{
+			$formID = $formObj->insert();
+			pageClass::setNotify("Successfully added new Form");
+		}		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getFieldsets()
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	$pc = new pageContent();
+	
+	try
+	{
+		if (!$g_sec->is(permissions::$manage_custom_forms) && !$g_sec->is(permissions::$modify_custom_form)) $g_sec->security_error_a();
+
+		$qry = "select *
+				from customFormFieldsets
+				order by caption asc";
+		$fQry = $d->qry($qry);
+		
+		$pc->addControl(new phpListItem("", 0));
+		
+		while($fs = $fQry->fetch_assoc())
+		{
+			$pc->addControl(new phpListItem($fs["caption"], $fs["id"]));
+		}
+		
+		$js->content = $pc->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getFieldsetAdd()
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		if (!$g_sec->is(permissions::$manage_custom_forms) && !$g_sec->is(permissions::$modify_custom_form)) $g_sec->security_error_a();
+		
+		$fsWin = new jqUI_dialog("fieldsetWin", true, 650, "", "Add a Form Fieldset");
+		$fsWin->addClass("configWin");
+		$fsWin->setOption("autoOpen", true);
+		$fsWin->setOption("autoResize", true);
+		
+		$fsWin->addCloseButton();
+		$fsWin->addButton("Add Fieldset", "addFieldset");
+		
+		$par = new phpParagraph("Fieldsets are used to organize Form Fields into logical groups when displaying a form for user input. By adding 
+								 fields to Fieldsets, it's easy to separate unrelated inputs for an easier input experience.<br /><br />
+								 To add a new Fieldset, simply provide a caption below and click the Add button.");
+		$fsWin->addControl($par);
+		
+		$txtCaption = new customText("caption", "", 50, 255);
+		$txtCaption->setLabel("Fieldset Caption:");
+		
+		$fForm = new phpForm("post", "frmFieldset");
+		$fForm->addControl($txtCaption);
+		$fForm->addControl(new hiddenInput("action", "addFieldset"));		
+
+		$fsWin->addControl($fForm);
+		
+		$js->content = $fsWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function addFieldset($caption)
+{
+	global $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{	
+		if (!$g_sec->is(permissions::$manage_custom_forms) && !$g_sec->is(permissions::$modify_custom_form)) $g_sec->security_error_a();
+		if (strlen($caption) < 3) throw new Exception("Fieldset Captions must be at least 3 characters");
+		
+		$cv["caption"] = "'$caption'";
+		$fieldsetID = $d->qryInsertByArray("customFormFieldsets", $cv);
+		
+		pageClass::setNotify("Successfully added Fieldset");
+		
+		$js->fieldsetID = $fieldsetID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function updateFormField($fieldID, $field, $formID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($field["typeID"], 1);
+		
+		$fieldObj = new customFormField($fieldID);
+		
+		if (!$fieldObj->id) 
+		{						
+			$formObj = new customForm($formID);						
+		}
+		else
+		{
+			$formObj = $fieldObj->form;
+		}		
+		
+		if (!$formObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+		
+		if (!$field["caption"]) throw new Exception("Error, Field caption must be at least 3 characters!");
+		if ($field["verification"] == -1 && !strlen($field["extraData"])) throw new Exception("All fields with Data Verification set to custom MUST define a custom validation expression!");
+		if ($field["verification"] == 1 && !preg_match("/^[0-9]*?,[0-9]$/i", $field["extraData"])) throw new Exception("Error, Input min,max (1,9) is not in the correct format.");
+		
+		foreach($field as $key=>$value)
+		{
+			$fieldObj->$key = is_numeric($value) ? $value : "'$value'";
+		}
+		
+		if ($fieldObj->id)
+		{
+			$fieldObj->save();
+			pageClass::setNotify("From Field Saved");
+		}
+		else
+		{
+			$fieldObj->formID = $formObj->id;
+			
+			$fieldID = $fieldObj->insert();
+			pageClass::setNotify("Successfully added new Form Field");
+		}		
+		
+		$js->formID = $formObj->id;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function setFieldStat($fieldID, $typeID, $val)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		validation::ensureInt($typeID, 0);
+		validation::ensureInt($val, 0);
+		
+		$fieldObj = new customFormField($fieldID);		
+		if (!$fieldObj->id) throw new Exception("Error, that field could not be found.");
+		
+		$formObj = $fieldObj->form;		
+		if (!$formObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+		
+		switch($typeID)
+		{
+			case 1:
+				$fieldObj->required = $val; 
+				break;
+			case 2:
+				$fieldObj->summaryField = $val;
+				break;
+		}
+		
+		$fieldObj->save();
+		
+		pageClass::setNotify("Field Preference Saved");
+		
+		$js->formID = $formObj->id;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function deleteFormField($fieldID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		$fieldObj = new customFormField($fieldID);		
+		if (!$fieldObj->id) throw new Exception("Error, that field could not be found.");
+		
+		$formObj = $fieldObj->form;		
+		if (!$formObj->hasAccess($g_sec, permissions::delete)) $g_sec->security_error_a();
+		
+		$fieldObj->delete();
+		
+		pageClass::setNotify("Successfully removed form field and all responses.");
+		
+		$js->formID = $formObj->id;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getSubmissionsWin($formID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		$formObj = new customForm($formID);
+		if (!$formObj->id) throw new Exception("Error, that form could not be found.");
+		
+		if (!$formObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
+		
+		$formWin = new jqUI_dialog("submissionsWin", true, 900, "", "View Form Submissions: {$formObj->title}");
+		$formWin->addClass("configWin");
+		$formWin->setOption("autoOpen", true);
+		$formWin->fitToViewport();
+		
+		$formWin->addCloseButton("Close");
+		
+		$tblFilter = new tableFilter("submissionsFilter", "#submissionsTable", "function() { getSubmissions({$formObj->id}); }");
+		$tblFilter->addSortFilter("dateTime", "th.dateTime", "desc");			
+		$tblFilter->setPaging(25);	
+	
+		$tblFilter->addCustomFilter("dateTime", tableFilter::filter_date_range, "Submitted between:");	
+		
+		$dv = new phpDIV();
+		$dv->id = "submissionsDiv";
+		
+		$formWin->addControl($tblFilter);
+		$formWin->addControl($dv);
+
+		$js->content = $formWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getSubmissions($formID, $paging, $sortData, $filterColumns, $customColumns)
+{
+	global $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{	
+		$formObj = new customForm($formID);
+		if (!$formObj->id) throw new Exception("Error, that form could not be found.");
+		
+		if (!$formObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
+		
+		$t = new tblBuilder();
+		$t->class = "listTable hoverTable";
+		$t->id = "submissionsTable";
+	
+		$r = $t->addRow();
+	
+		$hQry = $d->qry("select id, caption from customFormFields where formID={$formObj->id} and summaryField = 1 order by position asc");
+		
+		while($hdr = $hQry->fetch_assoc())
+		{
+			$r->addHeader(new tblHeader($hdr["caption"]));
+		
+			$keys[] = $hdr["id"];
+		}
+	
+		$r->addHeader(new tblHeader("Date Submitted", "dateTime"));
+		$r->addHeader(new tblHeader("&nbsp;", "", "", "", 70));	
+		
+		foreach((array)$customColumns as $cFilter)
+		{
+			if (!strlen($cFilter["value"])) continue;
+				
+			switch($cFilter["key"])
+			{					
+				case "dateTime":
+					$tmp = explode("_", $cFilter[value]);
+					if (count($tmp) != 2) break;
+					
+					$dt1 = validation::convertToMySqlDate($tmp[0]);
+					$dt2 = validation::convertToMySqlDate($tmp[1]);
+
+					$wh[] = "date(customFormSubmissions.dateTime) between '$dt1' and '$dt2'";					
+					break;
+			}
+		}		
+		
+		tableFilter::getWhereArray($filterColumns, $wh, $hvArr);
+		$whClause = tableFilter::getWhereClause($wh);
+		
+		$qry = "select customFormSubmissions.*
+				from customFormSubmissions	   
+				where 1 $whClause
+				".tableFilter::getHavingClause($hvArr)."
+				order by ".tableFilter::getOrderClause($sortData, "dateTime desc");
+		
+		$totalCt = $d->qryRow($qry);
+		$rQry = $d->qry($qry.tableFilter::getLimitClause($paging));
+		
+		while($resp = $rQry->fetch_assoc())
+		{
+			$r = $t->addRow();
+		
+			foreach((array)$keys as $key)
+			{			
+				$data = $d->qryArray("select * from customFormResponses where fieldID=$key and submissionID={$resp["id"]}");
+				$field = new customFormField($data["fieldID"]);
+			
+				if ($field->typeID == 4) $data = ($data ? "Yes" : "No");
+			
+				$r->addCell(new tblCell(validation::prepForDisplay($data["data"], false), '','left'));		
+			}
+			
+			$mnu = new jqPopupMenu();
+			
+			$ctl = $mnu->addMenuItem("", "View Submission", "", "ui-icon-search");
+			$ctl->onclick = "viewSubmission({$resp["id"]})";						
+			
+			if ($formObj->hasAccess($g_sec, permissions::delete))
+			{		
+				$ctl = $mnu->addMenuItem("", "Delete Submission", "ui-state-error", "ui-icon-trash");
+				$ctl->onclick = "deleteSubmission({$resp["id"]})";				
+			}
+		
+			$r->addCell(new tblCell(validation::parseMySqlDate($resp["dateTime"], "m-d-y \a\\t H:i"), "","center"));
+			$r->addCell(new tblCell($mnu, "", "center"));
+		
+			$subCt++;
+		}
+		
+		if (!$subCt)
+		{
+			$r = $t->addRow();
+			$r->addCell(new tblCell(new phpParagraph("No Submissions Found"), "bold", "center", count($keys)+2));
+		}
+		
+		$js->count = $totalCt;
+		$js->content = $t->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function viewSubmission($subID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		$subObj = new customFormSubmission($subID);		
+		$formObj = $subObj->form;
+		
+		if (!$formObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error();
+
+		$rForm = new jqUI_dialog("subWin", true, 800, "", "View Submission");
+		$rForm->setOption("autoOpen", 1);
+		$rForm->fitToViewport();
+		
+		$rForm->addCloseButton("Close");
+	
+		$cDiv = new phpDIV();
+		$cDiv->id = "viewSubDiv";
+	
+		$cDiv->addControl(new phpHeader(1, $formObj->title));
+		$cDiv->addControl(new phpLiteral("<hr />"));
+		$cDiv->addControl(new phpSpan("<strong>Submitted:</strong>"));
+		$cDiv->addControl(new phpSpan(validation::parseMySqlDate($sub["dateTime"], "D, M d Y \a\\t H:i"), "right"));
+		$cDiv->addControl(new phpSpan("&nbsp;&nbsp;<strong>IP Address:</strong>"));
+		$cDiv->addControl(new phpSpan(long2ip($sub["ipAddress"]), "right"));
+		$cDiv->addControl(new phpLiteral("<hr />"));
+	
+		$responses = $subObj->responses;
+		
+		foreach($responses as $resp)
+		{
+			if ($resp["typeID"] == 4) $resp["data"] = ($resp["data"] ? "Yes" : "No");
+			
+			$cDiv->addControl(new phpSpan("<strong>{$resp["caption"]}</strong>:", "label"));
+			$cDiv->addControl(new phpSpan(nl2br($resp["data"])));	
+		}
+		
+		$rForm->addControl($cDiv);
+		
+		$js->content = $rForm->render();	
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function deleteSubmission($subID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{		
+		$subObj = new customFormSubmission($subID);		
+		$formObj = $subObj->form;		
+		
+		if (!$formObj->hasAccess($g_sec, permissions::delete)) $g_sec->security_error();
+		
+		$js->formID = $formObj->id;
+		
+		$subObj->delete();
+
+		pageClass::setNotify("Successfully deleted form response");		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+?>

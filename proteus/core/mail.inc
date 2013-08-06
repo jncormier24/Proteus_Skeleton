@@ -6,11 +6,10 @@ class systemEmail extends proteusEmail
 		parent::__construct($toEmail, $subject, $body);
 	}
 	public function send($verbose=true)
-	{
-		global $config;
+	{		
 		$conf = new siteConfig();
 		
-		$p = new fileParser($config["baseAppDir"]."themes/".$config["frontend_theme"]."/emails/".$conf->defaultEmailTemplate, true);		
+		$p = new fileParser("themes/".$config["frontend_theme"]."/emails/".$conf->defaultEmailTemplate);		
 		$p->pushParam("content", $this->body);		
 		
 		parent::send($verbose, true, $p);

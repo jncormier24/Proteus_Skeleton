@@ -91,20 +91,33 @@
 			$controlFile = preg_match("/\.ajax$/i", $reqFile) ? $reqFile : "control.ajax";
 			
 			@include("pages/{$config["pageIndex"]}/model.inc");
-			include("pages/{$config["pageIndex"]}/ajax/$controlFile");				
+			include("pages/{$config["pageIndex"]}/ajax/$controlFile");
+							
 			break;
 		default:
 			if (!$config["pageIndex"]) $config["pageIndex"] = "index";
-				
-			@include("pages/{$config["pageIndex"]}/model.inc");
 			
 			$controlFile = "pages/{$config["pageIndex"]}/control.inc";
-			if (file_exists($controlFile))
+			$customControlFile = "../pages/admin/{$config["pageIndex"]}/control.inc";
+			
+			if (!$config["useCustomAdminIndex"] && file_exists($controlFile))
 			{
+				@include("pages/{$config["pageIndex"]}/model.inc");
 				include($controlFile);
 			}
-			else
+			elseif ($config["useCustomAdmin"] && file_exists($customControlFile))
 			{
+				// Set the pageDir tp the frontend custom admin location so that scripts/css will be included automatically
+				$config["pageDir"] = "pages/admin";
+				
+				// Model files are required here
+				include("../pages/admin/model.inc");
+				include("../pages/admin/{$config["pageIndex"]}/model.inc");
+				
+				include($customControlFile);
+			}
+			else
+			{				
 				header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found"); 
 				include($config["baseAppDir"]."404.php");			
 			}

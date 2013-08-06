@@ -1,4 +1,8 @@
 /* Default Stylesheet */
+*
+{
+	margin: 0px;
+}
 body 
 {
 	margin: 0px;
@@ -97,6 +101,27 @@ body > #container
 	background-color: #333333;
 	
 	padding: 10px 5px;
+}
+div.jqWorking
+{
+	background-image: url(images/ajax/loader_2.gif);
+	background-repeat: no-repeat;
+	background-position: top center;
+	
+	padding-top: 40px !important;
+	margin: 10px 0px; 
+	text-align: center;
+}
+div.jqWorking em
+{
+	font-size: 11px;
+	color: #808080;
+}
+div.jqWorkingDiv
+{	
+	margin: auto;
+	max-width: 400px;
+	text-align: center;	
 }
 ul
 {

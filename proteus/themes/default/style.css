@@ -473,6 +473,7 @@ div.configWin form input[type=checkbox]
 div.configWin form
 {
 	clear: both;
+	padding-top: 8px;
 }
 div.configWin table.listTable
 {
@@ -518,6 +519,12 @@ div.configWin.ui-dialog-content
 div.configWin .ui-tabs
 {
 	min-height: 98%;
+}
+.ui-dialog button.delete
+{
+	position: absolute;
+	
+	left: 10px;	
 }
 a.ui-tabs-anchor .ui-icon
 {

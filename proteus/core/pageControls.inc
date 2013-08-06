@@ -26,7 +26,7 @@ class pageClass extends pageContent
 			$templateFile = "themes/".$config["theme"]."/layout.tpl";			
 		}
 		
-		$this->parser = new fileParser($templateFile, true);
+		$this->parser = new fileParser($templateFile);
 		$this->title = $title;		
 		
 		$this->head_objects = new pageContent();
@@ -54,9 +54,9 @@ class pageClass extends pageContent
 		// view template.		
 		global $config;		
 		
-		$fileLoc = $config[pageDir]."/$pageIndex/".$templateFile;
+		$fileLoc = $config["pageDir"]."/{$config["pageIndex"]}/views/".$templateFile;
 		
-		$this->parser = new fileParser($fileLoc, true);
+		$this->parser = new fileParser($fileLoc);
 	}	
 	public function addStylesheetObject($ctl)
 	{

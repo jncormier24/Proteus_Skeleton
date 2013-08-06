@@ -20,9 +20,11 @@ function showCategories()
 	$a->addPageModule(new jqPopupMenuModule());
 	$a->addPageModule(new jqFilterHelperModule());
 	$a->addPageModule(new jqUpdateHelperModule());
+	$a->addPageModule(new jqMaskedInputModule());
 	
 	$a->addPageModule(new commentsModule());
 	$a->addPageModule(new customContentModule());	
+	$a->addPageModule(new subscriptionModule());
 	
 	$g_sec = $a->authUser;
 	
