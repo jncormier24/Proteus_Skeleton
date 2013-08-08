@@ -168,6 +168,21 @@ class customContentData extends phpDataSet
 
 				$module = $module = proteus_core::$module_showcases;				
 				break;
+			case proteus_core::$module_customCategories["siteType"]:
+				if ($dataID)
+				{
+					// Custom Category
+					$data = new customCategory($dataID);
+					$data->hasAccess($sec, permissions::write, true);
+				}
+				else
+				{
+					// Category Item
+					$data = new categoryItem($contentID);
+					$data->hasAccess($sec, permissions::write, true);
+				}
+				$module = $module = proteus_core::$module_customCategories;				
+				break;
 			default:
 				throw new Exception("Invalid type specified!");					
 		}		

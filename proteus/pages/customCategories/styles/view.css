@@ -1,0 +1,22 @@
+div.panelBlockContainer h1 div.jqPopupMenu
+{
+	position: absolute !important;
+	
+	top: 5px;
+	right: 4px;
+}
+#categoriesContainer
+{
+	min-height: 500px;
+}
+#categoryWin .redactor_box
+{
+	float: left;	
+	
+	margin-bottom: 8px;
+	
+	width: 650px;
+
+	min-height: 220px;
+	max-height: 450px;
+}

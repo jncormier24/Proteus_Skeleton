@@ -91,7 +91,7 @@ class permissions extends permission_base
 	public static $site_admin = array("key"=>"site_admin", "standalone"=>true, "description"=>"Grants full R/W/I/D permissions to all site functionality. Assign with Caution!", "isPermissionGroup"=>true);
 	
 	// -- Standalone permissions (not assigned to any particular data ID)	
-	public static $manage_category_items = array("key"=>"manage_category_items", "max_perms"=>15, "description"=>"Manage all Category Items","standalone"=>true,"siteType"=>proteus_core::module_categoryItems);
+	//public static $manage_category_items = array("key"=>"manage_category_items", "max_perms"=>15, "description"=>"Manage all Category Items","standalone"=>true,"siteType"=>proteus_core::module_categoryItems);
 	public static $manage_showcases = array("key"=>"manage_showcases", "max_perms"=>15, "description"=>"Manage all Showcases","standalone"=>true,"siteType"=>proteus_core::module_showcase);
 	public static $manage_users = array("key"=>"manage_users", "max_perms"=>15, "description"=>"Manage System Users","standalone"=>true,"siteType"=>proteus_core::module_users);	
 	public static $manage_category_types = array("key"=>"manage_category_types", "max_perms"=>15, "description"=>"Manage all Category Types","standalone"=>true,"siteType"=>proteus_core::module_categoryItems);

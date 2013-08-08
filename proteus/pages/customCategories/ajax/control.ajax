@@ -1,0 +1,227 @@
+<?php 
+		$g_sec = permissions::getAuthorizedUser();
+	
+	proteus_core::includeAllModules();
+	
+	switch($action)
+	{
+		case "getCategoryEdit":
+			getCategoryEdit($catID);
+			break;
+			
+		case "getCategories":
+			getCategories($paging, $sortData, $filterColumns, $customColumns);
+			break;
+			
+		default:
+			die("Unauthorized");
+	}
+	
+function getCategories($paging, $sortData, $filterColumns, $customColumns)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		if (!$g_sec->is(permissions::$manage_category_types) && !$g_sec->is(permissions::$modify_category_type)) $g_sec->security_error_a();		
+		
+		$t = new tblBuilder();
+		$t->class = "listTable";
+		$t->id = "caetgoriesTable";		
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("Title"));
+		$r->addHeader(new tblHeader("Associated Items"));		
+		$r->addHeader(new tblHeader("&nbsp;"));
+		
+		foreach((array)$customColumns as $cFilter)
+		{
+			if (!strlen($cFilter["value"])) continue;
+				
+			switch($cFilter["key"])
+			{					
+				case "status":
+					
+					$wh[] = "categories.inactive = {$cFilter["value"]}";
+					
+					break;
+			}
+		}		
+		
+		tableFilter::getWhereArray($filterColumns, $wh, $hvArr);
+		$whClause = tableFilter::getWhereClause($wh);
+		
+		$qry = "select categories.id
+				from categories	   
+				where 1 $whClause
+				".tableFilter::getHavingClause($hvArr)."
+				order by ".tableFilter::getOrderClause($sortData, "position asc");
+		
+		$totalCt = $d->qryRow($qry);
+		$fQry = $d->qry($qry.tableFilter::getLimitClause($paging));
+		
+		while($cat = $fQry->fetch_assoc())
+		{
+			$catObj = new customCategory($cat[id]);			
+			
+			$itemCt = $d->qryCount("select count(id) from categoryItems where categoryID = $catObj->id");
+			
+			$mnu = new jqPopupMenu();
+			
+			if ($catObj->hasAccess($g_sec, permissions::write))
+			{
+				$ctl = $mnu->addMenuItem("", "Edit Custom Category", "", "ui-icon-pencil");
+				$ctl->onclick = "getCategoryEdit({$catObj->id})";
+			}
+			
+			$ctl = $mnu->addMenuItem("", "Category Items", "", "ui-icon-folder-open");
+			$ctl->onclick = "getItemsWin({$catObj->id})";
+			
+			if ($catObj->hasAccess($g_sec, permissions::delete))
+			{
+				$ctl = $mnu->addMenuItem("", $catObj->inactive ? "Permanently Delete" : "Deactivate Custom Category", "ui-state-error", "ui-icon-trash");
+				$ctl->onclick = "deactivateCategory({$catObj->id})";
+			}			
+			
+			$r = $t->addRow();
+			$r->addCell(new tblCell($catObj->title));
+			$r->addCell(new tblCell($itemCt, "", "center"));			
+			$r->addCell(new tblCell($mnu, "", "center"));
+		}
+		
+		if (!$totalCt)
+		{
+			$r = $t->addRow();
+			$r->addCell(new tblCell(new phpParagraph("No Custom Categories found"), "strong", "center", 3));
+		}
+		
+		$js->count = $totalCt;
+		$js->content = $t->render();
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_notify($ex);
+		$js->error = $eWin->render();
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getCategoryEdit($catID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		$catObj = new customCategory($catID);
+			
+		if (!$catObj->id) 
+		{						
+			if (!$g_sec->hasAccess(permissions::$manage_category_types, permissions::insert)) $g_sec->security_error_a();		
+		}
+		else
+		{
+			if (!$catObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
+			
+			$writeAccess = $catObj->hasAccess($g_sec, permissions::write);
+		}		
+		
+		$tabs = new jqUI_tabControl("categoryTabs", 0, "admin/customCategories");
+		
+		$catWin = new jqUI_dialog("categoryWin", true, 900, "", $catObj->id ? "Modify Custom Category" : "Add new Custom Category");
+		$catWin->addClass("configWin");
+		$catWin->setOption("autoOpen", true);
+		$catWin->fitToViewport();		
+		
+		// Redactor will not function inside a modal window.
+		$catWin->setOption("modal", 0);
+		
+		$catWin->addCloseButton($catObj->id ? "Close" : "Cancel");
+		
+		if ($catObj->id)
+		{					
+			if ($writeAccess)
+			{
+				$catWin->addButton("Save","function() { updateCategory(); }");
+			}
+			else
+			{
+				$js->disabled = 1;
+			}
+		}
+		else
+		{
+			$catWin->addButton("Add Category","function() { updateCategory(); }");
+			
+			$msg = "<strong>NOTE:</strong> Some editor features (file and image uploads, etc.), as well as feature field editing, are unavailable 
+					until a category has been added.<br /><br />
+					Please fill out the basic information, then click the add button to enable all features.";
+			
+			$catWin->insertControl(new jqUI_dismissableMessage($g_sec, "new_custom_category", $msg));		
+		}		
+		
+		$txtName = new customText("cat[name]", validation::prepTextForInput($catObj->name), 50, 255);
+		$txtName->setLabel("Category Name:");	
+	
+		$txtDesc = new phpTextArea("cat[description]", $catObj->description, 8, 92, "wysiwyg");	
+		$txtDesc->setLabel("Description:");			
+	
+		$ddlTypes = new phpDDL("cat[sortMode]");
+		$ddlTypes->setLabel("Sort Mode:");
+		$ddlTypes->selected = $catObj->sortMode;
+		$ddlTypes->addListItem(new phpListItem("Position, Ascending", 0));
+		$ddlTypes->addListItem(new phpListItem("Added Timestamp Descending", 1));
+		$ddlTypes->addListItem(new phpListItem("Item Name (title)", 2));
+		
+		$cForm = new phpForm("post", "frmCat");
+		$cForm->addControl($txtName);		
+		$cForm->addControl($txtDesc);
+		$cForm->addControl($ddlTypes);		
+		$cForm->addControl(new hiddenInput("action", "updateCategory"));
+		$cForm->addControl(new hiddenInput("catID", $catObj->id));
+		
+		$tpDetail = new jqUI_tabPage("category_detail", "Category Detail", "ui-icon-wrench");
+		$tpDetail->addControl($cForm);
+		
+		$tabs->addTabPage($tpDetail);
+		
+		$catWin->addControl($tabs);
+		
+		/* if ($catObj->id)
+		{
+			$tpFields = new jqUI_tabPage("form_fields", "Form Fields", "ui-icon-arrowthickstop-1-s");
+
+			if ($writeAccess)
+			{
+				$btnAdd = new jqUI_button("btnAddField", "Add Field", "", "ui-icon-document", true);
+				$btnAdd->onclick = "getFieldEdit(0, {$formObj->id});";			
+		
+				$tpFields->addControl($btnAdd);			
+			}			
+			
+			$dv = new phpDIV();
+			$dv->id = "fieldsContainer";
+			
+			$tpFields->addControl($dv);
+			
+			$tabs->addTabPage($tpFields);			
+		}
+ */		
+		// use addObject so that the strip format parameter can be set
+		$js->addObject("content", $catWin->render(), false);
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+?>

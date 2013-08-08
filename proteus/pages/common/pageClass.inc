@@ -68,9 +68,15 @@ class admin_navigation extends phpDIV
 				$ul->addListItem(new htmlListItem($lnk->render()));
 			}
 			
+			if ($conf->moduleEnabled(proteus_core::$module_customCategories) && ($secObj->is(permissions::$manage_category_types) || $secObj->is(permissions::$modify_category_type)))
+			{	
+				$lnk = new jqUI_hyperlink("admin/customCategories", "Custom Categories", "", "ui-icon-folder-open");
+				$ul->addListItem(new htmlListItem($lnk->render()));
+			}
+			
 			if ($conf->moduleEnabled(proteus_core::$module_calendars) && ($secObj->is(permissions::$manage_calendars) || $secObj->is(permissions::$modify_calendar)))
 			{	
-				$lnk = new jqUI_hyperlink("admin/calendars", "Calendars & Events", "", "ui-icon-calendar");
+				$lnk = new jqUI_hyperlink("admin/calendars", "Calendars &amp; Events", "", "ui-icon-calendar");
 				$ul->addListItem(new htmlListItem($lnk->render()));
 			}
 			

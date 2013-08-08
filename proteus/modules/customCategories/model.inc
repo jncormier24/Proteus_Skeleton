@@ -1,10 +1,10 @@
 <?php
 class customCategory_core
-{
-	public $files = array("categoryItems.php", "categoryTypes.php", "categoryItems.ajax", "categoryTypes.ajax");	
+{	
+	public $asset_folders = array("categoryItems");	
 	public $tables = array("categoryFeature"=>"CREATE TABLE `categoryFeature` (
 											 `id` int(11) NOT NULL AUTO_INCREMENT,
-											 `categoryTypeID` int(11) NOT NULL DEFAULT '0',
+											 `categoryID` int(11) NOT NULL DEFAULT '0',
 											 `fieldName` varchar(50) NOT NULL DEFAULT '',
 											 `featureType` int(11) NOT NULL DEFAULT '0',
 											 `featureConfigData` text NOT NULL,
@@ -23,11 +23,11 @@ class customCategory_core
 													) ENGINE=MyISAM DEFAULT CHARSET=utf8",
 							"categoryItems"=>"CREATE TABLE `categoryItems` (
 											 `id` int(11) NOT NULL AUTO_INCREMENT,
-											 `categoryTypeID` int(11) NOT NULL DEFAULT '0',
+											 `categoryID` int(11) NOT NULL DEFAULT '0',
 											 `title` varchar(255) NOT NULL DEFAULT '',
 											 `description` text NOT NULL,
 											 `lookupKey` varchar(50) NOT NULL,
-											 `inactive` int(11) NOT NULL DEFAULT '0',
+											 `inactive` tinyint(4) NOT NULL DEFAULT '0',
 											 `position` int(11) NOT NULL DEFAULT '0',
 											 `addedDateTime` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
 											 PRIMARY KEY (`id`)
@@ -35,33 +35,191 @@ class customCategory_core
 							"categoryKeyLookup"=>"CREATE TABLE `categoryKeyLookup` (
 												 `id` int(11) NOT NULL AUTO_INCREMENT,
 												 `categoryItemID` int(11) NOT NULL,
-												 `keyID` int(11) NOT NULL,
+												 `categoryID` int(11) NOT NULL,
 												 `keyData` varchar(255) NOT NULL,
 												 `position` int(11) NOT NULL DEFAULT '0',
 												 PRIMARY KEY (`id`)
 												) ENGINE=MyISAM DEFAULT CHARSET=utf8",
-							"categoryKeyOptions"=>"CREATE TABLE `categoryKeyOptions` (
-												 `id` int(11) NOT NULL AUTO_INCREMENT,
-												 `categoryTypeID` int(11) NOT NULL,
-												 `value` varchar(255) NOT NULL,
-												 PRIMARY KEY (`id`)
-												) ENGINE=MyISAM DEFAULT CHARSET=utf8",
-							"categoryTypes"=>"CREATE TABLE `categoryTypes` (
+							"categories"=>"CREATE TABLE `categories` (
 											 `id` int(11) NOT NULL AUTO_INCREMENT,
 											 `name` varchar(50) NOT NULL DEFAULT '',
 											 `description` text NOT NULL,
-											 `image` varchar(255) NOT NULL DEFAULT '',
-											 `inactive` smallint(6) NOT NULL DEFAULT '0',
-											 `parserPage` varchar(50) NOT NULL DEFAULT '',
-											 `lookupKey` varchar(50) NOT NULL,
-											 `position` int(11) NOT NULL DEFAULT '0',
-											 `descIsHtml` smallint(6) NOT NULL,
-											 `exposeAsKeys` int(11) NOT NULL DEFAULT '0',
-											 `sortMode` int(11) NOT NULL DEFAULT '0',
-											 `hideSubKeys` tinyint(4) NOT NULL DEFAULT '0',
-											 `disableDelete` tinyint(4) NOT NULL DEFAULT '0',
+											 `sortMode` tinyint(4) NOT NULL DEFAULT '0',											 											 
+											 `position` int(11) NOT NULL DEFAULT '0', 
+											 `inactive` tinyint(4) NOT NULL DEFAULT '0',
 											 PRIMARY KEY (`id`)
 											) ENGINE=MyISAM DEFAULT CHARSET=utf8");
+}
+class customCategory extends phpDataset
+{	
+	public function customCategory($id)
+	{		
+		parent::__construct("categories", $id, $id ? true : false);		
+	}	
+	public function __get($key)
+	{		
+		global $config;		
+		
+		switch ($key)
+		{
+			case "assetFolder":
+				return "assets/customCategories/{$this->id}";
+		}
+		
+		return parent::__get($key);	
+	}
+	public function populateCategoryItems($orderBy="", $startPos=0, $limit=0)
+	{
+		// Sort Mode:
+		// 0: Sort by position, ascending
+		// 1: Sort by addedDateTime descending
+		$d = new DAL();
+		
+		if ($limit) $limitClause = "limit ".($startPos ? $startPos.", " : "").$limit;
+		
+		if ($this->itemKeyFilter) $whClause = " and categoryItems.lookupKey = '{$this->itemKeyFilter}'";
+		if ($this->itemIDFilter) $whClause .= " and categoryItems.id=".$this->itemIDFilter;
+		
+		if ($this->itemSecondaryKeyFilter)
+		{
+			$join = "inner join categoryKeyLookup on categoryKeyLookup.categoryItemID = categoryItems.id ";
+			$whClause .= " and categoryKeyLookup.keyID = ".$this->itemSecondaryKeyFilter;
+		}
+		
+		if (!$orderBy) 
+		{
+			if (!$this->category[sortMode]) $this->category[sortMode] = 0;
+			$sortMode = $this->category[sortMode];
+			
+			switch($sortMode)
+			{
+				case 0:
+					$orderBy = "categoryItems.position asc";
+					break;
+					
+				case 1:					
+					$orderBy = "addedDateTime desc";
+					break;
+				
+				case 2:
+					$orderBy = "title asc";
+					break;
+			}
+		}
+		
+		$qry = "select categoryItems.id
+				from categoryItems $join
+				where categoryItems.categoryTypeID = {$this->category[id]} and categoryItems.inactive = {$this->getInactive} $whClause
+				order by $orderBy
+				$limitClause";
+		
+		$cQry = $d->qry($qry);
+		
+		$ct=0;
+		while($cItem = mysqli_fetch_assoc($cQry))
+		{
+			$this->categoryItems[$ct++] = new categoryItem($cItem[id], $this->descIsHtml);
+		}		
+	}	
+	public function hasAccess(security $sec, $permission, $throwException = false)
+	{
+		$access = $sec->hasAccess(permissions::$manage_category_types, $permission > permissions::read ? permissions::write : $permission) || 
+			   	  $sec->hasAccess(permissions::$modify_category_type, $permission, $this->id);
+		
+		if (!$access && $throwException) $sec->security_error_a();
+		
+		return $access;
+	}
+	public function insert($data="")
+	{
+		$d = new DAL(true);
+		
+		// Take care of setting the position when inserting here
+		$max = $d->qryCount("select max(position) from customCategories");
+		if (!$max) $max = 0;
+		$max++;
+			
+		$this->position = $max;
+		
+		$id = parent::insert($data);
+		
+		$loc = $config["baseAppDir"].$this->assetFolder;
+		if (!file_exists($loc)) mkdir($loc);		
+		
+		return $id;
+	}
+}
+class categoryItem extends phpDataset
+{
+	var $item = array();
+	var $features = array();
+	var $subKeys = array();
+	
+	public function categoryItem($categoryItemID, $wysiwygText=false, $populateFeatures = true)
+	{
+		$d = new DAL();
+		
+		validation::ensureInt($categoryItemID);
+		if (!$categoryItemID) throw new Exception("Error, no category item information provided!");
+		
+		//Load the item data
+		$this->item = $d->qryArray("select * from categoryItems where id=$categoryItemID");
+		
+		if (!$this->item[id]) throw new Exception("Error, that category item cannot be found!");
+		
+		if ($wysiwygText) $this->item[description] = stripslashes($this->item[description]);
+		
+		if ($populateFeatures)
+		{
+			$qry = "select id, featureKey
+					from categoryFeature
+					where categoryTypeID = {$this->item[categoryTypeID]}
+					order by position asc";
+			$fQry = $d->qry($qry);
+			
+			$ct = 0;
+			while($fea = mysqli_fetch_assoc($fQry))
+			{
+				if (!$fea[featureKey]) $fea[featureKey] = $ct++;
+				$this->features[$fea[featureKey]] = new categoryFeature($this->item[categoryTypeID], $categoryItemID, $fea[id]);
+			}
+		}		
+	}	
+	public function populateSubKeys($keyIDFilter='', $orderByPosition = false)
+	{	
+		$d = new DAL();
+		
+		if ($keyIDFilter) $whClause = "and keyID = '$keyIDFilter'";
+		$order = "id asc";
+		if($orderByPosition) $order = "position asc, id asc";
+		//Load secondary Key data
+		$kQry = $d->qry("select categoryKeyLookup.id, keyID, keyData, categoryItemID
+					 	 from categoryKeyLookup
+					 	 where categoryItemID = {$this->item[id]} $whClause
+					 	 order by $order");	
+		$sCt = 0;
+		while($kData = mysqli_fetch_assoc($kQry))
+		{	
+			$this->subKeys[$sCt++] = $kData;
+		}
+	}	
+	public static function getIDByLookupKey($key)
+	{
+		validation::ensureString($key);
+		if (!$key) return false;
+		
+		$d = new DAL();
+		return $d->qryCount("select id from categoryItems where lookupKey = '$key'");	
+	}
+	public function hasAccess(security $sec, $permission, $throwException = false)
+	{
+		$access = $sec->hasAccess(permissions::$manage_category_types, $permission > permissions::read ? permissions::write : $permission) || 
+			   	  $sec->hasAccess(permissions::$modify_category_type, $permission, $this->categoryID);
+		
+		if (!$access && $throwException) $sec->security_error_a();
+		
+		return $access;
+	}
 }
 class categoryFeatureFile
 {
@@ -85,6 +243,20 @@ class categoryFeatureFile
 }
 class categoryFeature
 {
+	const type_text_field = 1;
+	const type_hyperlink = 2;
+	const type_image = 3;
+	const type_downloadable_file = 4;
+	const type_wysiwyg_text = 5;
+	const type_showcase = 6;
+	const type_date_field = 7;
+	const type_html_literal = 8;
+	const type_custom_form = 9;
+	const type_blog_topic = 10;
+	const type_blog_category = 11;
+	//const type_inventory_type = 12; 
+	//const type_inventory_manufacturer = 13;
+	
 	private $categoryItemID;
 	private $featureID;
 	private $categoryTypeID;
@@ -257,199 +429,6 @@ class categoryFeature
 		
 		$d = new DAL(true);
 		return $d->qry("delete from categoryFeatureLookup where id = {$this->featureLookupID}");
-	}
-}
-class categoryItem
-{
-	var $item = array();
-	var $features = array();
-	var $subKeys = array();
-	
-	public function categoryItem($categoryItemID, $wysiwygText=false, $populateFeatures = true)
-	{
-		$d = new DAL();
-		
-		validation::ensureInt($categoryItemID);
-		if (!$categoryItemID) throw new Exception("Error, no category item information provided!");
-		
-		//Load the item data
-		$this->item = $d->qryArray("select * from categoryItems where id=$categoryItemID");
-		
-		if (!$this->item[id]) throw new Exception("Error, that category item cannot be found!");
-		
-		if ($wysiwygText) $this->item[description] = stripslashes($this->item[description]);
-		
-		if ($populateFeatures)
-		{
-			$qry = "select id, featureKey
-					from categoryFeature
-					where categoryTypeID = {$this->item[categoryTypeID]}
-					order by position asc";
-			$fQry = $d->qry($qry);
-			
-			$ct = 0;
-			while($fea = mysqli_fetch_assoc($fQry))
-			{
-				if (!$fea[featureKey]) $fea[featureKey] = $ct++;
-				$this->features[$fea[featureKey]] = new categoryFeature($this->item[categoryTypeID], $categoryItemID, $fea[id]);
-			}
-		}		
-	}	
-	public function populateSubKeys($keyIDFilter='', $orderByPosition = false)
-	{	
-		$d = new DAL();
-		
-		if ($keyIDFilter) $whClause = "and keyID = '$keyIDFilter'";
-		$order = "id asc";
-		if($orderByPosition) $order = "position asc, id asc";
-		//Load secondary Key data
-		$kQry = $d->qry("select categoryKeyLookup.id, keyID, keyData, categoryItemID
-					 	 from categoryKeyLookup
-					 	 where categoryItemID = {$this->item[id]} $whClause
-					 	 order by $order");	
-		$sCt = 0;
-		while($kData = mysqli_fetch_assoc($kQry))
-		{	
-			$this->subKeys[$sCt++] = $kData;
-		}
-	}
-	public function __get($key)
-	{
-		if (isset($this->item[$key]))
-		{
-			return $this->item[$key];			
-		}	
-		else
-		{
-			return false;	
-		}
-	}
-	public static function getIDByLookupKey($key)
-	{
-		validation::ensureString($key);
-		if (!$key) return false;
-		
-		$d = new DAL();
-		return $d->qryCount("select id from categoryItems where lookupKey = '$key'");	
-	}
-}
-class customCategoryTypes
-{
-	const text_field = 1;
-	const hyperlink = 2;
-	const image = 3;
-	const downloadable_file = 4;
-	const wysiwyg_text = 5;
-	const showcase = 6;
-	const date_field = 7;
-	const html_literal = 8;
-	const custom_form = 9;
-	const blog_topic = 10;
-	const blog_category = 11;
-	const inventory_type = 12; 
-	const inventory_manufacturer = 13;  	
-}
-class customCategory
-{
-	var $catID;
-	var $categoryKeyFilter;
-	var $category = array();
-	var $categoryItems = array();	
-	var $itemKeyFilter;
-	var $getInactive;	
-	var $itemIDFilter;
-	var $itemSecondaryKeyFilter;
-	
-	public function customCategory($catID = "", $categoryKeyFilter= "", $itemKeyFilter="", $no_populate=false, $get_inactive = false, $itemIDFilter="", $itemSecondaryKeyFilter="")
-	{
-		validation::ensureInt($catID);
-		
-		$this->catID = $catID;
-		$this->categoryKeyFilter = $categoryKeyFilter;
-		$this->itemKeyFilter = $itemKeyFilter;
-		$this->getInactive = $get_inactive ? 1 : 0;
-		$this->itemIDFilter = $itemIDFilter;
-		$this->itemSecondaryKeyFilter = $itemSecondaryKeyFilter;
-		
-		if ($this->catID || $this->categoryKeyFilter) $this->populateCategory($no_populate);		
-	}	
-	public function populateCategory($no_populate=false)
-	{
-		$d = new DAL();
-		
-		$whClause = ($this->catID ? "id = {$this->catID}" : "lookupKey = '{$this->categoryKeyFilter}'");		
-		
-		$qry = "select *
-				from categoryTypes
-				where $whClause";	
-		
-		$this->category = $d->qryArray($qry);
-		
-		if (!$no_populate && $this->category) $this->populateCategoryItems();
-	}
-	public function populateCategoryItems($orderBy="", $startPos=0, $limit=0)
-	{
-		// Sort Mode:
-		// 0: Sort by position, ascending
-		// 1: Sort by addedDateTime descending
-		$d = new DAL();
-		
-		if ($limit) $limitClause = "limit ".($startPos ? $startPos.", " : "").$limit;
-		
-		if ($this->itemKeyFilter) $whClause = " and categoryItems.lookupKey = '{$this->itemKeyFilter}'";
-		if ($this->itemIDFilter) $whClause .= " and categoryItems.id=".$this->itemIDFilter;
-		
-		if ($this->itemSecondaryKeyFilter)
-		{
-			$join = "inner join categoryKeyLookup on categoryKeyLookup.categoryItemID = categoryItems.id ";
-			$whClause .= " and categoryKeyLookup.keyID = ".$this->itemSecondaryKeyFilter;
-		}
-		
-		if (!$orderBy) 
-		{
-			if (!$this->category[sortMode]) $this->category[sortMode] = 0;
-			$sortMode = $this->category[sortMode];
-			
-			switch($sortMode)
-			{
-				case 0:
-					$orderBy = "categoryItems.position asc";
-					break;
-					
-				case 1:					
-					$orderBy = "addedDateTime desc";
-					break;
-				
-				case 2:
-					$orderBy = "title asc";
-					break;
-			}
-		}
-		
-		$qry = "select categoryItems.id
-				from categoryItems $join
-				where categoryItems.categoryTypeID = {$this->category[id]} and categoryItems.inactive = {$this->getInactive} $whClause
-				order by $orderBy
-				$limitClause";
-		
-		$cQry = $d->qry($qry);
-		
-		$ct=0;
-		while($cItem = mysqli_fetch_assoc($cQry))
-		{
-			$this->categoryItems[$ct++] = new categoryItem($cItem[id], $this->descIsHtml);
-		}		
-	}
-	public function __get($value)
-	{
-		if (isset($this->category[$value]))
-		{
-			return $this->category[$value];				
-		}
-		else
-		{
-			return false;	
-		}
 	}
 }
 ?>

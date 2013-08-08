@@ -6,7 +6,7 @@ class subscriber_core
 	const type_municipal_file = 2;
 	const type_municipal_agenda = 3;
 	const type_municipal_generic = 4;
-	const type_blog_entry = 4;
+	const type_blog_entry = 5;
 	 
 	public $asset_folders = array("subscriptions");	
 	public $tables = array("subscribers"=>"CREATE TABLE `subscribers` (
