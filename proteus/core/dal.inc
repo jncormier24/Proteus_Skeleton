@@ -330,14 +330,7 @@ class phpDataset
 	}
 	public function save($data="")	
 	{
-		if (is_array($data))
-		{
-			foreach($data as $key=>$value)
-			{
-				$this->$key = "'".validation::prepMultiLineForStorage($value)."'";	
-			}
-		}
-		
+		if (is_array($data)) $this->prepDataArray($data);		
 		if (!count($this->p_dirtyCols)) return;		
 		
 		$d = new DAL(true);
@@ -353,13 +346,8 @@ class phpDataset
 	{		
 		if ($this->p_dataID || $this->p_data[id]) throw new Exception("Error, this data entry already has an ID - cannot duplicate primary key.");
 		
-		if (is_array($data))
-		{
-			foreach($data as $key=>$value)
-			{				
-				$this->$key = "'$value'";	
-			}
-		}
+		if (is_array($data)) $this->prepDataArray($data);
+		if (!count($this->p_dirtyCols)) throw new Exception("No data to insert.");
 		
 		$d = new DAL(true);		
 		$insID = $d->qryInsertByArray($this->p_table, $this->p_dirtyCols);
@@ -370,6 +358,13 @@ class phpDataset
 		$this->fill();
 		
 		return $this->p_dataID;
+	}
+	private function prepDataArray($data)
+	{
+		foreach((array)$data as $key=>$value)
+		{				
+			$this->$key = "'$value'";	
+		}		
 	}
 	public function cleanDirtyCols()
 	{

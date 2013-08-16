@@ -20,3 +20,33 @@ div.panelBlockContainer h1 div.jqPopupMenu
 	min-height: 220px;
 	max-height: 450px;
 }
+#btnAddFeature
+{	
+	margin-top: 2px;
+}
+#featuresContainer
+{	
+	clear: both;	
+	min-height: 400px;
+}
+span.featureKey
+{
+	font-size: 10px;
+	display: block;
+	
+	padding: 5px 0px 0px 5px;
+}
+#featureEditWin span.label.featureLabel
+{
+	clear: none;
+	font-weight: bold;
+	color: #dd6900;
+}
+span.updatedBy
+{
+	font-size: 11px;
+	font-style: italic;
+	font-weight: bold;
+	
+	color: #808080;	
+}

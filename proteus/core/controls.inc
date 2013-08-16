@@ -2408,7 +2408,7 @@ class tableFilter extends phpDIV
 	public function addColumnFilter($dbColumn, $filterType, $selector, $default='', $filterQuery='', $mask='')
 	{
 		$ctlColumn = "filters[$dbColumn]";
-		$this->columnFilters[] = array("dbColumn" => $dbColumn, "filterType" => $filterType, "default" => $default, "value" => "", "selector" => $selector, "mask" => $mask);
+		$this->columnFilters[] = array("dbColumn" => $dbColumn, "filterType" => $filterType, "defaultVal" => $default, "value" => "", "selector" => $selector, "mask" => $mask);
 		
 		switch($filterType)
 		{
@@ -2575,10 +2575,16 @@ class tableFilter extends phpDIV
 				$valArr =& $wh;	
 			}
 			
-			//$val = (is_numeric($filter[value]) ? $filter[value] : "'%$filter[value]%'");
-			$val = "'%$filter[value]%'";
-			
-			$valArr[] = "$filter[dbColumn] like $val";	
+			switch($filter[filterType])
+			{
+				case tableFilter::filter_dropdown:
+				case tableFilter::filter_date:
+					$valArr[] = "$filter[dbColumn] = '{$filter["value"]}'";
+					break;
+				default:
+					$valArr[] = "$filter[dbColumn] like '%{$filter["value"]}%'";
+					break;
+			}				
 		}
 		
 		return $wh;

@@ -322,16 +322,7 @@ function deleteContentEntry($contentID)
 		$dataObj = customContentData::getDataObject($cpObj->typeID, $cpObj->dataID, $contentID);
 		if (!$dataObj->id) throw new Exception("Error, linked data not found.");
 		
-		$assetDir = $config["baseAppDir"]."assets/".$dataObj->assetDir;
-		
-		foreach(glob($assetDir."/*") as $file)
-		{
-			@unlink($file);
-		}
-		
-		@rmdir($assetDir);
-		
-		$d->qry("delete from customContent where id=$contentID");
+		$dataObj->delete();
 		
 		pageClass::setNotify("Successfully removed custom content");
 		

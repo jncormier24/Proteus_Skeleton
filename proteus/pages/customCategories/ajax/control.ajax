@@ -1,10 +1,38 @@
 <?php 
-		$g_sec = permissions::getAuthorizedUser();
+	$g_sec = permissions::getAuthorizedUser();
 	
 	proteus_core::includeAllModules();
 	
 	switch($action)
 	{
+		case "getCategoryItemsWin":
+			getCategoryItemsWin($categoryID);
+			break;
+			
+		case "getCategoryItems":
+			getCategoryItems($categoryID, $paging, $sortData, $filterColumns, $customColumns);
+			break;
+			
+		case "deleteCategoryFeature":
+			deleteCategoryFeature($featureID);
+			break;
+			
+		case "updateCategoryFeature":
+			updateCategoryFeature($featureID, $categoryID, $feature);
+			break;
+			
+		case "getCategoryFeatureEdit":
+			getCategoryFeatureEdit($featureID, $categoryID, $featureType);
+			break;
+			
+		case "getCategoryFeatures":
+			getCategoryFeatures($catID, $typeID);
+			break;
+			
+		case "updateCategory":
+			updateCategory($catID, $cat);
+			break;
+			
 		case "getCategoryEdit":
 			getCategoryEdit($catID);
 			break;
@@ -78,7 +106,7 @@ function getCategories($paging, $sortData, $filterColumns, $customColumns)
 			}
 			
 			$ctl = $mnu->addMenuItem("", "Category Items", "", "ui-icon-folder-open");
-			$ctl->onclick = "getItemsWin({$catObj->id})";
+			$ctl->onclick = "getCategoryItemsWin({$catObj->id})";
 			
 			if ($catObj->hasAccess($g_sec, permissions::delete))
 			{
@@ -87,7 +115,7 @@ function getCategories($paging, $sortData, $filterColumns, $customColumns)
 			}			
 			
 			$r = $t->addRow();
-			$r->addCell(new tblCell($catObj->title));
+			$r->addCell(new tblCell($catObj->name));
 			$r->addCell(new tblCell($itemCt, "", "center"));			
 			$r->addCell(new tblCell($mnu, "", "center"));
 		}
@@ -178,40 +206,51 @@ function getCategoryEdit($catID)
 		$ddlTypes->addListItem(new phpListItem("Added Timestamp Descending", 1));
 		$ddlTypes->addListItem(new phpListItem("Item Name (title)", 2));
 		
-		$cForm = new phpForm("post", "frmCat");
-		$cForm->addControl($txtName);		
-		$cForm->addControl($txtDesc);
-		$cForm->addControl($ddlTypes);		
-		$cForm->addControl(new hiddenInput("action", "updateCategory"));
-		$cForm->addControl(new hiddenInput("catID", $catObj->id));
+		$cCategory = new phpForm("post", "frmCategory");
+		$cCategory->addControl($txtName);		
+		$cCategory->addControl($txtDesc);
+		$cCategory->addControl($ddlTypes);		
+		$cCategory->addControl(new hiddenInput("action", "updateCategory"));
+		$cCategory->addControl(new hiddenInput("catID", $catObj->id));
 		
 		$tpDetail = new jqUI_tabPage("category_detail", "Category Detail", "ui-icon-wrench");
-		$tpDetail->addControl($cForm);
+		$tpDetail->addControl($cCategory);
 		
 		$tabs->addTabPage($tpDetail);
 		
 		$catWin->addControl($tabs);
 		
-		/* if ($catObj->id)
-		{
-			$tpFields = new jqUI_tabPage("form_fields", "Form Fields", "ui-icon-arrowthickstop-1-s");
-
+		if ($catObj->id)
+		{	
+			$tpFeatures = new jqUI_tabPage("category_features", "Category Features", "ui-icon-tag");
+			$tpFeatures->addControl(new phpParagraph("Use these to define additional features that will shape the way the category items
+										  	are displayed. Note that removing items here <strong>WILL REMOVE</strong>
+										  	any associated Feature data in current content items! Modifying the display position
+										  	will have no impact on current content data, it is display only.", "", "left"));
 			if ($writeAccess)
 			{
-				$btnAdd = new jqUI_button("btnAddField", "Add Field", "", "ui-icon-document", true);
-				$btnAdd->onclick = "getFieldEdit(0, {$formObj->id});";			
+				$ddlTypes = new phpDDL("featureType");
+				$ddlTypes->setLabel("Add a new Feature:");
+				$ddlTypes->bindByArray(categoryFeature::$types_array);
+			
+				$cmdAdd = new jqUI_button("btnAddFeature", "Add Feature", "", "ui-icon-plusthick", true);				
+				$cmdAdd->onclick = "getCategoryFeatureEdit(0, {$catObj->id})";
 		
-				$tpFields->addControl($btnAdd);			
+				$aForm = new phpForm();
+				$aForm->addControl($ddlTypes);
+				$aForm->addControl($cmdAdd);
+				
+				$tpFeatures->addControl($aForm);			
 			}			
 			
 			$dv = new phpDIV();
-			$dv->id = "fieldsContainer";
+			$dv->id = "featuresContainer";
 			
-			$tpFields->addControl($dv);
+			$tpFeatures->addControl($dv);
 			
-			$tabs->addTabPage($tpFields);			
+			$tabs->addTabPage($tpFeatures);			
 		}
- */		
+ 
 		// use addObject so that the strip format parameter can be set
 		$js->addObject("content", $catWin->render(), false);
 	}
@@ -219,6 +258,468 @@ function getCategoryEdit($catID)
 	{
 		$eWin = new jqUI_errorNotify($ex);
 		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function updateCategory($catID, $cat)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		$catObj = new customCategory($catID);
+			
+		if (!$catObj->id) 
+		{						
+			if (!$g_sec->hasAccess(permissions::$manage_custom_forms, permissions::insert)) $g_sec->security_error_a();
+		
+		}
+		else
+		{
+			if (!$catObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();	
+		}
+		
+		if (!$cat["name"]) throw new Exception("Error, no Category Name specified. All Custom Categories must have a title!");		
+		
+		if ($catObj->id)
+		{
+			$catObj->save($cat);
+			pageClass::setNotify("Custom Category Saved");
+		}
+		else
+		{
+			$catID = $catObj->insert($cat);
+			pageClass::setNotify("Successfully added new Custom Category");
+			
+			$js->catID = $catID;
+		}		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getCategoryFeatures($catID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	$pc = new pageContent();
+
+	try
+	{
+		$catObj = new customCategory($catID);
+		if (!$catObj->id) throw new Exception("Error, that Custom Category could not be found.");
+	
+		if (!$catObj->hasAccess($g_sec, permissions::read) && !$catObj->hasAccess($g_sec, permissions::read, $catObj->id)) $g_sec->security_error_a();
+		
+		$writeAccess = $catObj->hasAccess($g_sec, permissions::write);
+		
+		$t = new tblBuilder('center',0,0,4,'100%');	
+		$t->id = "featuresTable";
+		$t->class = "listTable sortable";			
+		$t->addAttribute("data-sort-type", tableSorter_core::$sort_category_feature["sortType"]);
+			
+		$r = $t->addRow();
+	
+		$r->addHeader(new tblHeader("Feature Name"));	
+		$r->addHeader(new tblHeader("Type"));		
+		if ($writeAccess) $r->addHeader(new tblHeader("&nbsp;"));
+	
+		$features = $catObj->features;
+		
+		foreach($features as $feature)
+		{				
+			$r = $t->addRow();
+			$r->addAttribute("data-id", $feature->id);
+		
+			$c = new tblCell($feature->fieldName, "", "left");
+			if ($feature->featureKey) $c->addControl(new phpSpan("Feature Key: {$feature->featureKey}", "featureKey"));
+		
+			$r->addCell($c);
+			$r->addCell(new tblCell($feature->type, "", "left"));
+			
+			if ($writeAccess)
+			{
+				$eCtl = new editControl();
+				$eCtl->onclick = "getCategoryFeatureEdit({$feature->id})";
+						
+				$dCtl = new deleteControl();
+				$dCtl->onclick = "deleteCategoryFeature({$feature->id})";
+				
+				$r->addCell(new tblCell(array($eCtl, $dCtl), "", "center"));
+			}
+		}	
+		
+		if (!count($features))
+		{
+			$r = $t->addRow();		
+			$r->addCell(new tblCell("No Category Features Defined", "strong", "center", 3));
+		}
+	
+		$pc->addControl($t);
+				
+		$js->content = $pc->render();	
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+	
+	echo $js->render();
+}
+function getCategoryFeatureEdit($featureID, $categoryID, $featureType)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	$pc = new pageContent();
+
+	try
+	{
+		validation::ensureInt($categoryID);
+		validation::ensureInt($featureType);
+		
+		$fObj = new categoryFeature($featureID);
+		
+		if ($fObj->id)
+		{
+			$categoryID = $fObj->categoryID;
+			$featureType = $fObj->featureType; 	
+		}	
+		else
+		{
+			if (!$featureType) throw new Exception("Error, no feature type specified for field addition.");
+		}
+		
+		$catObj = new customCategory($categoryID);
+		if (!$catObj->id) throw new Exception("Error, that Custom Category could not be found");		
+
+		if (!$catObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();		
+		
+		$fWin = new jqUI_dialog("featureEditWin", true, 675, "", $fObj->id ? "Modify Category Feature: {$fObj->fieldName}" : "Add new Category Feature");
+		$fWin->addClass("configWin");
+		$fWin->setOption("autoOpen", 1);		
+		$fWin->setOption("autoResize", 1);
+		$fWin->addCloseButton($fObj->id ? "Close" : "Cancel");
+		
+		$fWin->addButton($fObj->id ? "Save Feature" : "Add Feature", "updateCategoryFeature");
+				
+		$fType = array_search($featureType, categoryFeature::$types_array);
+		$fSpan = new phpSpan($fType, "label featureLabel");	
+	
+		$featureData = new phpFiller();
+		
+		switch($featureType)
+		{
+			case 1:
+			case 5:
+				$fSpan = new phpDDL("feature[featureType]");				
+				$fSpan->selected = $featureType;
+				$fSpan->addListItem(new phpListItem("TextBox", 1));
+				$fSpan->addListItem(new phpListItem("WYSYWYG Text", 5));							
+			
+				break;			
+			case 2:			
+				$featureData = new phpDDL("feature[featureConfigData]");
+				$featureData->selected = $fObj->featureConfigData;				
+				$featureData->setLabel("Open Link in:");
+				$featureData->addListItem(new phpListItem("Same Window", ''));
+				$featureData->addListItem(new phpListItem("New Window", "target::_blank"));
+				
+				break;	
+			case 4:
+				$featureData = new phpCheckbox("feature[featureConfigData]", 1, $fObj->featureConfigData);				
+				$featureData->setLabel("Allow Multiple Files:");
+				
+				break;			
+		}	
+		
+		$txtName = new customText("feature[fieldName]", validation::prepTextForInput($fObj->fieldName), 25, 50);	
+		$txtName->setLabel("Feature Name:");						
+	
+		$txtKey = new customText("feature[featureKey]", $fObj->featureKey, 25, 50);	
+		$txtKey->setLabel("Feature Key:");				
+		$txtKey->setRequired("Used for accessing feature programmatically", "desc");		
+	
+		$chkRequired = new phpCheckbox("feature[featureRequired]", 1, $fObj->featureRequired);		
+		$chkRequired->setLabel("Required Field:");
+		$chkRequired->setRequired("Data required to save Category Item", "desc");			
+	
+		$fForm = new phpForm("post", "frmFeature");		
+		$fForm->addControl(new phpSpan("Feature Type: ", "label"));	
+		$fForm->addControl($fSpan);
+		$fForm->addControl($txtName);
+		$fForm->addControl($featureData);
+		$fForm->addControl($txtKey);
+		$fForm->addControl($chkRequired);
+		$fForm->addControl(new hiddenInput("action", "updateCategoryFeature"));
+		$fForm->addControl(new hiddenInput("categoryID", $categoryID));
+		$fForm->addControl(new hiddenInput("featureID", $fObj->id));
+		if (!$fObj->id) $fForm->addControl(new hiddenInput("feature[featureType]", $featureType));
+		
+		$fWin->addControl($fForm);
+		
+		$js->content = $fWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+	
+	echo $js->render();	
+}
+function updateCategoryFeature($featureID, $categoryID, $feature)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	$pc = new pageContent();
+
+	try
+	{		
+		validation::ensureInt($categoryID);
+		validation::ensureInt($featureType);
+		validation::ensureInt($feature["featureRequired"], 0);
+		validation::ensureInt($feature["featureType"], 0);
+		
+		$fObj = new categoryFeature($featureID);
+		
+		if ($fObj->id)
+		{
+			$categoryID = $fObj->categoryID;
+			$featureType = $fObj->featureType; 	
+		}	
+		else
+		{
+			if (!$feature["featureType"]) throw new Exception("Error, no feature type specified for field addition.");
+		}
+		
+		$catObj = new customCategory($categoryID);
+		if (!$catObj->id) throw new Exception("Error, that Custom Category could not be found");		
+
+		if (!$catObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();		
+		
+		if (!$feature["fieldName"]) throw new Exception("Feature Field Name cannot be blank!");
+		
+		$fKey = strtolower(preg_replace(array("/\s/i", "/[^a-z_]/i"), array("_",""), $feature["featureKey"] ? $feature["featureKey"] : $feature["fieldName"]));
+		
+		if ($d->qryCount("select id 
+						 from categoryFeatures 
+						 where categoryID={$catObj->id} and featureKey='$fKey'".($fObj->id ? " and id <> {$fObj->id}" : ""))) throw new Exception("A feature with that key name already exists in this category. Please change to something different and try again.");
+		
+		$fObj->featureKey = "'".$fKey."'";
+		
+		unset($feature["featureKey"]);
+		
+		if ($fObj->id)
+		{
+			$fObj->save($feature);
+			pageClass::setNotify("Successfully modified Category Feature");
+		}
+		else
+		{
+			$fObj->categoryID = $categoryID;
+
+			$featureID = $fObj->insert($feature);
+			pageClass::setNotify("Successfully added new Category Feature");
+		}
+
+		$js->categoryID = $catObj->id;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function deleteCategoryFeature($featureID)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	$pc = new pageContent();
+
+	try
+	{	
+		$fObj = new categoryFeature($featureID);
+		if (!$fObj->id) throw new Exception("Error, that category feature could not be found!");
+
+		$catObj = $fObj->category;
+		
+		$js->categoryID = $catObj->id;
+		
+		if (!$catObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+
+		$fObj->delete();
+	
+		pageClass::setNotify("Successfully deleted Category Feature");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+	
+	echo $js->render();	
+}
+function getCategoryItemsWin($categoryID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		$catObj = new customCategory($categoryID);
+		if (!$catObj->id) throw new Exception("Error, no Custom Category specified.");
+		
+		if (!$catObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();	
+		
+		$itemsWin = new jqUI_dialog("itemsWin", true, 900, "", "View Category Items: {$catObj->name}");
+		$itemsWin->addClass("configWin");
+		$itemsWin->setOption("autoOpen", true);
+		$itemsWin->fitToViewport();
+		
+		$itemsWin->addCloseButton("Close");
+		
+		$tblFilter = new tableFilter("itemsFilter", "#itemsTable", "function() { getCategoryItems({$catObj->id}); }");					
+		$tblFilter->setPaging(25);	
+	
+		$tblFilter->addCustomFilter("status", tableFilter::filter_dropdown, "Status:", array("Active"=>0, "Inactive"=>1));	
+		
+		$dv = new phpDIV();
+		$dv->id = "itemsDiv";
+		
+		$itemsWin->addControl($tblFilter);
+		$itemsWin->addControl($dv);
+
+		$js->content = $itemsWin->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function getCategoryItems($categoryID, $paging, $sortData, $filterColumns, $customColumns)
+{
+	global $g_sec;
+	
+	$d = new DAL(true);
+	$js = new json_a();
+	
+	try
+	{
+		$catObj = new customCategory($categoryID);
+		if (!$catObj->id) throw new Exception("Error, no Custom Category specified.");
+		
+		if (!$catObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();		
+		
+		$writeAccess = $catObj->hasAccess($g_sec, permissions::write);
+		
+		$t = new tblBuilder();
+		$t->class = "listTable";
+		$t->id = "itemsTable";		
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("Title"));		
+		$r->addHeader(new tblHeader("Date Added"));
+		$r->addHeader(new tblHeader("Last Updated"));
+		$r->addHeader(new tblHeader("&nbsp;"));
+		
+		foreach((array)$customColumns as $cFilter)
+		{
+			if (!strlen($cFilter["value"])) continue;
+				
+			switch($cFilter["key"])
+			{					
+				case "status":
+					
+					$wh[] = "categoryItems.inactive = {$cFilter["value"]}";
+					
+					break;
+			}
+		}		
+		
+		tableFilter::getWhereArray($filterColumns, $wh, $hvArr);
+		$whClause = tableFilter::getWhereClause($wh);
+		
+		$qry = "select categoryItems.id
+				from categoryItems   
+				where 1 $whClause
+				".tableFilter::getHavingClause($hvArr)."
+				order by ".tableFilter::getOrderClause($sortData, "title asc");
+		
+		$totalCt = $d->qryRow($qry);
+		$fQry = $d->qry($qry.tableFilter::getLimitClause($paging));
+		
+		while($itm = $fQry->fetch_assoc())
+		{
+			$itemObj = new categoryItem($itm["id"]);
+			
+			$eCtl = new editControl();
+			$eCtl->onclick = "getCategoryItemEdit({$itemObj->id})";
+			
+			if ($writeAccess)
+			{
+				$dCtl = new deleteControl();
+				$dCtl->onclick = "deleteCategoryItem({$itemObj->id})";
+			}
+			else
+			{
+				$dCtl = new phpFiller();
+			}
+			
+			$sec = new security($itemObj->updatedUserID);			
+			
+			$uDisp[] = new phpSpan(validation::parseMySqlDate($catObj->updatedDateTime, "m-d-y \a\\t H:i"));			
+			$uDisp[] = new phpSpan($sec->login, "updatedBy");
+			
+			$r = $t->addRow();
+			$r->addCell(new tblCell($catObj->title));
+			$r->addCell(new tblCell(validation::parseMySqlDate($catObj->addedDateTime, "m-d-Y"), "", "center"));
+			$r->addCell(new tblCell($uDisp, "", "center"));
+			$r->addCell(new tblCell(array($eCtl, $dCtl), "", "center"));
+		}
+		
+		if (!$totalCt)
+		{
+			$r = $t->addRow();
+			$r->addCell(new tblCell(new phpParagraph("No Category Items found"), "strong", "center", 4));
+		}
+		
+		$js->count = $totalCt;
+		$js->content = $t->render();
+	}
+	catch (Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
 	}
 	
 	echo $js->render();

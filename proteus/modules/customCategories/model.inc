@@ -1,8 +1,8 @@
 <?php
 class customCategory_core
 {	
-	public $asset_folders = array("categoryItems");	
-	public $tables = array("categoryFeature"=>"CREATE TABLE `categoryFeature` (
+	public $asset_folders = array("categories");	
+	public $tables = array("categoryFeatures"=>"CREATE TABLE `categoryFeatures` (
 											 `id` int(11) NOT NULL AUTO_INCREMENT,
 											 `categoryID` int(11) NOT NULL DEFAULT '0',
 											 `fieldName` varchar(50) NOT NULL DEFAULT '',
@@ -13,7 +13,7 @@ class customCategory_core
 											 `featureRequired` smallint(6) NOT NULL,
 											 PRIMARY KEY (`id`)
 											) ENGINE=MyISAM DEFAULT CHARSET=utf8",
-							"categoryFeatureLookup"=>"CREATE TABLE `categoryFeatureLookup` (
+							"categoryFeatureData"=>"CREATE TABLE `categoryFeatureData` (
 													 `id` int(11) NOT NULL AUTO_INCREMENT,
 													 `categoryItemID` int(11) NOT NULL DEFAULT '0',
 													 `categoryFeatureID` int(11) NOT NULL DEFAULT '0',
@@ -30,6 +30,8 @@ class customCategory_core
 											 `inactive` tinyint(4) NOT NULL DEFAULT '0',
 											 `position` int(11) NOT NULL DEFAULT '0',
 											 `addedDateTime` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+											 `updatedDateTime` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+											 `updatedUserID` int(11) NOT NULL DEFAULT '0',
 											 PRIMARY KEY (`id`)
 											) ENGINE=MyISAM DEFAULT CHARSET=utf8",
 							"categoryKeyLookup"=>"CREATE TABLE `categoryKeyLookup` (
@@ -52,7 +54,9 @@ class customCategory_core
 }
 class customCategory extends phpDataset
 {	
-	public function customCategory($id)
+	private $p_features;
+	
+	public function __construct($id)
 	{		
 		parent::__construct("categories", $id, $id ? true : false);		
 	}	
@@ -62,11 +66,35 @@ class customCategory extends phpDataset
 		
 		switch ($key)
 		{
+			case "features":
+				if (!$this->p_features) $this->p_features = $this->getFeatures();
+				return $this->p_features;
+				
 			case "assetFolder":
-				return "assets/customCategories/{$this->id}";
+				return "assets/categories/{$this->id}";
 		}
 		
 		return parent::__get($key);	
+	}
+	public function getFeatures()
+	{
+		if (!$this->id) return false;
+	
+		$d = new DAL(true);
+		$features = Array();
+		
+		$qry = "select id
+				from categoryFeatures
+				where categoryID = {$this->id}
+				order by position";
+		$fQry = $d->qry($qry);
+	
+		while($f = $fQry->fetch_assoc())
+		{
+			$features[$f[id]] = new categoryFeature($f[id]);
+		}
+		
+		return $features;
 	}
 	public function populateCategoryItems($orderBy="", $startPos=0, $limit=0)
 	{
@@ -109,7 +137,7 @@ class customCategory extends phpDataset
 		
 		$qry = "select categoryItems.id
 				from categoryItems $join
-				where categoryItems.categoryTypeID = {$this->category[id]} and categoryItems.inactive = {$this->getInactive} $whClause
+				where categoryItems.categoryID = {$this->category[id]} and categoryItems.inactive = {$this->getInactive} $whClause
 				order by $orderBy
 				$limitClause";
 		
@@ -135,7 +163,7 @@ class customCategory extends phpDataset
 		$d = new DAL(true);
 		
 		// Take care of setting the position when inserting here
-		$max = $d->qryCount("select max(position) from customCategories");
+		$max = $d->qryCount("select max(position) from categories");
 		if (!$max) $max = 0;
 		$max++;
 			
@@ -149,31 +177,232 @@ class customCategory extends phpDataset
 		return $id;
 	}
 }
+class categoryFeature extends phpDataSet
+{
+	public static $types_array = array("Text Field"=>1, "Hyperlink"=>2, "Image"=>3,"Downloadable File(s)"=>4, "WYSIWYG Text"=>5, "Showcase Link"=>6,
+									   "Date Field"=>7, "HTML Literal"=>8, "Custom Form Link"=>9, "Blog Topic Link"=>10, "Blog Category Link"=>11);
+		
+	var $files = array();
+	private $sortDirection = "asc";
+	private $modifiedKeys = array();
+	
+	public function __construct($id)	
+	{
+		parent::__construct("categoryFeatures", $id, $id ? true : false);		
+	}
+	public function __get($key)
+	{
+		switch($key)
+		{
+			case "category":
+				return new customCategory($this->categoryID);
+				
+			case "type":
+				return array_search($this->featureType, categoryFeature::$types_array);	
+		}	
+		
+		return parent::__get($key);
+	}
+	public function insert($data="")
+	{
+		$d = new DAL(true);
+		
+		// Take care of setting the position when inserting here
+		$max = $d->qryCount("select max(position) from categoryFeatures where categoryID={$this->categoryID}");
+		if (!$max) $max = 0;
+		$max++;
+			
+		$this->position = $max;
+		
+		$id = parent::insert($data);		
+		
+		return $id;
+	}
+	public function delete()
+	{
+		$d = new DAL(true);
+		
+		$qry = "delete from categoryFeatureData where categoryFeatureID = {$this->id}";
+		$d->qry($qry);	
+		
+		$catID = $this->categoryID;
+		
+		parent::delete();
+		
+		//Realign the positions
+		$qry = "select id
+				from categoryFeatures
+				where categoryID = $catID
+				order by position asc";
+		$pQry = $d->qry($qry);
+		
+		$ct=1;
+		while($p = $pQry->fetch_assoc())
+		{
+			$cvList["position"] = $ct++;	
+			$d->qryUpdateByArray("categoryFeatures", $cvList, "id={$p["id"]}");
+		}
+	}
+}
+class categoryFeatureData extends phpDataset
+{
+	public $p_files;
+	
+	public function __construct($featureID)
+	{
+		parent::__construct("categoryFeatureData", $featureID, $featureID ? true : false);
+		
+		if ($this->feature[featureType] == customCategoryTypes::downloadable_file && $this->feature[featureConfigData] == 1 && $this->data[value])
+		{			
+			//split out multiple files
+			$files = explode("::", $this->data[value]);
+			$captions = explode("::", $this->data[additionalData]);
+			
+			for ($i=0; $i < count($files); $i++)
+			{	
+				$this->files[$i] = new categoryFeatureFile($files[$i], $captions[$i], $i);
+			}
+		}
+		elseif($this->feature[featureType] == customCategoryTypes::blog_category || $this->feature[featureType] == customCategoryTypes::blog_topic)
+		{
+			//Separate the topics, or categories, by the internal delimeter. Sets the value to an indexed array of the corresponding data.
+			if ($this->data[value])
+			{
+				$this->data[value] = explode("::", $this->data[value]);
+			}
+			else
+			{
+				$this->data[value] = array();
+			}
+		}
+	}
+	public function __get($key)
+	{
+		switch($key)
+		{
+			case "feature":
+				return new categoryFeature($this->categoryFeatureID);
+				
+			case "item":
+				return new categoryItem($this->categoryItemID);
+				
+			case "files":
+				$feature = $this->feature;
+				
+				// Return nothing if the type isn't Downloadable File. This is a drawback to using an array for types, as there's no
+				// constant to reference. This is a rare thing to have to do with Features, so for the sake of simplicity a static value
+				// has been used here (4) which represents Downloadable Files(s) at the current date.
+				if (!$feature->featureType != 4 || $feature->featureConfigData != 1) return false;
+				
+				if (!$this->p_files)
+				{
+					//split out multiple files
+					$files = explode("::", $this->value);
+					$captions = explode("::", $this->additionalData);
+			
+					foreach($files as $key=>$value)
+					{
+						$this->p_files[] = new categoryFeatureFile($value, $captions[$key], $key);
+					}
+				}	
+
+				return $this->p_files;
+		}
+		
+		return parent::__get($key);
+	}	
+}
 class categoryItem extends phpDataset
 {
-	var $item = array();
-	var $features = array();
+	public $p_featureData;
+	
 	var $subKeys = array();
 	
-	public function categoryItem($categoryItemID, $wysiwygText=false, $populateFeatures = true)
+	public function __construct($categoryItemID)
 	{
-		$d = new DAL();
-		
-		validation::ensureInt($categoryItemID);
-		if (!$categoryItemID) throw new Exception("Error, no category item information provided!");
-		
-		//Load the item data
-		$this->item = $d->qryArray("select * from categoryItems where id=$categoryItemID");
-		
-		if (!$this->item[id]) throw new Exception("Error, that category item cannot be found!");
-		
-		if ($wysiwygText) $this->item[description] = stripslashes($this->item[description]);
-		
-		if ($populateFeatures)
+		parent::__construct("categoryItems", $categoryItemID, $categoryItemID ? true : false);				
+	}	
+	public function __get($key)
+	{
+		switch($key)
 		{
-			$qry = "select id, featureKey
+			case "assetFolder":
+				return "assets/categories/{$this->categoryID}/{$this->id}";				
+						
+			case "category":
+				return new customCategory($this->categoryID);
+				
+			case "featureData":
+				if (!$this->p_featureData) $this->p_featureData = $this->getFeatureData();
+				return $this->p_featureData;
+		}
+		
+		return parent::__get($key);
+	}
+	public function insert($data="")
+	{
+		global $config;		
+		$d = new DAL(true);
+		
+		// Take care of setting the position when inserting here
+		$max = $d->qryCount("select max(position) from categoryItems where categoryID={$this->categoryID}");
+		if (!$max) $max = 0;
+		$max++;
+			
+		$this->position = $max;
+		
+		$id = parent::insert($data);		
+		
+		$loc = $config["baseAppDir"].$this->assetFolder;
+		if (!file_exists($loc)) mkdir($loc);
+		
+		return $id;
+	}
+	public function delete()
+	{
+		$d = new DAL(true);
+		
+		$qry = "delete from categoryFeatureData where categoryItemID = {$this->id}";
+		$d->qry($qry);	
+		
+		$qry = "delete from categoryFeatures where categoryID = {$this->categoryID}";
+		$d->qry($qry);		
+		
+		$baseLoc = $config["baseAppDir"].$this->assetFolder;
+		
+		foreach(glob($baseLoc."/*") as $file)
+		{
+			@unlink($file);
+		}
+		
+		@rmdir($baseLoc);
+		
+		// Need to grab this before deleting for below realignment
+		$catID = $this->categoryID;		
+		
+		parent::delete();
+		
+		//Realign the positions
+		$qry = "select id
+				from categoryItems
+				where categoryID = $catID
+				order by position asc";
+		$pQry = $d->qry($qry);
+		
+		$ct=1;
+		while($p = $pQry->fetch_assoc())
+		{
+			$cvList["position"] = $ct++;	
+			$d->qryUpdateByArray("categoryItems", $cvList, "id={$p["id"]}");
+		}
+	}
+	public function getFeatureData()
+	{
+		if (!$this->id) return false;
+		
+		$qry = "select id, featureKey
 					from categoryFeature
-					where categoryTypeID = {$this->item[categoryTypeID]}
+					where categoryID = {$this->item[categoryTypeID]}
 					order by position asc";
 			$fQry = $d->qry($qry);
 			
@@ -183,8 +412,7 @@ class categoryItem extends phpDataset
 				if (!$fea[featureKey]) $fea[featureKey] = $ct++;
 				$this->features[$fea[featureKey]] = new categoryFeature($this->item[categoryTypeID], $categoryItemID, $fea[id]);
 			}
-		}		
-	}	
+	}
 	public function populateSubKeys($keyIDFilter='', $orderByPosition = false)
 	{	
 		$d = new DAL();
@@ -239,196 +467,6 @@ class categoryFeatureFile
 		
 		$this->fileSize = @filesize($config[baseAppDir].'images/categoryItems/'.$fileName);
 		$this->url = 'images/categoryItems/'.$fileName;
-	}
-}
-class categoryFeature
-{
-	const type_text_field = 1;
-	const type_hyperlink = 2;
-	const type_image = 3;
-	const type_downloadable_file = 4;
-	const type_wysiwyg_text = 5;
-	const type_showcase = 6;
-	const type_date_field = 7;
-	const type_html_literal = 8;
-	const type_custom_form = 9;
-	const type_blog_topic = 10;
-	const type_blog_category = 11;
-	//const type_inventory_type = 12; 
-	//const type_inventory_manufacturer = 13;
-	
-	private $categoryItemID;
-	private $featureID;
-	private $categoryTypeID;
-	
-	var $feature = array();
-	var $data = array();
-	var $files = array();
-	private $sortDirection = "asc";
-	private $modifiedKeys = array();
-	
-	public function categoryFeature($categoryTypeID, $categoryItemID, $featureID)
-	{
-		$d = new DAL();
-		
-		validation::ensureInt($categoryTypeID);
-		validation::ensureInt($categoryItemID);
-		validation::ensureInt($featureID);
-		
-		if (!$featureID) throw new Exception("Error, no feature provided!");
-		if (!$categoryItemID) throw new Exception("Error, no category item specified!");
-		if (!$categoryTypeID) throw new Exception("Error, no category type specified!");
-		
-		$this->feature = $d->qryArray("select * from categoryFeature where categoryTypeID = $categoryTypeID and id = $featureID");
-		$this->data = $d->qryArray("select * from categoryFeatureLookup where categoryItemID = $categoryItemID and categoryFeatureID = $featureID");
-				
-		if (!$this->feature[id]) throw new Exception("Error, that category feature cannot be found!");
-		
-		$this->categoryItemID = $categoryItemID;
-		$this->featureID = $featureID;
-		$this->categoryTypeID = $categoryTypeID;
-		
-		$this->data[raw_value] = $this->data[value];
-		
-		//Only prep a regular text field for display
-		$this->data[rawValue] = $this->data[value];
-		if ($this->feature[featureType] == 1) $this->data[value] = validation::prepForDisplay($this->data[value]);
-		
-		//Combine the two for complete data
-		$this->data[featureLookupID] = $this->data[id];
-		$this->data = array_merge($this->data, $this->feature);
-		
-		if ($this->feature[featureType] == customCategoryTypes::downloadable_file && $this->feature[featureConfigData] == 1 && $this->data[value])
-		{			
-			//split out multiple files
-			$files = explode("::", $this->data[value]);
-			$captions = explode("::", $this->data[additionalData]);
-			
-			for ($i=0; $i < count($files); $i++)
-			{	
-				$this->files[$i] = new categoryFeatureFile($files[$i], $captions[$i], $i);
-			}
-		}
-		elseif($this->feature[featureType] == customCategoryTypes::blog_category || $this->feature[featureType] == customCategoryTypes::blog_topic)
-		{
-			//Separate the topics, or categories, by the internal delimeter. Sets the value to an indexed array of the corresponding data.
-			if ($this->data[value])
-			{
-				$this->data[value] = explode("::", $this->data[value]);
-			}
-			else
-			{
-				$this->data[value] = array();
-			}
-		}
-	}	
-	public function __get($key)
-	{
-		if (isset($this->data[$key]))
-		{
-			return $this->data[$key];			
-		}
-		else
-		{
-			return false;	
-		}
-	}
-	public function __set($key, $value)
-	{
-		$this->touch($key);		
-		$this->data[$key] = $value;
-	}
-	public function touch($key='value')	
-	{
-		// This function will mark the specified key as 'dirty' so that the save routine picks it up. 
-		// This is necessary for features that have an array as their value (using the :: delimeter)
-		
-		if (!in_array($key, $this->modifiedKeys)) $this->modifiedKeys[] = $key;
-	}
-	public function sortFeatureFiles($sortMode=1, $direction="asc")
-	{
-		//sortMode:
-		//1 = caption
-		//2 = file name
-		//3 = file size
-		
-		//direction:
-		//asc
-		//other = desc
-		
-		switch($sortMode)
-		{
-			case 1:
-				$func = "sortByCaption";
-				break;				
-			case 2:
-				$func = "sortByName";
-				break;
-			case 3:
-				$func = "sortBySize";
-				break;
-		}
-		
-		$this->sortDirection = $direction;
-		usort($this->files, array($this, $func));
-		
-	}
-	private function sortByCaption($a, $b)
-	{
-		if ($this->sortDirection == "asc") return strcmp(strtolower($a->caption), strtolower($b->caption));	
-		return strcmp(strtolower($b->caption), strtolower($a->caption));
-	}
-	private function sortByName($a, $b)
-	{
-		if ($this->sortDirection == "asc") return strcmp(strtolower($a->fileName), strtolower($b->fileName));	
-		return strcmp(strtolower($b->fileName), strtolower($a->fileName));
-	}
-	private function sortBySize($a, $b)
-	{
-		if ($this->sortDirection == "asc") return $a->fileSize - $b->fileSize;
-		return !($a->fileSize - $b->fileSize);
-	}
-	public function saveData()
-	{
-		$d = new DAL(true);
-
-		foreach($this->modifiedKeys as $key)
-		{			
-			if (is_array($this->$key))
-			{
-				//Handle types that have multi-assignment using :: delimeter - re-form the proper string for storage.
-				$tmp = implode("::", $this->$key);
-				$cv[$key] = $tmp;
-			}
-			else 
-			{
-				$cv[$key] = $this->$key;
-			}				
-		}		
-		
-		if (!count($cv)) throw new Exception("Error, nothing to update!");
-		
-		$qCV = validation::quotedArray($cv);
-		
-		if (!$this->featureLookupID)
-		{	
-			if (!$qCV[categoryItemID]) $qCV[categoryItemID] = $this->categoryItemID;
-			if (!$qCV[categoryFeatureID]) $qCV[categoryFeatureID] = $this->featureID;
-			
-			$lookupID = $d->qryInsertByArray("categoryFeatureLookup", $qCV);
-			if (!$lookupID) throw new Exception("Error adding category feature lookup data. Please try again.");
-		}
-		else
-		{						
-			$d->qryUpdateByArray("categoryFeatureLookup", $qCV, "id=$this->featureLookupID");	
-		}
-	}	
-	public function deleteLookup()
-	{
-		if (!$this->featureLookupID) return false;
-		
-		$d = new DAL(true);
-		return $d->qry("delete from categoryFeatureLookup where id = {$this->featureLookupID}");
 	}
 }
 ?>

@@ -447,9 +447,9 @@
 				var tableCtl = $("[name='filters[" + item.dbColumn + "]']", options.tableSelector);
 				var originalCtl = $("[name='filters[" + item.dbColumn + "]']", obj);				
 				
-				if ((!tableCtl.length && item.default && item.filterType==3) || tableCtl.data("isDirty"))
+				if ((!tableCtl.length && item.defaultVal && item.filterType==3) || tableCtl.data("isDirty"))
 				{
-					item.value = tableCtl.length ? tableCtl.val() : item.default;
+					item.value = tableCtl.length ? tableCtl.val() : item.defaultVal;
 					originalCtl.val(item.value);
 					
 					if (item.value) cols.push(item.dbColumn.indexOf(".") ? item.dbColumn.split(".").pop() : item.dbColumn );

@@ -161,7 +161,7 @@ function getForms($paging, $sortData, $filterColumns, $customColumns)
 	}
 	catch (Exception $ex)
 	{
-		$eWin = new jqUI_notify($ex);
+		$eWin = new jqUI_errorNotify($ex);
 		$js->error = $eWin->render();
 	}
 	
@@ -688,6 +688,8 @@ function updateForm($formID, $form)
 		{
 			$formID = $formObj->insert();
 			pageClass::setNotify("Successfully added new Form");
+			
+			$js->formID = $formID;
 		}		
 	}
 	catch(Exception $ex)

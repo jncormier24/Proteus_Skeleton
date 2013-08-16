@@ -445,12 +445,12 @@ table.listTable th.sort
 	background-position: 0px -16px;
 }
 div.configWin form input, div.configWin form textarea, div.configWin form label, div.configWin form select, 
-div.configWin span.desc, div.configWin span.invSpecial, div.configWin form button
+div.configWin span.desc, div.configWin span.invSpecial, div.configWin form button, div.configWin span.label
 {
 	float: left;	
 	margin: 0px 5px 8px 0px;				
 }
-div.configWin form label
+div.configWin form label, div.configWin span.label
 {
 	clear: left;
 	width: 200px;

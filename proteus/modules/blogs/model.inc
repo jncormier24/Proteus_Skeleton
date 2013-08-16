@@ -97,6 +97,14 @@ class customBlog extends phpDataset
 		$d->qry("delete from blogEntryLink using blogEntryLink, blogEntry where blogEntryLink.blogEntryID=blogEntry.id and blogEntry.blogID={$this->id}");
 		$d->qry("delete from comments using comments, blogEntry where blogEntry.id = comments.dataID and comments.typeID = 1 and blogEntry.blogID={$this->id}");
 		
+		$baseLoc = $config["baseAppDir"].$this->assetFolder;
+		
+		foreach(glob($baseLoc."/*") as $file)
+		{
+			@unlink($file);
+		}
+		
+		@rmdir($baseLoc);
 		
 		parent::delete();	
 	}

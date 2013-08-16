@@ -224,6 +224,21 @@ class customContentData extends phpDataSet
 		
 		return $id;
 	}
+	public function delete()
+	{
+		global $config;		
+		
+		$baseLoc = $config["baseAppDir"].$this->assetFolder;
+		
+		foreach(glob($baseLoc."/*") as $file)
+		{
+			@unlink($file);
+		}
+		
+		@rmdir($baseLoc);
+		
+		return parent::delete();
+	}
 	public static function getContentContainer($typeID, $dataID=0)
 	{
 		validation::ensureInt($dataID);
