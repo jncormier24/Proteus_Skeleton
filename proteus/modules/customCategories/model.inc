@@ -282,9 +282,9 @@ class categoryFeatureData extends phpDataset
 	public $p_files;
 	public $p_links;
 	
-	public function __construct($featureID)
+	public function __construct($featureDataID)
 	{
-		parent::__construct("categoryFeatureData", $featureID, $featureID ? true : false);		
+		parent::__construct("categoryFeatureData", $featureDataID, $featureDataID ? true : false);		
 	}
 	public function __get($key)
 	{
@@ -426,18 +426,27 @@ class categoryItem extends phpDataset
 	{
 		if (!$this->id) return false;
 		
-		$qry = "select id, featureKey
-					from categoryFeature
-					where categoryID = {$this->item[categoryTypeID]}
-					order by position asc";
-			$fQry = $d->qry($qry);
+		$d = new DAL(true);
+		
+		$data = array();
+		
+		$qry = "select id
+				from categoryFeatureData
+				where categoryItemID = {$this->id}";		
+		$fQry = $d->qry($qry);
 			
-			$ct = 0;
-			while($fea = mysqli_fetch_assoc($fQry))
-			{
-				if (!$fea[featureKey]) $fea[featureKey] = $ct++;
-				$this->features[$fea[featureKey]] = new categoryFeature($this->item[categoryTypeID], $categoryItemID, $fea[id]);
-			}
+		$ct = 0;
+		while($fea = $fQry->fetch_assoc())
+		{
+			$fObj = new categoryFeature($fea["categoryFeatureID"]);
+			
+			// Shouldn't ever happen (keys are forced), but just in case otherwise it'd add as [] which could potentially overwrite itself
+			$fKey = !$fObj->featureKey ? $ct++ : $fObj->featureKey;
+						
+			$data[$fKey] = new categoryFeatureData($fea["id"]);
+		}
+		
+		return $data;
 	}
 	public function populateSubKeys($keyIDFilter='', $orderByPosition = false)
 	{	

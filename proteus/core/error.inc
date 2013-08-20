@@ -32,9 +32,16 @@ function debug_string_backtrace()
 
         return $trace;
 } 
-function debug($obj)
+function debug($obj, $throw=false)
 {
 	// Just a shortcut handler to print raw debug information out
-	die(nl2br(print_r($obj, true)));
+	$content = nl2br(print_r($obj, true));
+	
+	if ($throw) throw new Exception($content);
+	die($content);
+}
+function debug_a($obj)
+{
+	debug($obj, true);
 }
 ?>

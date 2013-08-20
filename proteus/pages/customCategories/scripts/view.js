@@ -65,6 +65,7 @@ function updateCategory()
 		if (!$.ajaxError(output, $))
 		{
 			getMessages();
+			getCategories();
 			
 			frm.updateHelper("reset");
 			
@@ -262,6 +263,7 @@ function updateCategoryItem()
 		if (!$.ajaxError(output, $))
 		{
 			getMessages();
+			getCategories();
 			
 			frm.updateHelper("reset");
 			

@@ -597,17 +597,18 @@ function updateCategoryFeature($featureID, $categoryID, $feature)
 
 	try
 	{		
-		validation::ensureInt($categoryID);
-		validation::ensureInt($featureType);
-		validation::ensureInt($feature["featureRequired"], 0);
-		validation::ensureInt($feature["featureType"], 0);
+		validation::ensureInt($categoryID);		
+		validation::ensureInt($feature["featureRequired"], 0);		
+		validation::ensureInt($feature["featureType"]);
 		
 		$fObj = new categoryFeature($featureID);
 		
 		if ($fObj->id)
 		{
 			$categoryID = $fObj->categoryID;
-			$featureType = $fObj->featureType; 	
+			$featureType = $fObj->featureType;
+
+			unset($feature["featureType"]);
 		}	
 		else
 		{
@@ -933,6 +934,167 @@ function getCategoryItemEdit($itemID, $catID)
 		$frmItem->addControl(new hiddenInput("action", "updateCategoryItem"));
 		$frmItem->addControl(new hiddenInput("categoryID", $catObj->id));
 		$frmItem->addControl(new hiddenInput("itemID", $itemObj->id));
+		
+		if ($itemObj->id)
+		{
+			$features = $catObj->features;
+			$featureData = $itemObj->featureData;
+			
+			foreach($features as $feature)				
+			{
+				$dataObj = $featureData[$feature->featureKey];			
+			
+				//$details[value] = validation::prepTextForInput($details[value]);
+				//$details[additionalData] = validation::prepTextForInput($details[additionalData]);
+			
+				//$desc = "- ".$inv[fieldName].'&nbsp;<span class="featureType">('.getFeatureTypeDesc($inv[featureType]).')</span>';
+			
+				switch($feature->featureType)
+				{
+					case 1:
+						$ctl = new customText($name);
+					$txtExtra = new phpTextArea("details[{$inv[id]}][value]",$details[value],5, 90, 'textBox');
+					$txtExtra->setLabel($desc);
+			
+					$fFields->addControl($txtExtra);
+			
+					break;
+			
+					case 2:
+					$txtExtra = new customText("details[{$inv[id]}][value]",$details[value],50, 255, 'textBox floating');
+					$txtExtra->setLabel('Display:', 'longLabel floating');
+					$txtExtra->breakAfter = true;
+			
+				$txtData = new customText("details[{$inv[id]}][additionalData]",$details[additionalData],50, 255, 'textBox floating');
+							$txtData->setLabel('URL:', 'longLabel floating');
+				$txtData->breakAfter = true;
+			
+				$detailDiv = new phpDIV();
+					$detailDiv->class = 'config';
+					$detailDiv->addControl($txtExtra);
+					$detailDiv->addControl($txtData);
+			
+					$dSpan = new phpSpan($desc, 'label');
+					$dSpan->breakAfter = true;
+			
+					$fFields->addControl($dSpan);
+					$fFields->addControl($detailDiv);
+			
+					break;
+			
+					case 3:
+					$bForm = new phpDIV();
+			
+					$iForm = new phpDIV();
+					$iForm->addControl(new javaControl("$(function() { getFeatureImage($inv[id], $itemID); })"));
+					$iForm->id = 'imgContainer_'.$inv[id];
+			
+					$bForm->addControl($iForm);
+			
+							if ($details[id])
+							{
+							$cBtn = new customButton('btnClear_'.$inv[id],'button','Clear Image');
+					$cBtn->onclick = "if (confirm('Are you SURE you want to clear this image? This may leave your website with a big blank spot where this image was supposed to go!')) clearImage($inv[id], $itemID, loadImages);";
+						$cBtn->style = "display: none;";
+					}
+						else
+					{
+						$cBtn = new phpFiller();
+					}
+							
+						$bForm->addControl($cBtn);
+			
+						$iTab->addControl(new phpHeader(1, $desc, 'topHeader'));
+					$iTab->addControl($bForm);
+					$imageCt++;
+			
+					break;
+			
+					case 4:
+					$bForm = new phpDIV();
+			
+					$iForm = new phpDIV();
+					$iForm->addControl(new javaControl("$(function() { getFeatureFiles($inv[id], $itemID); });"));
+					$iForm->id = 'fileContainer_'.$inv[id];
+			
+					$bForm->addControl($iForm);
+			
+					$fTab->addControl(new phpHeader(1, $desc, 'topHeader'));
+					$fTab->addControl($bForm);
+			
+					$fileCt++;
+			
+					break;
+					case 5:
+					$txtExtra = new phpTextArea("details[{$inv[id]}][value]",$details[value],10, 98);
+					$txtExtra->breakAfter = true;
+					$txtExtra->addClass('wysiwyg floating');
+					$txtExtra->addAttribute("data-upload-dataid", $itemID);
+					$txtExtra->addAttribute("data-upload-typeid", 1);
+			
+					$dSpan = new phpSpan($desc, 'label');
+			
+					$fFields->addControl($dSpan);
+					$fFields->addControl($txtExtra);
+			
+				break;
+			case 6:
+					$addShowcaseTab = true;
+				break;
+			case 7:
+						//$dtVal = new jqDatePicker("details[{$inv[id]}][value]", $details[value], $desc); //removed 10/11/2012 for below
+			
+					//use the newer date picker so that we have the clear button, be sure to set the date format as the same
+					$dtVal = new jqUI_datepicker("details[{$inv[id]}][value]", $details[value], $desc, true, "new Date(1990,1,1)", "mm/dd/yy");
+					$dtVal->setOption("buttonImage", "'../includes/js/jquery/themes/smoothness/images/calendar.gif'");
+			
+					$fFields->addControl($dtVal);
+			
+					break;
+					case 8:
+					$txtExtra = new phpTextArea("details[{$inv[id]}][value]",$details[value],5, 35, 'textBox');
+					$txtExtra->addAttribute('style','margin-right: 10px;');
+					$txtExtra->breakAfter = true;
+				$txtExtra->setLabel($desc);
+			
+				$fFields->addControl($txtExtra);
+			
+							break;
+							case 9:
+							$sQry = $a->qry("select id, title from formBuilder order by title asc");
+			
+							$ddlForms = new phpDDL("details[{$inv[id]}][value]");
+							$ddlForms->selected = $details[value];
+							$ddlForms->addListItem(new phpListItem("",""));
+							$ddlForms->dataOrdinal = "id";
+							$ddlForms->displayOrdinal = "title";
+							$ddlForms->bind($sQry);
+							$ddlForms->setLabel("Choose Custom Form: ", 'floating');
+				$ddlForms->label->style = "width: 150px;";
+							$ddlForms->addAttribute('style', 'margin-right: 10px');
+							$ddlForms->breakAfter = true;
+							$ddlForms->class = 'floating';
+			
+					//$disableSave = !count($ddlForms->listItems);
+			
+					$fFields->addControl(new phpSpan($desc, "label"));
+					$fFields->addControl($ddlForms);
+			
+							break;
+									case 10:
+									case 11:
+									$blogCt++;
+											break;
+											case customCategoryTypes::inventory_type:
+											$invLinkCt++;
+											break;
+											case customCategoryTypes::inventory_manufacturer:
+											$invLinkCt++;
+											break;
+												
+				}
+				}
+		}
 		
 		$tpDetail = new jqUI_tabPage("item_detail", "Basic Item Detail", "ui-icon-wrench");
 		$tpDetail->addControl($frmItem);

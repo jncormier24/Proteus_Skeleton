@@ -5,7 +5,7 @@
 function showCategories()
 {
 	$a = new adminPage("Manage Custom Categories");
-	$a->addPageModule(new jqFileInputModule());
+	$a->addPageModule(new jqUploadModule());
 	$a->addPageModule(new jqFilterHelperModule());
 	$a->addPageModule(new jqTableSortModule());	
 	$a->addPageModule(new jqRedactorModule());

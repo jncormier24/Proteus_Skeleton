@@ -485,10 +485,10 @@ class inlineContent extends phpDataSet
 class validation
 {
 	public static function ensureInt(&$inVar, $defaultVal='')
-	{
-		if (!strlen($inVar))
+	{			
+		if (!isset($inVar) || !strlen($inVar))
 		{
-			$inVar = strlen($defaultVal) ? $defaultVal : 0;
+			if (strlen($defaultVal)) $inVar = $defaultVal;			
 			return;
 		}
 
