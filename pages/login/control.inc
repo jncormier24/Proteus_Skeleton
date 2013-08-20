@@ -9,7 +9,7 @@ function show($ref)
 {
 	$a = new proteusPage("Please Log In");
 
-	$txtName = new customText("login", "", 25, 20);
+	$txtName = new phpTextBox("login", "", 25, 20);
 	$txtName->setLabel("Login Name:");					
 	
 	$txtPass = new phpPassword("password",'',25,25);

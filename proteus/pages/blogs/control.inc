@@ -130,7 +130,7 @@ function showBlog($blogID)
 		
 	$tabs = new tabControl("blogTabs","Configure Blog");
 	
-	$txtTitle = new customText("title", validation::prepTextForInput($bObj->title), 50, 255, "floating textBox");
+	$txtTitle = new phpTextBox("title", validation::prepTextForInput($bObj->title), 50, 255, "floating textBox");
 	$txtTitle->setLabel("Blog Title:","longLabel floating");
 	$txtTitle->breakAfter = true;
 	

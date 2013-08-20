@@ -180,10 +180,10 @@ function getContentWin($contentID, $dataID, $typeID)
 			$js->disabled = 1;
 		}
 		
-		$txtCaption = new customText("content[caption]",validation::prepTextForInput($cpObj->caption),50, 255);	
+		$txtCaption = new phpTextBox("content[caption]",validation::prepTextForInput($cpObj->caption),50, 255);	
 		$txtCaption->setLabel("Caption: ");					
 	
-		$txtTitle = new customText("content[pageName]",validation::prepTextForInput($cpObj->pageName),25, 255);	
+		$txtTitle = new phpTextBox("content[pageName]",validation::prepTextForInput($cpObj->pageName),25, 255);	
 		$txtTitle->setLabel("Content Name: ");			
 	
 		$txtDesc = new phpTextArea("content[pageData]", validation::prepTextForInput($cpObj->pageData), 23, 113, "wysiwyg");		

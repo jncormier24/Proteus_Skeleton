@@ -229,13 +229,13 @@ function getShowcaseEdit($showcaseID)
 		
 		$fsShowcase = new phpFormFieldset("Showcase Settings");
 		
-		$txtName = new customText("showcase[name]",validation::prepTextForInput($sObj->name),50, 255);	
+		$txtName = new phpTextBox("showcase[name]",validation::prepTextForInput($sObj->name),50, 255);	
 		$txtName->setLabel("Name: ");	
 		
 		$txtDesc = new phpTextArea("showcase[description]", $sObj->description, 4, 75);
 		$txtDesc->setLabel("Description:");
 
-		$txtKey = new customText("showcase[lookupKey]",validation::prepTextForInput($sObj->lookupKey),20, 20);
+		$txtKey = new phpTextBox("showcase[lookupKey]",validation::prepTextForInput($sObj->lookupKey),20, 20);
 		$txtKey->setLabel("Lookup Key:");
 		
 		$fsShowcase->addControl($txtName);
@@ -249,7 +249,7 @@ function getShowcaseEdit($showcaseID)
 		
 		if ($sObj->id)
 		{		
-			$txtThumbDim = new customText("cfg[thumbDim]", $sObj->settings->thumbDim, 9, 9);
+			$txtThumbDim = new phpTextBox("cfg[thumbDim]", $sObj->settings->thumbDim, 9, 9);
 			$txtThumbDim->setLabel("Thumbnail Dimensions:");
 			$txtThumbDim->setDescription("Format: WxH", "desc");
 			
@@ -267,7 +267,7 @@ function getShowcaseEdit($showcaseID)
 			
 			$fsPhotos = new phpFormFieldset("Photo Entries");			
 			
-			$txtItemThumbDim = new customText("cfg[itemThumbDim]", $sObj->settings->itemThumbDim, 9, 9);
+			$txtItemThumbDim = new phpTextBox("cfg[itemThumbDim]", $sObj->settings->itemThumbDim, 9, 9);
 			$txtItemThumbDim->setLabel("Item Thumbnail Dimensions:");
 			$txtItemThumbDim->setDescription("Format: WxH", "desc");
 
@@ -278,7 +278,7 @@ function getShowcaseEdit($showcaseID)
 			$cboItemThumbAspect->setLabel("Item Thumb Aspect:");
 			$cboItemThumbAspect->selected = $sObj->settings->itemThumbAspect;			
 			
-			$txtItemDim = new customText("cfg[itemDim]", $sObj->settings->itemDim, 9, 9);
+			$txtItemDim = new phpTextBox("cfg[itemDim]", $sObj->settings->itemDim, 9, 9);
 			$txtItemDim->setLabel("Picture Dimensions:");
 			$txtItemDim->setDescription("Format: WxH", "desc");			
 	
@@ -787,10 +787,10 @@ function getShowcaseItemEdit($itemID)
 		$txtDesc = new phpTextArea("item[description]", $itemObj->description, 10, 80, "wysiwyg");
 		$txtDesc->setLabel("Description:");
 		
-		$txtTitle = new customText("item[title]", validation::prepTextForInput($itemObj->title),70, 75);
+		$txtTitle = new phpTextBox("item[title]", validation::prepTextForInput($itemObj->title),70, 75);
 		$txtTitle->setLabel("Title:");
 		
-		$txtURL = new customText("item[url]", validation::prepTextForInput($itemObj->url),70, 255);
+		$txtURL = new phpTextBox("item[url]", validation::prepTextForInput($itemObj->url),70, 255);
 		$txtURL->setLabel("URL:");		
 			
 		if ($writeAccess)

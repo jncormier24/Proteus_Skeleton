@@ -227,15 +227,15 @@ function getSettingsEdit()
 		$settingsWin->addCloseButton();
 		$settingsWin->addButton("Save", "function() { saveSettings(); }");		
 		
-		$txtISize = new customText("cfg[iconDim]", $eObj->settings->iconDim, 10, 7);
+		$txtISize = new phpTextBox("cfg[iconDim]", $eObj->settings->iconDim, 10, 7);
 		$txtISize->setLabel("Entity Icon Dimensions:");		
 		$txtISize->setRequired("&nbsp; Format: 99x99", "desc");
 		
-		$txtISSize = new customText("cfg[staffIconDim]", $eObj->settings->staffIconDim, 10, 7);
+		$txtISSize = new phpTextBox("cfg[staffIconDim]", $eObj->settings->staffIconDim, 10, 7);
 		$txtISSize->setLabel("Staff Icon Dimensions:");		
 		$txtISSize->setRequired("&nbsp; Format: 99x99", "desc");
 		
-		$txtIPSize = new customText("cfg[postIconDim]", $eObj->settings->postIconDim, 10, 7);
+		$txtIPSize = new phpTextBox("cfg[postIconDim]", $eObj->settings->postIconDim, 10, 7);
 		$txtIPSize->setLabel("Postings Icon Dimensions:");		
 		$txtIPSize->setRequired("&nbsp; Format: 99x99", "desc");
 		
@@ -520,7 +520,7 @@ function getEntityEdit($entityID)
 		$arr = pmm_core::getEntityTypes();
 		$ddlType->bindByArray($arr);
 
-		$txtTitle = new customText("entity[title]", validation::prepTextForInput($eObj->title), 70, 75);
+		$txtTitle = new phpTextBox("entity[title]", validation::prepTextForInput($eObj->title), 70, 75);
 		$txtTitle->setLabel("Title:");
 		
 		$txtBlurb = new phpTextArea("entity[blurb]", validation::prepTextForInput($eObj->blurb), 3, 70);
@@ -926,13 +926,13 @@ function getStaffEdit($staffID, $entityID)
 			$staffEditWin->addControl(new phpParagraph("Last edited by $sec->login on ".validation::parseMySqlDate($staffObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "", "left"));	
 		}
 		
-		$txtTitle = new customText("staff[title]", validation::prepTextForInput($staffObj->title), 50, 100, "floating textBox");
+		$txtTitle = new phpTextBox("staff[title]", validation::prepTextForInput($staffObj->title), 50, 100, "floating textBox");
 		$txtTitle->setLabel("Title:", "longLabel floating");	
 		
-		$txtTerm = new customText("staff[term]", validation::prepTextForInput($staffObj->term), 4, 10, "floating textBox");
+		$txtTerm = new phpTextBox("staff[term]", validation::prepTextForInput($staffObj->term), 4, 10, "floating textBox");
 		$txtTerm->setLabel("Term:", "longLabel floating");
 		
-		$txtAssn = new customText("staff[assigned]", validation::prepTextForInput($staffObj->assigned), 50, 50, "floating textBox");
+		$txtAssn = new phpTextBox("staff[assigned]", validation::prepTextForInput($staffObj->assigned), 50, 50, "floating textBox");
 		$txtAssn->setLabel("Currently Assigned:", "longLabel floating");
 		
 		$txtDesc = new phpTextArea("staff[description]", validation::prepTextForInput($staffObj->description), 2, 60, "floating textBox");
@@ -1360,7 +1360,7 @@ function getFaqEdit($faqEntryID, $entityID)
 			$faqEditWin->addControl(new phpParagraph("Last edited by $sec->login on ".validation::parseMySqlDate($faqObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "", "left"));	
 		}
 		
-		$txtQuestion = new customText("faq[question]", validation::prepTextForInput($faqObj->question), 50, 255);
+		$txtQuestion = new phpTextBox("faq[question]", validation::prepTextForInput($faqObj->question), 50, 255);
 		$txtQuestion->setLabel("Question:");	
 		
 		$txtAnswer = new phpTextArea("faq[answer]", validation::prepTextForInput($faqObj->answer), 12, 103, "wysiwyg");
@@ -1829,7 +1829,7 @@ function getPostEdit($postEntryID, $entityID)
 		$arr = pmm_core::getPostTypes();
 		$ddlType->bindByArray($arr);
 		
-		$txtTitle = new customText("post[title]", validation::prepTextForInput($postObj->title), 75, 255, "floating textBox");
+		$txtTitle = new phpTextBox("post[title]", validation::prepTextForInput($postObj->title), 75, 255, "floating textBox");
 		$txtTitle->setLabel("Post Title:", "longLabel floating");	
 		
 		$txtBlurb = new phpTextArea("post[blurb]", validation::prepTextForInput($postObj->blurb), 3, 74, "floating textBox");
@@ -2295,7 +2295,7 @@ function getFileEdit($fileID)
 			$fileEditWin->addControl(new phpParagraph("Last edited by $sec->login on ".validation::parseMySqlDate($fileObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "", "left"));	
 		}
 		
-		$txtCaption = new customText("file[caption]", validation::prepTextForInput($fileObj->caption), 50, 50, "floating textBox");
+		$txtCaption = new phpTextBox("file[caption]", validation::prepTextForInput($fileObj->caption), 50, 50, "floating textBox");
 		$txtCaption->setLabel("File Caption:", "longLabel floating");		
 		
 		$frm = new phpForm("post", "fileEditForm");
@@ -2594,10 +2594,10 @@ function getLinkEdit($linkID, $typeID, $dataID)
 			$linkEditWin->addControl(new phpParagraph("Last edited by $sec->login on ".validation::parseMySqlDate($linkObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "", "left"));	
 		}
 		
-		$txtCaption = new customText("link[caption]", validation::prepTextForInput($linkObj->caption), 50, 75, "floating textBox");
+		$txtCaption = new phpTextBox("link[caption]", validation::prepTextForInput($linkObj->caption), 50, 75, "floating textBox");
 		$txtCaption->setLabel("Link Caption:", "longLabel floating");		
 		
-		$txtUrl = new customText("link[url]", validation::prepTextForInput($linkObj->url), 50, 255, "floating textBox");
+		$txtUrl = new phpTextBox("link[url]", validation::prepTextForInput($linkObj->url), 50, 255, "floating textBox");
 		$txtUrl->setLabel("URL:", "longLabel floating");
 		
 		$frm = new phpForm("post", "linkEditForm");
@@ -2942,7 +2942,7 @@ function getAgendaEdit($agendaID, $entityID)
 			$agendaEditWin->addControl(new phpParagraph("Last edited by $sec->login on ".validation::parseMySqlDate($agendaObj->updatedDateTime, "D, M d Y \a\\t h:ia"), "", "left"));	
 		}
 		
-		$txtTitle = new customText("agenda[title]", validation::prepTextForInput($agendaObj->title), 50, 50);
+		$txtTitle = new phpTextBox("agenda[title]", validation::prepTextForInput($agendaObj->title), 50, 50);
 		$txtTitle->setLabel("Title:");
 		
 		$txtLoc = new phpTextArea("agenda[location]", validation::prepTextForInput($agendaObj->location), 2, 60);

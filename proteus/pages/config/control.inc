@@ -26,21 +26,21 @@ function show()
 	$frm = new phpForm("post", "frmConfig");	
 	$frm->addControl(new hiddenInput("action","updateConfig"));
 			
-	$txtTitle = new customText("data[defaultPageTitle]", validation::prepTextForInput($conf->defaultPageTitle), 50, 255);
+	$txtTitle = new phpTextBox("data[defaultPageTitle]", validation::prepTextForInput($conf->defaultPageTitle), 50, 255);
 	$txtTitle->setLabel("Default Page Title:");
 		
-	$txtBusName = new customText("data[businessName]", validation::prepTextForInput($conf->businessName), 50, 255);
+	$txtBusName = new phpTextBox("data[businessName]", validation::prepTextForInput($conf->businessName), 50, 255);
 	$txtBusName->setLabel("Business Name:");
 		
 	$txtAddr = new phpTextArea("data[businessAddr]", validation::prepTextForInput($conf->businessAddr), 3, 65);
 	$txtAddr->setLabel("Business Address:");
 		
-	$txtPhone = new customText("data[contactPhone]", validation::prepTextForInput($conf->contactPhone), 18, 14);
+	$txtPhone = new phpTextBox("data[contactPhone]", validation::prepTextForInput($conf->contactPhone), 18, 14);
 	$txtPhone->setLabel("Contact Phone:");		
 		
 	jqMaskedInputModule::setMask($txtPhone, jqMaskedInputModule::mask_phone);
 		
-	$txtEmail = new customText("data[sitemail]", validation::prepTextForInput($conf->sitemail), 50, 255);
+	$txtEmail = new phpTextBox("data[sitemail]", validation::prepTextForInput($conf->sitemail), 50, 255);
 	$txtEmail->setLabel("Site Email:");		
 	
 	$ddlTemplate = new phpDDL("data[defaultEmailTemplate]");

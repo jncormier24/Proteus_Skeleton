@@ -179,26 +179,26 @@ function showEditUser($userID)
 		$uWin->addCloseButton($sec->id ? "Close" : "Cancel");
 		if (!$sec->id && $globInsert) $uWin->addButton("Add New User", "function() { updateUser(); }");
 		
-		$txtFirst = new customText("details[firstName]", $sec->firstName, 25, 50);
+		$txtFirst = new phpTextBox("details[firstName]", $sec->firstName, 25, 50);
 		$txtFirst->setLabel("First Name:");		
 		
-		$txtLast = new customText("details[lastName]", $sec->lastName, 25, 50);
+		$txtLast = new phpTextBox("details[lastName]", $sec->lastName, 25, 50);
 		$txtLast->setLabel("Last Name:");
 		
-		$txtLogin = new customText("details[login]", $sec->login, 25, 50);
+		$txtLogin = new phpTextBox("details[login]", $sec->login, 25, 50);
 		$txtLogin->setLabel("Login:");
 		
-		$txtMiddle = new customText("details[middleInitial]", $sec->middleInitial, 1, 1);
+		$txtMiddle = new phpTextBox("details[middleInitial]", $sec->middleInitial, 1, 1);
 		$txtMiddle->setLabel("Middle Initial:");
 		
-		$txtTitle = new customText("details[title]", $sec->title, 25, 50);
+		$txtTitle = new phpTextBox("details[title]", $sec->title, 25, 50);
 		$txtTitle->setLabel("Title:");
 		
-		$txtPass = new customText("details[password]", "", 25, 50);
+		$txtPass = new phpTextBox("details[password]", "", 25, 50);
 		$txtPass->setLabel("Password:");
 		if ($sec->id) $txtPass->setDescription("&nbsp;&nbsp;* Leave blank for no change", "desc");
 		
-		$txtEmail = new customText("details[email]", $sec->email, 25, 255);
+		$txtEmail = new phpTextBox("details[email]", $sec->email, 25, 255);
 		$txtEmail->setLabel("Email Address:");		
 		
 		$dob = $sec->dob ? validation::parseMySqlDate($sec->dob, "m-d-Y") : ($sec->id ? "" : date("m-d-Y", strtotime("-25 YEARS")));		

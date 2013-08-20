@@ -223,20 +223,20 @@ function getFormEdit($formID)
 			$formWin->insertControl(new jqUI_dismissableMessage($g_sec, "new_custom_form", $msg));		
 		}		
 		
-		$txtTitle = new customText("form[title]", $formObj->title, 50, 255);
+		$txtTitle = new phpTextBox("form[title]", $formObj->title, 50, 255);
 		$txtTitle->setLabel("Form Title:");	
 	
 		$txtDesc = new phpTextArea("form[description]", $formObj->description, 8, 92, "wysiwyg");	
 		$txtDesc->setLabel("Form Description:");	
 			
 		// SWB 7/13: I Don't think this needs to be used anymore (keys)
-		/* $txtKey = new customText("formData[lookupKey]", $formData[lookupKey], 10, 255, 'floating textBox');
+		/* $txtKey = new phpTextBox("formData[lookupKey]", $formData[lookupKey], 10, 255, 'floating textBox');
 		$txtKey->setLabel("Lookup Key:", "longLabel floating");
 		$txtKey->breakAfter = true; */
 
 		$conf = new siteConfig();
 	
-		$txtEmail = new customText("form[customEmail]", $formObj->customEmail, 50, 255);
+		$txtEmail = new phpTextBox("form[customEmail]", $formObj->customEmail, 50, 255);
 		$txtEmail->setLabel("Destination Email:");			
 		$txtEmail->setRequired("Leave blank for Default ({$conf->sitemail})", "desc");
 	
@@ -578,10 +578,10 @@ function getFieldEdit($fieldID, $formID)
 			$fieldWin->addButton("Add Form Field","function() { updateFormField(); }");			
 		}
 
-		$txtCap = new customText("field[caption]", validation::prepTextForInput($fieldObj->caption), 50, 255);					
+		$txtCap = new phpTextBox("field[caption]", validation::prepTextForInput($fieldObj->caption), 50, 255);					
 		$txtCap->setLabel("Caption:");				
 				
-		$txtEx = new customText("field[exampleText]", validation::prepTextForInput($fieldObj->exampleText), 50, 255);					
+		$txtEx = new phpTextBox("field[exampleText]", validation::prepTextForInput($fieldObj->exampleText), 50, 255);					
 		$txtEx->setLabel("Optional Description:");
 
 		$ddlSet = new phpDDL("field[fieldsetID]");
@@ -596,7 +596,7 @@ function getFieldEdit($fieldID, $formID)
 		$ddlType->bindByArray($tArr);
 		$ddlType->onchange = "toggleFieldType()";
 				
-		$customObj = new customText("field[extraData]", '', 15, 255);
+		$customObj = new phpTextBox("field[extraData]", '', 15, 255);
 		$customObj->setLabel("&nbsp;", "custom");
 		$customObj->style = "display: none;";
 		
@@ -759,7 +759,7 @@ function getFieldsetAdd()
 								 To add a new Fieldset, simply provide a caption below and click the Add button.");
 		$fsWin->addControl($par);
 		
-		$txtCaption = new customText("caption", "", 50, 255);
+		$txtCaption = new phpTextBox("caption", "", 50, 255);
 		$txtCaption->setLabel("Fieldset Caption:");
 		
 		$fForm = new phpForm("post", "frmFieldset");

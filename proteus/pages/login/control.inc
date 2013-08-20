@@ -9,7 +9,7 @@ function show($ref)
 {
 	$a = new adminPage("Please Log In", false);	
 	
-	$txtName = new customText("login", validation::prepTextForInput($_SESSION["username"]), 25, 20);
+	$txtName = new phpTextBox("login", validation::prepTextForInput($_SESSION["username"]), 25, 20);
 	$txtName->setLabel("Login Name:");					
 	
 	$txtPass = new phpPassword("password",'',25,25);

@@ -284,7 +284,7 @@ class customFormField extends phpDataset
 		switch($this->typeID)
 		{			
 			case 1:
-				$obj = new customText("", "", $this->extraData[0], $this->extraData[1]);				
+				$obj = new phpTextBox("", "", $this->extraData[0], $this->extraData[1]);				
 				if ($this->required) $obj->setRequired(null, "required");
 				
 				switch($this->verification)

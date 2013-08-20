@@ -1284,7 +1284,7 @@ class phpButton extends webControl
 		$this->type = "button";
 	}
 }
-class customText extends formInput 
+class phpTextBox extends formInput 
 {
 	public function __construct($name, $value='', $size='', $maxSize='', $class='')
 	{		
@@ -1558,11 +1558,11 @@ class errorHeader extends phpHeaderBlock
 		$this->image->id = "errorImage";
 	}		
 }
-class jqDatePicker extends customText
+class jqDatePicker extends phpTextBox
 {
 	public function __construct($id, $value='', $label='')
 	{
-		parent::customText($id, $value, 12, 10);
+		parent::phpTextBox($id, $value, 12, 10);
 		
 		$this->addClass('datePicker');
 		if ($label) $this->setLabel($label);
@@ -1579,7 +1579,7 @@ class datePicker extends phpDIV
 	
 	public function __construct($controlName, $label='', $textData='', $customContainerClass='')
 	{
-		$this->textControl = new customText($controlName, $textData, 10, 10);		
+		$this->textControl = new phpTextBox($controlName, $textData, 10, 10);		
 		$this->textControl->setLabel($label);
 		$this->textControl->addParameter('readonly');
 		
@@ -1847,7 +1847,7 @@ class jqUI_notify extends jqUI_dialog
 		$this->addButton("Ok", "function() { $(this).dialog('close'); }");		
 	}
 }
-class jqUI_datepicker extends customText
+class jqUI_datepicker extends phpTextBox
 {
 	private $jsonData;
 	public $allowClear;
@@ -2414,7 +2414,7 @@ class tableFilter extends phpDIV
 		{
 			case tableFilter::filter_text_having:
 			case tableFilter::filter_text:
-				$ctl = new customText($ctlColumn, $default, 10, 50,"filter");
+				$ctl = new phpTextBox($ctlColumn, $default, 10, 50,"filter");
 				break;
 			case tableFilter::filter_date:
 				$ctl = new phpFiller();				
@@ -2452,7 +2452,7 @@ class tableFilter extends phpDIV
 		{
 			case tableFilter::filter_text_having:
 			case tableFilter::filter_text:
-				$ctl = new customText($ctlColumn, "", 25, 50,"filter");
+				$ctl = new phpTextBox($ctlColumn, "", 25, 50,"filter");
 				if ($label) $ctl->setLabel($label);
 				break;
 			case tableFilter::filter_date:

@@ -179,7 +179,7 @@ function getSubscriptionSendWin($optionID, $entryID, $typeID, $dataID, $template
 		$eWin->addButton("Send Sample", "function() { subscriptionSend(1); }");
 		$eWin->addButton("Save for Later", "function() { subscriptionSend(-1); }");		
 		
-		$txtSubject = new customText("emailSubject", validation::prepTextForInput($eData["subject"]), 75, 255);
+		$txtSubject = new phpTextBox("emailSubject", validation::prepTextForInput($eData["subject"]), 75, 255);
 		$txtSubject->setLabel("Email Subject: ");
 		
 		$tabs = new jqUI_tabControl("emailTabs", 0, $tabAnchor);
@@ -452,7 +452,7 @@ function showSubscribe($optionID, $subID)
 		$frm->addControl(new hiddenInput("subID", $subID));
 		$frm->addControl(new hiddenInput("action", "subscribe"));		
 		
-		$txtEmail = new customText("email", validation::prepTextForInput($sObj->id || $insertAccess ? $sObj->email : $g_sec->email), 50, 75);
+		$txtEmail = new phpTextBox("email", validation::prepTextForInput($sObj->id || $insertAccess ? $sObj->email : $g_sec->email), 50, 75);
 		$txtEmail->setLabel("Email Address (required):");
 		if ((!$sObj->id && ($g_sec->id && !$insertAccess)) || ($sObj->id && $sObj->userID)) $txtEmail->addParameter("readonly disabled"); 
 		

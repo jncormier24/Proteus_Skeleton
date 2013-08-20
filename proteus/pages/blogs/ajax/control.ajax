@@ -440,7 +440,7 @@ function getLinkedTopics($entryID)
 				$linkDDL->addListItem(new phpListItem(validation::prepForDisplay($topic[title], false), $topic[id]));	
 			}
 			
-			$txtTopic = new customText("newTopic", "", 25, 255, "textBox");
+			$txtTopic = new phpTextBox("newTopic", "", 25, 255, "textBox");
 			
 			$dvLink->addControl($linkDDL);
 			$dvLink->addControl($txtTopic);
@@ -931,7 +931,7 @@ function getTagCloud($entryID)
 		
 		if ($writeAccess)
 		{
-			$txtTag = new customText("txtTag","",25, 50, "textBox");
+			$txtTag = new phpTextBox("txtTag","",25, 50, "textBox");
 			$txtTag->setLabel("Add a Tag:");
 			
 			$ddlWeight = new phpDDL("tagWeight");
@@ -1312,7 +1312,7 @@ function getBlogFeedEdit($feedID)
 		$editWin->addCloseButton($feed->id ? "Close" : "Cancel");
 		$editWin->addButton($feed->id ? "Save Blog Feed" : "Add new Blog Feed", "updateBlogFeed");
 				
-		$txtName = new customText("feed[name]", validation::prepTextForInput($feed->name), 25, 50);
+		$txtName = new phpTextBox("feed[name]", validation::prepTextForInput($feed->name), 25, 50);
 		$txtName->setLabel("Feed Name:");				
 			
 		$chkInactive = new phpCheckbox("feed[inactive]", 1, $feed->inactive);
@@ -2012,13 +2012,13 @@ function getSettingsEdit()
 		
 		$settingsWin->addButton("Save", "function() { saveSettings(); }");		
 		
-		$txtCSize = new customText("cfg[blogIconDim]", $sObj->blogIconDim, 10, 7);
+		$txtCSize = new phpTextBox("cfg[blogIconDim]", $sObj->blogIconDim, 10, 7);
 		$txtCSize->setLabel("Category Icon Dimensions:");		
 		$txtCSize->setDescription("(optional) Format: WxH", "desc");
 		
 		jqMaskedInputModule::setMask($txtCSize, jqMaskedInputModule::mask_dimensions);
 		
-		$txtESize = new customText("cfg[entryIconDim]", $sObj->entryIconDim, 10, 7);
+		$txtESize = new phpTextBox("cfg[entryIconDim]", $sObj->entryIconDim, 10, 7);
 		$txtESize->setLabel("Entry Icon Dimensions:");		
 		$txtESize->setDescription("(optional) Format: WxH", "desc");		
 
@@ -2118,10 +2118,10 @@ function getBlogEntryEdit($entryID, $blogID, $idx=0)
 				 	   
 		$tabs = new jqUI_tabControl("blogEditTabs", 0, "admin/blogs");
 		
-		$txtTitle = new customText("entry[title]", validation::prepTextForInput($entry->title), 50, 255);	
+		$txtTitle = new phpTextBox("entry[title]", validation::prepTextForInput($entry->title), 50, 255);	
 		$txtTitle->setLabel("Blog Title: ");		
 
-		$txtAuthor = new customText("entry[author]", validation::prepTextForInput($entry->author), 50, 255);	
+		$txtAuthor = new phpTextBox("entry[author]", validation::prepTextForInput($entry->author), 50, 255);	
 		$txtAuthor->setLabel("Author (optional): ");			
 	
 		$txtBody = new phpTextArea("entry[body]", validation::prepTextForInput($entry->body), 20, 115, "wysiwyg");			
@@ -2306,7 +2306,7 @@ function getBlogCategoryEdit($blogID)
 		
 		$blogWin->addButton($blogObj->id ? "Save Blog Category" : "Add new Blog Category", "function() { updateBlogCategory(); }");		
 		
-		$txtTitle = new customText("blog[title]", validation::prepTextForInput($blogObj->title), 70, 75);
+		$txtTitle = new phpTextBox("blog[title]", validation::prepTextForInput($blogObj->title), 70, 75);
 		$txtTitle->setLabel("Blog Category Title:");		
 		
 		$txtDesc = new phpTextArea("blog[description]", validation::prepTextForInput($blogObj->description), 12, 103, "wysiwyg");

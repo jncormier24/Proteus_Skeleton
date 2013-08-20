@@ -210,7 +210,7 @@ function getCategoryEdit($catID)
 			$catWin->insertControl(new jqUI_dismissableMessage($g_sec, "new_custom_category", $msg));		
 		}		
 		
-		$txtName = new customText("cat[name]", validation::prepTextForInput($catObj->name), 50, 255);
+		$txtName = new phpTextBox("cat[name]", validation::prepTextForInput($catObj->name), 50, 255);
 		$txtName->setLabel("Category Name:");	
 	
 		$txtDesc = new phpTextArea("cat[description]", $catObj->description, 8, 92, "wysiwyg");	
@@ -551,10 +551,10 @@ function getCategoryFeatureEdit($featureID, $categoryID, $featureType)
 				break;			
 		}	
 		
-		$txtName = new customText("feature[fieldName]", validation::prepTextForInput($fObj->fieldName), 25, 50);	
+		$txtName = new phpTextBox("feature[fieldName]", validation::prepTextForInput($fObj->fieldName), 25, 50);	
 		$txtName->setLabel("Feature Name:");						
 	
-		$txtKey = new customText("feature[featureKey]", $fObj->featureKey, 25, 50);	
+		$txtKey = new phpTextBox("feature[featureKey]", $fObj->featureKey, 25, 50);	
 		$txtKey->setLabel("Feature Key:");				
 		$txtKey->setRequired("Used for accessing feature programmatically", "desc");		
 	
@@ -922,7 +922,7 @@ function getCategoryItemEdit($itemID, $catID)
 			$itemWin->insertControl(new jqUI_dismissableMessage($g_sec, "new_custom_category_item", $msg));		
 		}		
 		
-		$txtTitle = new customText("item[title]", validation::prepTextForInput($itemObj->title), 50, 255);
+		$txtTitle = new phpTextBox("item[title]", validation::prepTextForInput($itemObj->title), 50, 255);
 		$txtTitle->setLabel("Title:");	
 	
 		$txtDesc = new phpTextArea("item[description]", $itemObj->description, 8, 92, "wysiwyg");	
@@ -952,7 +952,7 @@ function getCategoryItemEdit($itemID, $catID)
 				switch($feature->featureType)
 				{
 					case 1:
-						$ctl = new customText($name);
+						$ctl = new phpTextBox($name);
 					$txtExtra = new phpTextArea("details[{$inv[id]}][value]",$details[value],5, 90, 'textBox');
 					$txtExtra->setLabel($desc);
 			
@@ -961,11 +961,11 @@ function getCategoryItemEdit($itemID, $catID)
 					break;
 			
 					case 2:
-					$txtExtra = new customText("details[{$inv[id]}][value]",$details[value],50, 255, 'textBox floating');
+					$txtExtra = new phpTextBox("details[{$inv[id]}][value]",$details[value],50, 255, 'textBox floating');
 					$txtExtra->setLabel('Display:', 'longLabel floating');
 					$txtExtra->breakAfter = true;
 			
-				$txtData = new customText("details[{$inv[id]}][additionalData]",$details[additionalData],50, 255, 'textBox floating');
+				$txtData = new phpTextBox("details[{$inv[id]}][additionalData]",$details[additionalData],50, 255, 'textBox floating');
 							$txtData->setLabel('URL:', 'longLabel floating');
 				$txtData->breakAfter = true;
 			

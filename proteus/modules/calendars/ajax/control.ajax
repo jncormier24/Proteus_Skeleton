@@ -195,10 +195,10 @@ function getCalendarWin($calID, $typeID, $dataID)
 		
 		if ($writeAccess) $eWin->addButton($calID ? "Save Changes" : "Add Calendar", "function() { saveCalendar(); }");		
 		
-		$txtTitle = new customText("details[title]", validation::prepTextForInput($calObj->title), 25, 25);
+		$txtTitle = new phpTextBox("details[title]", validation::prepTextForInput($calObj->title), 25, 25);
 		$txtTitle->setLabel("Calendar Title:");
 		
-		$txtKey = new customText("details[lookupKey]", validation::prepTextForInput($calObj->lookupKey), 10, 50);
+		$txtKey = new phpTextBox("details[lookupKey]", validation::prepTextForInput($calObj->lookupKey), 10, 50);
 		$txtKey->setLabel("Lookup Key:");
 		
 		$chkInactive = new phpCheckbox("details[inactive]", 1, $calObj->inactive ? true : false);
@@ -206,7 +206,7 @@ function getCalendarWin($calID, $typeID, $dataID)
 		
 		if ($calObj->id)
 		{
-			$txtISize = new customText("cfg[iconSize]", $calObj->settings->iconSize, 10, 7);
+			$txtISize = new phpTextBox("cfg[iconSize]", $calObj->settings->iconSize, 10, 7);
 			$txtISize->setLabel("Entry Icon Dimensions:");			
 			$txtISize->setRequired("&nbsp; Format: 99x99", "desc");
 		}
@@ -354,7 +354,7 @@ function getEntryEdit($entryID, $calID=0)
 		
 		$writeAccess = $calObj->hasAccess($g_sec, permissions::write);
 		
-		$txtTitle = new customText("details[title]", validation::prepTextForInput($eObj->title), 53, 255);
+		$txtTitle = new phpTextBox("details[title]", validation::prepTextForInput($eObj->title), 53, 255);
 		$txtTitle->setLabel("Entry Title:");		
 		
 		$txtDesc = new phpTextArea("details[description]", validation::prepTextForInput($eObj->description), 4, 85, "wysiwyg");
