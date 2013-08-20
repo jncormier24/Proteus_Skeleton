@@ -50,3 +50,57 @@ span.updatedBy
 	
 	color: #808080;	
 }
+span.featureType 
+{
+    color: #9A9A9A;
+    font-size: 12px;
+}
+span.imageEmpty
+{
+	display: block;
+	padding: 0px 0px 14px 0px;
+	
+	font-weight: bold;
+	
+	text-align: center;
+}
+fieldset.images span.resized
+{
+	display: block;
+}
+fieldset.images button, fieldset.images label, fieldset.images .fileinput-wrapper
+{
+	float: left;
+	margin-right: 5px;
+}
+fieldset.images label
+{
+	margin-top: 6px;	
+}
+fieldset.images button .ui-button-text
+{
+	padding: 3px 12px 4px 30px;
+}
+fieldset.images div img.featureImage
+{
+	display: block;
+	margin: 0px auto 12px auto;
+	
+	box-shadow: 2px 2px 3px #555555;
+}
+fieldset.images .uploadDiv
+{
+	float: right;
+}
+#itemWin fieldset
+{	
+	clear: left;
+	margin-bottom: 8px;
+
+	border-radius: 5px;
+}
+#itemWin form fieldset .redactor_box
+{
+	width: 100%;
+	min-height: inherit;
+}

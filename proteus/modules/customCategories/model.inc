@@ -235,7 +235,7 @@ class categoryFeature extends phpDataSet
 		}	
 		
 		return parent::__get($key);
-	}
+	}	
 	public function insert($data="")
 	{
 		$d = new DAL(true);
@@ -282,7 +282,7 @@ class categoryFeatureData extends phpDataset
 	public $p_files;
 	public $p_links;
 	
-	public function __construct($featureDataID)
+	public function __construct($featureDataID = 0)
 	{
 		parent::__construct("categoryFeatureData", $featureDataID, $featureDataID ? true : false);		
 	}
@@ -430,7 +430,7 @@ class categoryItem extends phpDataset
 		
 		$data = array();
 		
-		$qry = "select id
+		$qry = "select id, categoryFeatureID
 				from categoryFeatureData
 				where categoryItemID = {$this->id}";		
 		$fQry = $d->qry($qry);

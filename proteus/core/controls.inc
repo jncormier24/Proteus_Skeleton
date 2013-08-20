@@ -1892,13 +1892,7 @@ class jqUI_datepicker extends phpTextBox
 	}
 	public function render()
 	{
-		global $config;
-		
-		if ($this->breakAfter)
-		{
-			$this->container->breakAfter = true;
-			$this->breakAfter = false;	
-		}
+		global $config;		
 		
 		if ($this->allowClear)
 		{

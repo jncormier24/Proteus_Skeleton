@@ -5,6 +5,18 @@
 	
 	switch($action)
 	{
+		case "clearFeatureImage":
+			clearFeatureImage($dataID);
+			break;
+			
+		case "uploadFeatureImage":
+			uploadFeatureImage($featureID, $itemID);
+			break;
+			
+		case "getFeatureImage":
+			getFeatureImage($featureID, $itemID);
+			break;
+			
 		case "updateCategoryItem":
 			updateCategoryItem($itemID, $categoryID, $item);
 			break;
@@ -864,6 +876,7 @@ function getCategoryItemEdit($itemID, $catID)
 {
 	global $g_sec;
 
+	$d = new DAL(true);
 	$js = new json_a();
 	
 	try
@@ -888,7 +901,7 @@ function getCategoryItemEdit($itemID, $catID)
 		
 		$tabs = new jqUI_tabControl("itemTabs", 0, "admin/customCategories");
 		
-		$itemWin = new jqUI_dialog("itemWin", true, 900, "", $itemObj->id ? "Modify Category Item" : "Add new Category Item");
+		$itemWin = new jqUI_dialog("itemWin", true, 925, "", $itemObj->id ? "Modify Category Item" : "Add new Category Item");
 		$itemWin->addClass("configWin");
 		$itemWin->setOption("autoOpen", true);				
 		
@@ -935,171 +948,137 @@ function getCategoryItemEdit($itemID, $catID)
 		$frmItem->addControl(new hiddenInput("categoryID", $catObj->id));
 		$frmItem->addControl(new hiddenInput("itemID", $itemObj->id));
 		
+		$tpDetail = new jqUI_tabPage("item_detail", "Basic Item Detail", "ui-icon-wrench");
+		$tpDetail->addControl($frmItem);
+		
+		$tabs->addTabPage($tpDetail);
+		
 		if ($itemObj->id)
 		{
 			$features = $catObj->features;
 			$featureData = $itemObj->featureData;
 			
+			$featureImages = array();
+			$featureFiles = array();
+			$featureBlogs = array();
+			
 			foreach($features as $feature)				
 			{
-				$dataObj = $featureData[$feature->featureKey];			
-			
-				//$details[value] = validation::prepTextForInput($details[value]);
-				//$details[additionalData] = validation::prepTextForInput($details[additionalData]);
-			
-				//$desc = "- ".$inv[fieldName].'&nbsp;<span class="featureType">('.getFeatureTypeDesc($inv[featureType]).')</span>';
+				$dataObj = $featureData[$feature->featureKey];		
+				 
+				$fs = new phpFormFieldset($feature->fieldName."&nbsp;<span class='featureType'>({$feature->type})</span>");				
 			
 				switch($feature->featureType)
 				{
 					case 1:
-						$ctl = new phpTextBox($name);
-					$txtExtra = new phpTextArea("details[{$inv[id]}][value]",$details[value],5, 90, 'textBox');
-					$txtExtra->setLabel($desc);
-			
-					$fFields->addControl($txtExtra);
-			
-					break;
-			
+						$txtValue = new phpTextBox("features[{$feature->id}]", validation::prepTextForInput($dataObj->value), 86, 255);
+						$txtValue->setLabel("Value:");
+						
+						$fs->addControl($txtValue);
+						
+						break;			
 					case 2:
-					$txtExtra = new phpTextBox("details[{$inv[id]}][value]",$details[value],50, 255, 'textBox floating');
-					$txtExtra->setLabel('Display:', 'longLabel floating');
-					$txtExtra->breakAfter = true;
+						$txtExtra = new phpTextBox("extra[{$feature->id}]", validation::prepTextForInput($dataObj->value), 86, 255);
+						$txtExtra->setLabel("Link Display:");					
 			
-				$txtData = new phpTextBox("details[{$inv[id]}][additionalData]",$details[additionalData],50, 255, 'textBox floating');
-							$txtData->setLabel('URL:', 'longLabel floating');
-				$txtData->breakAfter = true;
+						$txtData = new phpTextBox("features[{$feature->id}]", validation::prepTextForInput($dataObj->additionalData), 86, 255, 'textBox floating');
+						$txtData->setLabel("Link URL:");
+				
+						$fs->addControl($txtExtra);
+						$fs->addControl($txtData);
 			
-				$detailDiv = new phpDIV();
-					$detailDiv->class = 'config';
-					$detailDiv->addControl($txtExtra);
-					$detailDiv->addControl($txtData);
-			
-					$dSpan = new phpSpan($desc, 'label');
-					$dSpan->breakAfter = true;
-			
-					$fFields->addControl($dSpan);
-					$fFields->addControl($detailDiv);
-			
-					break;
-			
+						break;			
 					case 3:
-					$bForm = new phpDIV();
-			
-					$iForm = new phpDIV();
-					$iForm->addControl(new javaControl("$(function() { getFeatureImage($inv[id], $itemID); })"));
-					$iForm->id = 'imgContainer_'.$inv[id];
-			
-					$bForm->addControl($iForm);
-			
-							if ($details[id])
-							{
-							$cBtn = new customButton('btnClear_'.$inv[id],'button','Clear Image');
-					$cBtn->onclick = "if (confirm('Are you SURE you want to clear this image? This may leave your website with a big blank spot where this image was supposed to go!')) clearImage($inv[id], $itemID, loadImages);";
-						$cBtn->style = "display: none;";
-					}
-						else
-					{
-						$cBtn = new phpFiller();
-					}
-							
-						$bForm->addControl($cBtn);
-			
-						$iTab->addControl(new phpHeader(1, $desc, 'topHeader'));
-					$iTab->addControl($bForm);
-					$imageCt++;
-			
-					break;
-			
+						$featureImages[] = $feature;
+						continue 2;						
+					
 					case 4:
-					$bForm = new phpDIV();
+						$featureFiles[] = $feature;
+						continue 2;
+					
+					case 5:
+						$txtExtra = new phpTextArea("features[{$feature->id}]", validation::prepTextForInput($dataObj->value), 10, 98, "wysiwyg");
+						$fs->addControl($txtExtra);
+						
+						break;
+					case 6:
+						$addShowcaseTab = true;
+						continue 2;
+						
+						break;					
+					case 7:						
+						$dtVal = new jqUI_datepicker("features[{$feature->id}]", validation::prepTextForInput($dataObj->value), "Date Value:", true, "null", "mm/dd/yy");
+						
+						$fs->addControl($dtVal);
+						
+						break;						
+					case 8:
+						$txtExtra = new phpTextArea("features[{$feature->id}]", validation::prepTextForInput($dataObj->value), 3, 85);						
+						$txtExtra->setLabel("HTML Literal:");
+						
+						$fs->addControl($txtExtra);			
+				
+						break;
+					case 9:
+						$sQry = $d->qry("select id, title from formBuilder order by title asc");
 			
+						$ddlForms = new phpDDL("features[{$feature->id}]");
+						$ddlForms->selected = $dataObj->value;
+						$ddlForms->addListItem(new phpListItem("",""));
+						$ddlForms->dataOrdinal = "id";
+						$ddlForms->displayOrdinal = "title";
+						$ddlForms->bind($sQry);						
+						$ddlForms->setLabel("Choose Custom Form: ");
+
+						$fs->addControl($ddlForms);					
+					
+						break;
+					case 10:
+					case 11:
+						$featureBlogs[] = $feature;
+						continue 2;								
+				}
+				
+				$frmItem->addControl($fs);
+			}
+			
+	 		if (count($featureImages))
+			{
+				$tpImages = new jqUI_tabPage("item_images", "Images", "ui-icon-image");
+				
+				foreach($featureImages as $feature)
+				{
+					$fs = new phpFormFieldset($feature->fieldName, "images");
+					$fs->id = "imgContainer_".$feature->id;					
+					$fs->addControl(new jqLoader("getFeatureImage({$feature->id}, {$itemObj->id})"));
+					$fs->addControl(new phpDIV());
+					
+					$tpImages->addControl($fs);				
+				}
+				
+				$tabs->addTabPage($tpImages);
+			}
+
+			/*
+			if (count($featureFiles))
+			{
+				foreach($featureFiles as $feature)
+				{
+					$bForm = new phpDIV();
+						
 					$iForm = new phpDIV();
 					$iForm->addControl(new javaControl("$(function() { getFeatureFiles($inv[id], $itemID); });"));
 					$iForm->id = 'fileContainer_'.$inv[id];
-			
+						
 					$bForm->addControl($iForm);
-			
+						
 					$fTab->addControl(new phpHeader(1, $desc, 'topHeader'));
 					$fTab->addControl($bForm);
-			
+						
 					$fileCt++;
-			
-					break;
-					case 5:
-					$txtExtra = new phpTextArea("details[{$inv[id]}][value]",$details[value],10, 98);
-					$txtExtra->breakAfter = true;
-					$txtExtra->addClass('wysiwyg floating');
-					$txtExtra->addAttribute("data-upload-dataid", $itemID);
-					$txtExtra->addAttribute("data-upload-typeid", 1);
-			
-					$dSpan = new phpSpan($desc, 'label');
-			
-					$fFields->addControl($dSpan);
-					$fFields->addControl($txtExtra);
-			
-				break;
-			case 6:
-					$addShowcaseTab = true;
-				break;
-			case 7:
-						//$dtVal = new jqDatePicker("details[{$inv[id]}][value]", $details[value], $desc); //removed 10/11/2012 for below
-			
-					//use the newer date picker so that we have the clear button, be sure to set the date format as the same
-					$dtVal = new jqUI_datepicker("details[{$inv[id]}][value]", $details[value], $desc, true, "new Date(1990,1,1)", "mm/dd/yy");
-					$dtVal->setOption("buttonImage", "'../includes/js/jquery/themes/smoothness/images/calendar.gif'");
-			
-					$fFields->addControl($dtVal);
-			
-					break;
-					case 8:
-					$txtExtra = new phpTextArea("details[{$inv[id]}][value]",$details[value],5, 35, 'textBox');
-					$txtExtra->addAttribute('style','margin-right: 10px;');
-					$txtExtra->breakAfter = true;
-				$txtExtra->setLabel($desc);
-			
-				$fFields->addControl($txtExtra);
-			
-							break;
-							case 9:
-							$sQry = $a->qry("select id, title from formBuilder order by title asc");
-			
-							$ddlForms = new phpDDL("details[{$inv[id]}][value]");
-							$ddlForms->selected = $details[value];
-							$ddlForms->addListItem(new phpListItem("",""));
-							$ddlForms->dataOrdinal = "id";
-							$ddlForms->displayOrdinal = "title";
-							$ddlForms->bind($sQry);
-							$ddlForms->setLabel("Choose Custom Form: ", 'floating');
-				$ddlForms->label->style = "width: 150px;";
-							$ddlForms->addAttribute('style', 'margin-right: 10px');
-							$ddlForms->breakAfter = true;
-							$ddlForms->class = 'floating';
-			
-					//$disableSave = !count($ddlForms->listItems);
-			
-					$fFields->addControl(new phpSpan($desc, "label"));
-					$fFields->addControl($ddlForms);
-			
-							break;
-									case 10:
-									case 11:
-									$blogCt++;
-											break;
-											case customCategoryTypes::inventory_type:
-											$invLinkCt++;
-											break;
-											case customCategoryTypes::inventory_manufacturer:
-											$invLinkCt++;
-											break;
-												
 				}
-				}
+			}	 */
 		}
-		
-		$tpDetail = new jqUI_tabPage("item_detail", "Basic Item Detail", "ui-icon-wrench");
-		$tpDetail->addControl($frmItem);
-		
-		$tabs->addTabPage($tpDetail);
 		
 		$itemWin->addControl($tabs);
 		
@@ -1197,5 +1176,191 @@ function updateCategoryItem($itemID, $catID, $item)
 	
 	echo $js->render();
 	exit(0);
+}
+function getFeatureImage($featureID, $itemID)
+{
+	global $config, $g_sec;
+	
+	$js = new json_a();
+	
+	// Use a div to wrap instead of PageContent to get around the popupIcon hover events staying on the static DIV container when images are cleared
+	$pc = new phpDIV();
+
+	try
+	{
+		$featureObj = new categoryFeature($featureID);
+		if (!$featureObj->id) throw new Exception("Error, that feature could not be found!");
+		
+		$itemObj = new categoryItem($itemID);
+		if (!$itemObj->id) throw new Exception("Error, that Category Item could not be found!");
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
+
+		$featureData = $itemObj->featureData[$featureObj->featureKey];
+
+		$resizeNote = new phpFiller();
+		
+		if ($featureData->value)
+		{	
+			$imgLoc = $itemObj->assetFolder."/".$featureData->value;
+				
+			//Use Query String to get around caching issues on update
+			$img = new image($imgLoc."?ts=".time(), "", "featureImage");
+
+			$imgSize = @getimagesize($config["baseAppDir"].$imgLoc);
+
+			if ($imgSize[0] > 850)
+			{
+				$ratio = $imgSize[1] / $imgSize[0];
+				$height = 850 * $ratio;
+					
+				$img->addAttribute('style', "width: 850px; height: {$height}px;");
+					
+				$resizeNote = new phpSpan("** Image has been resized to fit. Original Dimensions: $imgSize[0] x $imgSize[1]", "desc resized");				
+			}
+		}
+		else
+		{
+			$img = new phpSpan("- No image uploaded -", "imageEmpty");
+		}
+
+		$pc->addControl($img);
+		$pc->addControl($resizeNote);
+
+		$dvUpload = new phpDIV();
+		$dvUpload->class = 'uploadDiv';
+
+		$btnUpload = new jqUI_button("btnUpload_$featureID", "Upload New Image", '', 'ui-icon-image', true);
+		$btnUpload->style = "display: none;";
+		$btnUpload->onclick = "return uploadFeatureImage($featureID, $itemID);";
+
+		$fInput = new formInput("fileToUpload_$featureID",'file');
+		$fInput->onchange = "$('#btnUpload_$featureID').css('display','block');";
+		$fInput->setLabel("Upload a new Image: ");
+
+		$dvUpload->addControl($fInput);
+		$dvUpload->addControl($btnUpload);
+		//$dvUpload->addControl($btnClear);
+
+		if ($itemObj->hasAccess($g_sec, permissions::write))
+		{
+			$pc->addControl($dvUpload);
+		}
+
+		$js->dataID = $featureData->id;
+		$js->content = $pc->render();
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+
+	echo $js->render();
+	exit(0);
+}
+function uploadFeatureImage($featureID, $itemID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+
+	try
+	{			
+		$featureObj = new categoryFeature($featureID);
+		if (!$featureObj->id) throw new Exception("Error, that feature could not be found!");
+		
+		$itemObj = new categoryItem($itemID);
+		if (!$itemObj->id) throw new Exception("Error, that Category Item could not be found!");
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+		
+		$featureData = $itemObj->featureData[$featureObj->featureKey];		
+		if (!$featureData->id) $featureData = new categoryFeatureData();
+		
+		$baseLoc = $config["baseAppDir"].$itemObj->assetFolder."/";
+		
+		$u = new upload($_FILES["fileToUpload_".$featureObj->id]);			
+			
+		$fExt = $u->getFileExtension($u->p_Name);
+		$fName = str_replace(".$fExt", "_".time().".$fExt", $u->p_Name);
+			
+		//Turn whitespaces into _ and everything non-alpha-numeric into nothing
+		$fName = preg_replace(array("/\s/","/[^a-zA-Z0-9\.\_]/"), array("_",""), $fName);
+		
+		$u->uploadFile($baseLoc.$fName);
+		
+		if ($featureData->value)
+		{
+			// Clear any existing image after the upload is successful
+			$imgLoc = $baseLoc.$featureData->value;
+			@unlink($imgLoc);
+		}		
+		
+		$featureData->value = "'$fName'";		
+		
+		if ($featureData->id)
+		{
+			$featureData->save();	
+		}
+		else
+		{
+			$featureData->categoryFeatureID = $featureObj->id;
+			$featureData->categoryItemID = $itemObj->id;
+			
+			$dataID = $featureData->insert();
+		}		
+					
+		pageClass::setNotify("Successfully uploaded Feature Image");
+
+		// Need *something* in the JS, or the parser freaks out when the upload is done.
+		$js->success = 1;
+	}
+	catch(Exception $ex)
+	{
+		$js->error = $ex->getMessage();
+	}
+
+	echo $js->render();
+	exit(0);
 }	
+function clearFeatureImage($dataID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+
+	try
+	{
+		$dataObj = new categoryFeatureData($dataID);
+		if (!$dataObj->id) throw new Exception("Error, that feature data could not be found!");
+		
+		$featureObj = $dataObj->feature;		
+		$itemObj = $dataObj->item;
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+		
+		$baseLoc = $config["baseAppDir"].$itemObj->assetFolder."/";
+
+		$imgLoc = $baseLoc.$dataObj->value;
+		@unlink($imgLoc);
+
+		$dataObj->delete();
+
+		$js->featureID = $featureObj->id;
+		$js->itemID = $itemObj->id;
+		
+		pageClass::setNotify("Successfully cleared Feature Image");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+
+	echo $js->render();
+	exit(0);
+}
 ?>
