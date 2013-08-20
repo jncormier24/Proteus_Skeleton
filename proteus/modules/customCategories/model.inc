@@ -1,5 +1,5 @@
 <?php
-class customCategory_core
+class customCategory_core 
 {	
 	public $asset_folders = array("categories");	
 	public $tables = array("categoryFeatures"=>"CREATE TABLE `categoryFeatures` (
@@ -42,6 +42,12 @@ class customCategory_core
 												 `position` int(11) NOT NULL DEFAULT '0',
 												 PRIMARY KEY (`id`)
 												) ENGINE=MyISAM DEFAULT CHARSET=utf8",
+							"categoryExposure"=>"CREATE TABLE `categoryExposure` (
+												 `id` int(11) NOT NULL AUTO_INCREMENT,
+												 `categoryID` int(11) NOT NULL,
+												 `linkedCategoryID` int(11) NOT NULL,
+												 PRIMARY KEY (`id`)
+												) ENGINE=MyISAM DEFAULT CHARSET=utf8",
 							"categories"=>"CREATE TABLE `categories` (
 											 `id` int(11) NOT NULL AUTO_INCREMENT,
 											 `name` varchar(50) NOT NULL DEFAULT '',
@@ -55,6 +61,7 @@ class customCategory_core
 class customCategory extends phpDataset
 {	
 	private $p_features;
+	private $p_items;
 	
 	public function __construct($id)
 	{		
@@ -66,6 +73,10 @@ class customCategory extends phpDataset
 		
 		switch ($key)
 		{
+			case "items":
+				if (!$this->p_items) $this->p_items = $this->getItems();
+				return $this->p_items;
+				
 			case "features":
 				if (!$this->p_features) $this->p_features = $this->getFeatures();
 				return $this->p_features;
@@ -91,63 +102,32 @@ class customCategory extends phpDataset
 	
 		while($f = $fQry->fetch_assoc())
 		{
-			$features[$f[id]] = new categoryFeature($f[id]);
+			$features[$f["id"]] = new categoryFeature($f["id"]);
 		}
 		
 		return $features;
 	}
-	public function populateCategoryItems($orderBy="", $startPos=0, $limit=0)
+	public function getItems()
 	{
-		// Sort Mode:
-		// 0: Sort by position, ascending
-		// 1: Sort by addedDateTime descending
-		$d = new DAL();
+		if (!$this->id) return false;
+	
+		$d = new DAL(true);
+		$items = Array();
 		
-		if ($limit) $limitClause = "limit ".($startPos ? $startPos.", " : "").$limit;
+		$sortOrd = $this->sortMode ? "addedDateTime desc" : "position asc"; 
 		
-		if ($this->itemKeyFilter) $whClause = " and categoryItems.lookupKey = '{$this->itemKeyFilter}'";
-		if ($this->itemIDFilter) $whClause .= " and categoryItems.id=".$this->itemIDFilter;
-		
-		if ($this->itemSecondaryKeyFilter)
+		$qry = "select id
+				from categoryItems
+				where categoryID = {$this->id}
+				order by $sortOrd";
+		$fQry = $d->qry($qry);
+	
+		while($i = $fQry->fetch_assoc())
 		{
-			$join = "inner join categoryKeyLookup on categoryKeyLookup.categoryItemID = categoryItems.id ";
-			$whClause .= " and categoryKeyLookup.keyID = ".$this->itemSecondaryKeyFilter;
+			$items[$i["id"]] = new categoryItem($i["id"]);
 		}
 		
-		if (!$orderBy) 
-		{
-			if (!$this->category[sortMode]) $this->category[sortMode] = 0;
-			$sortMode = $this->category[sortMode];
-			
-			switch($sortMode)
-			{
-				case 0:
-					$orderBy = "categoryItems.position asc";
-					break;
-					
-				case 1:					
-					$orderBy = "addedDateTime desc";
-					break;
-				
-				case 2:
-					$orderBy = "title asc";
-					break;
-			}
-		}
-		
-		$qry = "select categoryItems.id
-				from categoryItems $join
-				where categoryItems.categoryID = {$this->category[id]} and categoryItems.inactive = {$this->getInactive} $whClause
-				order by $orderBy
-				$limitClause";
-		
-		$cQry = $d->qry($qry);
-		
-		$ct=0;
-		while($cItem = mysqli_fetch_assoc($cQry))
-		{
-			$this->categoryItems[$ct++] = new categoryItem($cItem[id], $this->descIsHtml);
-		}		
+		return $items;	
 	}	
 	public function hasAccess(security $sec, $permission, $throwException = false)
 	{
@@ -160,6 +140,7 @@ class customCategory extends phpDataset
 	}
 	public function insert($data="")
 	{
+		global $config;
 		$d = new DAL(true);
 		
 		// Take care of setting the position when inserting here
@@ -175,6 +156,58 @@ class customCategory extends phpDataset
 		if (!file_exists($loc)) mkdir($loc);		
 		
 		return $id;
+	}
+	public function delete()
+	{
+		$d = new DAL(true);
+		
+		foreach($this->items as $itemObj)
+		{
+			$itemObj->delete();
+		}
+		
+		$d->qry("delete from categoryExposure where categoryID = {$this->id} or linkedCategoryID = {$this->id}");
+		$d->qry("delete from categoryKeyLookup where categoryID = {$this->id}");
+		
+		$baseLoc = $config["baseAppDir"].$this->assetFolder;
+		
+		foreach(glob($baseLoc."/*") as $file)
+		{
+			@unlink($file);
+		}
+		
+		@rmdir($baseLoc);
+		
+		return parent::delete();
+	}
+	public function isExposed($categoryID)
+	{
+		validation::ensureInt($categoryID);
+		if (!$categoryID) return false;
+		
+		$d = new DAL(true);
+		return $d->qryCount("select id from categoryExposure where categoryID = {$this->id} and linkedCategoryID = $categoryID");
+	}
+	public function toggleExposure($categoryID)
+	{
+		$d = new DAL(true);
+		
+		$lCatObj = new customCategory($categoryID);
+		if (!$lCatObj->id) throw new Exception("Error, the Custom Category you are trying to link to could not be found.");
+		
+		$expID = $this->isExposed($categoryID);
+		
+		if ($expID)
+		{
+			return $d->qry("delete from categoryExposure where id=$expID");				
+		}
+		else
+		{
+			$cv["categoryID"] = $this->id;
+			$cv["linkedCategoryID"] = $categoryID;
+			
+			return $d->qryInsertByArray("categoryExposure", $cv);
+		}
 	}
 }
 class categoryFeature extends phpDataSet
@@ -247,34 +280,11 @@ class categoryFeature extends phpDataSet
 class categoryFeatureData extends phpDataset
 {
 	public $p_files;
+	public $p_links;
 	
 	public function __construct($featureID)
 	{
-		parent::__construct("categoryFeatureData", $featureID, $featureID ? true : false);
-		
-		if ($this->feature[featureType] == customCategoryTypes::downloadable_file && $this->feature[featureConfigData] == 1 && $this->data[value])
-		{			
-			//split out multiple files
-			$files = explode("::", $this->data[value]);
-			$captions = explode("::", $this->data[additionalData]);
-			
-			for ($i=0; $i < count($files); $i++)
-			{	
-				$this->files[$i] = new categoryFeatureFile($files[$i], $captions[$i], $i);
-			}
-		}
-		elseif($this->feature[featureType] == customCategoryTypes::blog_category || $this->feature[featureType] == customCategoryTypes::blog_topic)
-		{
-			//Separate the topics, or categories, by the internal delimeter. Sets the value to an indexed array of the corresponding data.
-			if ($this->data[value])
-			{
-				$this->data[value] = explode("::", $this->data[value]);
-			}
-			else
-			{
-				$this->data[value] = array();
-			}
-		}
+		parent::__construct("categoryFeatureData", $featureID, $featureID ? true : false);		
 	}
 	public function __get($key)
 	{
@@ -307,6 +317,19 @@ class categoryFeatureData extends phpDataset
 				}	
 
 				return $this->p_files;
+				
+			case "links":
+				$feature = $this->feature;
+				
+				if (!$feature->featureType != 10 && $feature->featureConfigData != 11) return false;
+				
+				if (!$this->p_links)
+				{
+					// Separate the topics, or categories, by the internal delimeter. Sets the value to an indexed array of the corresponding data.
+					$this->p_links = explode("::", $this->value);
+				}
+				
+				return $this->p_links;			
 		}
 		
 		return parent::__get($key);
@@ -364,6 +387,9 @@ class categoryItem extends phpDataset
 		
 		$qry = "delete from categoryFeatureData where categoryItemID = {$this->id}";
 		$d->qry($qry);	
+		
+		$qry = "delete from categoryKeyLookup where categoryItemID = {$this->id}";
+		$d->qry($qry);
 		
 		$qry = "delete from categoryFeatures where categoryID = {$this->categoryID}";
 		$d->qry($qry);		

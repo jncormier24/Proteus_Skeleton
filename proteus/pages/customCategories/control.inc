@@ -12,6 +12,7 @@ function showCategories()
 	$a->addPageModule(new jqUpdateHelperModule());
 	$a->addPageModule(new customContentModule());	
 	$a->addPageModule(new jqPopupMenuModule());	
+	$a->addPageModule(new jqCheckboxModule());
 	
 	$g_sec = $a->authUser;
 	

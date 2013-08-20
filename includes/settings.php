@@ -26,10 +26,11 @@
 	
 	$config["uploaded_image_quality_jpg"] = 85;	 
 	$config["uploaded_image_quality_png"] = 8;
-	$config["uploaded_image_max_width"] = 500;
-	$config["uploaded_image_max_height"] = 500;
+	$config["uploaded_image_max_width"] = 1200;
+	$config["uploaded_image_max_height"] = 1024;
 	
-	$config["upload_max_size"] = 1024000;
+	// Default: 10mb
+	$config["upload_max_size"] = 10485760;
 	
 	// Define the permission class used for this site. To implement custom security options, use the bundled "permissions" as a template 
 	// and extend from that class. (typically won't be necessary unless completely overriding bundled backend)

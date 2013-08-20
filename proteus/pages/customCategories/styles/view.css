@@ -9,7 +9,7 @@ div.panelBlockContainer h1 div.jqPopupMenu
 {
 	min-height: 500px;
 }
-#categoryWin .redactor_box
+#categoryWin .redactor_box, #itemWin .redactor_box
 {
 	float: left;	
 	

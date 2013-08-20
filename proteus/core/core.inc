@@ -956,10 +956,11 @@ class upload
 		
 		if (!$this->p_Pointer) throw new Exception("Error, no file specified for upload.");
 
+		if ($this->p_Size > $config["upload_max_size"]) throw new Exception("That file is too large to upload! Max file size is ".($config["upload_max_size"] / 1048576)."Mb");
+		
 		if ($this->p_image)
 		{
-			$this->allowedMimeTypes = array("image/jpg", "image/gif", "image/png", "image/jpeg");
-			if ($this->p_Size > $config["upload_max_size"]) throw new Exception("That image is too large to upload! Please resize and try again (try 800x600 resolution)");
+			$this->allowedMimeTypes = array("image/jpg", "image/gif", "image/png", "image/jpeg");			
 		}
 
 		try

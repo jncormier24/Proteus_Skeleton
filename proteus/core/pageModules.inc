@@ -172,4 +172,12 @@ class jqClipboardModule extends pageModule
 		$this->addScriptObject(new javascriptControl("", "proteus/jquery/zclip/jquery.zclip.js"));						
 	}	
 }
+class jqCheckboxModule extends pageModule
+{
+	public function __construct()
+	{
+		$this->addScriptObject(new javascriptControl("", "proteus/jquery/checkbox/jquery.checkbox.js"));
+		$this->addStylesheet(new stylesheetControl("proteus/jquery/checkbox/jquery.checkbox.css"));
+	}
+}
 ?>

@@ -950,11 +950,11 @@ $(document).ready(function()
 	$.blockContainer = function()
 	{
 		// Just a wrapper function to facilitate manually locking the container div for issues with Redactor in modal JQuery Dialogs (7/13)
-		$("div:first").block({message: "", baseZ: 10});
+		$("div:visible:first").block({message: "", baseZ: 10});
 	}
 	$.unblockContainer = function()
 	{
-		$("div:first").unblock();
+		$("div:visible:first").unblock();
 	}
 	$.hideDialogs = function(blockContainer)
 	{

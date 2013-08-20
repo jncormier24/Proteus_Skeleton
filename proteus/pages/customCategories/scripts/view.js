@@ -24,7 +24,7 @@ function getCategoryEdit(catID)
 {
 	$.showLoading("Loading Custom Category Interface");
 	
-	$.getJSON("admin/ajax/customCategories", {action: "getCategoryEdit", catID: catID}).then(function(output)
+	$.getJSON("admin/ajax/customCategories", {action: "getCategoryEdit", categoryID: catID}).then(function(output)
 	{
 		if (!$.ajaxError(output, $))
 		{			
@@ -46,7 +46,7 @@ function getCategoryEdit(catID)
 			if (catID)
 			{
 				getCategoryFeatures(catID);
-				//getExposure(catID);
+				$("input.exp").checkbox();
 			}
 		}
 	});
@@ -72,7 +72,7 @@ function updateCategory()
 			
 			if (!catID)
 			{
-				getFormEdit(output.catID);
+				getCategoryEdit(output.catID);
 			}
 		}
 		else
@@ -83,13 +83,32 @@ function updateCategory()
 	
 	return dfd.promise();	
 }
+function deleteCategory(catID, curStat)
+{
+	var msg = curStat ? "Deleting Custom Category" : "Deactivating Custom Category";
+	var warn = curStat ? "Are you SURE you want to permanently delete this Custom Category? This will remove all category items and CANNOT be undone!" : "Are you sure you want to deactivate this Custom Category? This will not delete any Category Item Data.";
+	
+	$.jqConfirm(warn, function()
+	{
+		$.showLoading(msg);
+		
+		$.getJSON("admin/ajax/customCategories", {action: "deleteCategory", categoryID: catID}).then(function(output)
+		{
+			if (!$.ajaxError(output, $))
+			{
+				getMessages();
+				getCategories();				
+			}
+		});
+	});
+}
 function getCategoryFeatures(catID)
 {
 	var cont = $("#featuresContainer");
 	
 	cont.showLoading("Loading Category Features");
 	
-	$.getJSON("admin/ajax/customCategories", {action: "getCategoryFeatures", catID: catID}).then(function(output)
+	$.getJSON("admin/ajax/customCategories", {action: "getCategoryFeatures", categoryID: catID}).then(function(output)
 	{
 		if (!$.ajaxError(output, cont))
 		{
@@ -153,6 +172,18 @@ function deleteCategoryFeature(featureID)
 		});
 	});	
 }
+function toggleExposure(categoryID, linkedCategoryID)
+{
+	$.showLoading("Toggling Custom Category Key Exposure");
+	
+	$.getJSON("admin/ajax/customCategories", {action: "toggleExposure", categoryID: categoryID, linkedCategoryID: linkedCategoryID}).then(function(output)
+	{
+		if (!$.ajaxError(output, $))
+		{		
+			getMessages();
+		}
+	});
+}
 function getCategoryItemsWin(categoryID)
 {
 	$.showLoading("Loading Category Items Management Console");
@@ -185,4 +216,67 @@ function getCategoryItems(categoryID)
 			initTableSort();			
 		}
 	});
+}
+function getCategoryItemEdit(itemID, categoryID)
+{
+	$.showLoading("Loading Category Item Interface");
+	
+	$.getJSON("admin/ajax/customCategories", {action: "getCategoryItemEdit", itemID: itemID, categoryID: categoryID}).then(function(output)
+	{
+		if (!$.ajaxError(output, $))
+		{			
+			$.hideDialogs(true);
+			
+			$(output.content).appendTo("body");
+			
+			var win = $("#itemWin");
+			
+			// Need to inialized redactor before initializing the updateHelper to check for dirty controls (accesses Redactor method "getEditor")
+			$("textarea.wysiwyg", win).assetRedactor(2, 0, itemID);
+			
+			win.dialog("option", "close", function() 
+			{  
+				$.showDialogs(true);						
+				$(this).remove();
+			}).find("#frmItem").updateHelper(updateCategoryItem, {closeConfirmOnly: true, autoSave: false, disableControls: output.disabled});
+			
+			if (itemID)
+			{
+				//getCategoryFeatures(catID);
+				//getExposure(catID);
+			}
+		}
+	});
+}
+function updateCategoryItem()
+{
+	var dfd = $.Deferred();
+	var frm = $("#frmItem");
+	var win = $("#itemWin");
+	var itemID = parseInt($("#itemID", frm).val());
+	
+	$.showLoading(itemID ? "Saving Category Item" : "Adding new Category Item");
+	
+	$.post("admin/ajax/customCategories", frm.serialize(), null, "json").then(function(output)
+	{
+		if (!$.ajaxError(output, $))
+		{
+			getMessages();
+			
+			frm.updateHelper("reset");
+			
+			win.dialog("close");
+			
+			if (!itemID)
+			{
+				getCategoryEdit(output.itemID);
+			}
+		}
+		else
+		{
+			dfd.reject();
+		}
+	});
+	
+	return dfd.promise();	
 }
