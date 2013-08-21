@@ -391,6 +391,8 @@ function getFeatureFiles(featureID, itemID)
 		{		
 			cont.html(output.content).tableRowAlternate();
 			$("input[type=file]", cont).fileinput();
+			
+			initJqPopupMenus();
 		}
 	});
 }
@@ -428,4 +430,57 @@ function uploadFeatureFile(feaID, itemID)
 	});
 	
 	return false;
+}
+function showCaptionEdit()
+{
+	var parent = $(this).closest("tr");	
+	$("div.captionEditDiv", parent).fadeIn().prev("p").hide();
+}
+function hideCaptionEdit()
+{
+	var parent = $(this).closest("tr");	
+	$("div.captionEditDiv", parent).fadeOut("slow", function() { $(this).prev("p").show(); });
+}
+function updateFileCaption(dataID, indexID)
+{
+	var obj = $(this);
+	var parent = $(this).closest("tr");
+	var editObj = $("div.captionEditDiv", parent);
+	var txtObj = $(obj).prev();
+	
+	$.showLoading("Saving File Caption");
+	
+	$.post("admin/ajax/customCategories", 
+	{
+		action: "updateFileCaption", 
+		dataID: dataID, 
+		indexID: indexID,
+		caption: txtObj.val()
+	}, null, "json").then(function(output)
+	{
+		if (!$.ajaxError(output, $))
+		{
+			getMessages();
+			
+			editObj.prev("p").html(txtObj.val());
+			
+			hideCaptionEdit.call(obj);
+		}
+	});
+}
+function removeFeatureFile(dataID, indexID)
+{
+	$.jqConfirm("Are you SURE you want to remove this file? This will remove the physical file on the server, and CANNOT be undone!", function()
+	{
+		$.showLoading("Removing File");
+	
+		$.getJSON("admin/ajax/customCategories", { action: "removeFeatureFile", dataID: dataID, indexID: indexID}).then(function(output)
+		{
+			if (!$.ajaxError(output, $))
+			{
+				getMessages();
+				getFeatureFiles(output.featureID, output.itemID);
+			}
+		});
+	});
 }

@@ -130,3 +130,19 @@ div.contextMenu
 	right: 5px;
 	top: 18px;
 }
+div.captionEditDiv
+{
+	display: none;
+}
+div.captionEditDiv input, div.captionEditDiv a
+{
+	float: left;
+}
+a.download span.ui-icon
+{
+	position: relative;
+	display: inline-block;
+	
+	top: 3px;
+	margin-right: 6px;
+}

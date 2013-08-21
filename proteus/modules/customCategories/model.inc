@@ -314,7 +314,7 @@ class categoryFeatureData extends phpDataset
 			
 					foreach($files as $key=>$value)
 					{
-						$this->p_files[] = new categoryFeatureFile($this->assetFolder."/".$value, $captions[$key], $key);
+						$this->p_files[] = new categoryFeatureFile($this->item->assetFolder."/".$value, $captions[$key], $key);
 					}
 				}	
 
@@ -501,7 +501,7 @@ class categoryFeatureFile
 		$this->caption = $caption;	
 		$this->index = $index;
 		
-		$this->fileSize = @filesize($filePath);		
+		$this->fileSize = @filesize($config["baseAppDir"].$filePath);		
 	}
 }
 ?>

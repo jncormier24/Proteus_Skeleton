@@ -5,6 +5,14 @@
 	
 	switch($action)
 	{
+		case "removeFeatureFile":
+			removeFeatureFile($dataID, $indexID);
+			break;
+		
+		case "updateFileCaption":
+			updateFileCaption($dataID, $indexID, $caption);
+			break;
+			
 		case "uploadFeatureFile":
 			uploadFeatureFile($featureID, $itemID);
 			break;
@@ -1481,38 +1489,39 @@ function getFeatureFiles($featureID, $itemID)
 		$r->addHeader(new tblHeader("File Caption"));
 		$r->addHeader(new tblHeader("Download Link"));
 		$r->addHeader(new tblHeader("File Size"));
-		$r->addHeader(new tblHeader("Remove"));	
+		if ($writeAccess) $r->addHeader(new tblHeader("&nbsp;"));	
 	
 		$filesDiv = new phpDIV();
 
 		$files = $featureData->id ? $featureData->files : array();
 		
 		foreach($files as $file)
-		{
-			$fLink = new phpHyperlink($file->filePath);		
+		{	
+			$fLink = new jqUI_hyperlink($file->filePath, basename($file->filePath), "download", "ui-icon-extlink", true);		
 						
-			$txtExtra = new phpParagraph("<strong>{$file->caption}</strong>");		
+			$txtExtra = new phpParagraph($file->caption);		
 			$txtExtra->id = "caption_{$featureID}_{$file->index}";
-			if ($writeAccess) $txtExtra->onclick = "showCaptionEdit(this)";
-			$txtExtra->style = "cursor: pointer;";		
 			
-			$txtSize = new phpParagraph("<strong>{$file->fileSize}mb</strong>");
+			$fSize = number_format(round($file->fileSize / 1048576, 2), 2);
+			
+			$txtSize = new phpParagraph("<strong>{$fSize}mb</strong>");
 			
 			if ($writeAccess)
 			{
-				$dvEdit = new phpDIV();			
-				$dvEdit->class = 'captionEditDiv';
+				$dvEdit = new phpDIV();
+				$dvEdit->class = "captionEditDiv";
 				
 				$txtCap = new phpTextBox("edit_{$featureID}_{$file->index}", validation::prepTextForInput($file->caption), 35, 255);
-			
+					
 				$lnkSave = new jqUI_hyperlink("javascript:void(0)", "&nbsp;", "", "ui-icon-disk");
-				$lnkSave->onclick = "saveFileCaption(this, {$featureData->id}, '{$file->index}')";
+				$lnkSave->onclick = "updateFileCaption.call(this, {$featureData->id}, '{$file->index}')";
+				
+				$lnkCancel = new jqUI_hyperlink("javascript:void(0)", "&nbsp;", "", "ui-icon-close");
+				$lnkCancel->onclick = "hideCaptionEdit.call(this)";
 				
 				$dvEdit->addControl($txtCap);
-				$dvEdit->addControl($lnkSave);
-				
-				$dCtl = new deleteControl("javascript:removeFeatureFile({$featureData->id}, '{$file->index}');");
-				$dCtl->setVerifyMessage("Are you sure you want to remove this file?");
+				$dvEdit->addControl($lnkSave);								
+				$dvEdit->addControl($lnkCancel);
 			}
 			else
 			{
@@ -1520,10 +1529,22 @@ function getFeatureFiles($featureID, $itemID)
 			}
 			
 			$r = $t->addRow();			
-			$r->addCell(new tblCell(array($txtExtra, $dvEdit),"", "left"));		
+			$r->addCell(new tblCell(array($txtExtra, $dvEdit),"strong", "left"));		
 			$r->addCell(new tblCell($fLink, "", "left"));		
 			$r->addCell(new tblCell($txtSize,"","left"));
-			$r->addCell(new tblCell($dCtl, "", "center", "", "1%"));				
+			
+			if ($writeAccess)
+			{	
+				$mnu = new jqPopupMenu();
+			
+				$ctl = $mnu->addMenuItem("", "Edit File Caption", "", "ui-icon-pencil");
+				$ctl->onclick = "showCaptionEdit.call(this)";
+				
+				$ctl = $mnu->addMenuItem("", "Remove File", "ui-state-error", "ui-icon-trash");
+				$ctl->onclick = "removeFeatureFile({$featureData->id}, '{$file->index}')";
+				
+				$r->addCell(new tblCell($mnu, "", "center", "", "1%"));
+			}							
 		}
 	
 		if (!count($files))
@@ -1632,5 +1653,100 @@ function uploadFeatureFile($featureID, $itemID)
 
 	echo $js->render();
 	exit(0);
+}
+function updateFileCaption($dataID, $indexID, $caption)
+{
+	global $config, $g_sec;
+		
+	$d = new DAL(true);
+	$js = new json_a();
+
+	try
+	{		
+		if (!strlen($caption)) throw new Exception("Error, no file caption specified.");
+		
+		validation::ensureInt($indexID, 0);
+		
+		$dataObj = new categoryFeatureData($dataID);
+		if (!$dataObj->id) throw new Exception("Error, no feature data found!");		
+
+		$featureObj = $dataObj->feature;		
+		$itemObj = $dataObj->item;
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+		
+		$fArray = explode("::", $dataObj->value);
+		$cArray = explode("::", $dataObj->additionalData);
+
+		$cArray[$indexID] = $caption;
+
+		$dataObj->additionalData = "'".implode("::", (array)$cArray)."'";
+		$dataObj->save();
+		
+		pageClass::setNotify("File Caption Saved");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+
+	echo $js->render();
+}
+function removeFeatureFile($dataID, $indexID)
+{
+	global $config, $g_sec;
+		
+	$d = new DAL(true);
+	$js = new json_a();
+
+	try
+	{
+		$dataObj = new categoryFeatureData($dataID);
+		if (!$dataObj->id) throw new Exception("Error, no feature data found!");		
+
+		$featureObj = $dataObj->feature;		
+		$itemObj = $dataObj->item;
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+		
+		$fArray = explode("::", $dataObj->value);
+		$cArray = explode("::", $dataObj->additionalData);
+		
+		$oldFile = $fArray[$indexID];
+
+		@unlink($config["baseAppDir"].$itemObj->assetFolder."/".$oldFile);
+
+		unset($fArray[$indexID]);
+		unset($cArray[$indexID]);
+
+		$files = implode("::", (array)$fArray);		
+
+		if ($files == "")
+		{
+			$dataObj->delete();
+		}
+		else
+		{
+			$captions = implode("::", (array)$cArray);
+			
+			$dataObj->value = "'$files'";
+			$dataObj->additionalData = "'$captions'";
+			
+			$dataObj->save();
+		}
+
+		pageClass::setNotify("Successfully removed File");
+
+		$js->featureID = $featureObj->id;
+		$js->itemID = $itemObj->id;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+
+	echo $js->render();
 }
 ?>
