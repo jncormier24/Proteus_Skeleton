@@ -258,17 +258,22 @@ $(document).ready(function()
 	 
 	 $.fn.setWorking = function(caption)
 	 {		 
-		if (!caption)
+		// Setting to 0 overrides the caption entirely and prevents any text from being rendered, only the image is shown
+		if (caption != 0)
 		{
-			caption = "Loading, please wait";
+			if (!caption) caption = "Loading, please wait";	
+			caption = "<em>.: " + caption + " :.</em>";		 
 		}
-			
-		caption = ".: " + caption + " :.";
+		else
+		{
+			caption = "&nbsp;";
+		}
+		
+		var content = $("<div class='jqWorking'>" + caption + "</div>");		 
+		
+		$(this).html(content);
 		 
-		 var content = $("<div class='jqWorking'><em>" + caption + "</em></div>");		 
-		 $(this).html(content);
-		 
-		 return this;
+		return this;
 	 };	 
 	 $.fn.clearWorking = function()
 	 {
@@ -958,12 +963,31 @@ $(document).ready(function()
 	}
 	$.hideDialogs = function(blockContainer)
 	{
+		/*
+		 * SWB 8/13
+		 * This function hides all currently visible dialogs, or more specifically; closes them. In order to achieve this, the close and 
+		 * beforeClose events for the dialogs are stored in data cache, so that when they're shown again these events can be re-bound.
+		 * 
+		 * Without this, dialogs that have pending changes and implement the updateHelper will warn about losing changes when closing the 
+		 * dialog (beforeClose).
+		 * 
+		 * This function is used almost exlusively to combat the Modal Dialog issue with Redactor inside modal jQuery UI Dialogs
+		 */
+		
 		if (blockContainer) $.blockContainer();
 		
-		$(".ui-dialog-content").each(function()
+		$(".ui-dialog-content:visible").each(function()
 		{				
 			// Hide any open dialogs (Redactor), reset the close event				
-				$("#" + $(this).attr("id")).dialog("option", "close", null).dialog("close");
+			var win = $("#" + $(this).attr("id"));
+			var options = win.dialog("option");
+			
+			win.data("stored_close", options.close);
+			win.data("stored_beforeclose", options.beforeClose);
+			
+			win.dialog("option", { close: null, beforeClose: null });
+			
+			win.dialog("close");
 		});
 	}
 	$.showDialogs = function (unblockContainer)
@@ -971,16 +995,24 @@ $(document).ready(function()
 		if (unblockContainer) $.unblockContainer();				
 		
 		/* 
-		 * SWB 7/13
-		 * Restore the "close" directive on dialog close. This is hoakey, but it bullet-proofs the issue around the Redactor
-		 * modal dialog issue, making this the only window open and the container element blocked for interaction. 
-		 * Obviously all windows that call this function will be reset to remove on close, but that's the default
-		 * functionality of most configuration windows anyway; reasonable workaround.
+		 * SWB 8/13
+		 * Restore the close and beforeClose events for all of the dialogs, but only if they exist in the data cache snapshot from the time 
+		 * they were hidden.
 		*/
 		
 		$(".ui-dialog-content").each(function()
 		{
-			$("#" + $(this).attr("id")).dialog("option", "close", function() { $(this).remove(); }).dialog("open");
+			var win = $("#" + $(this).attr("id"));
+			
+			var closeFunc = win.data("stored_close");
+			var beforeFunc = win.data("stored_beforeclose");
+			
+			// Have to do these individually, since it only makes sense to restore what was there before hiding; it's possible that other 
+			// events have been hooked, or that the topmost window does not have them defined (since it was not hidden)
+			if (closeFunc) win.dialog("option", "close", closeFunc);
+			if (beforeFunc) win.dialog("option", "beforeClose", beforeFunc);
+			
+			win.dialog("open");
 		});
 	}
 })(jQuery);

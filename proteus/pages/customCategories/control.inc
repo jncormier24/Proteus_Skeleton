@@ -13,6 +13,15 @@ function showCategories()
 	$a->addPageModule(new customContentModule());	
 	$a->addPageModule(new jqPopupMenuModule());	
 	$a->addPageModule(new jqCheckboxModule());
+	$a->addPageModule(new thickboxModule());
+	
+	// There could probably be a more elegant way to do this; include the view script from the customForms so we can access submissions
+	// via the context menu that appears when an item has a Custom Form Feature. Same applies for Showcases (Context Menu)
+	$a->addScriptObject(new javascriptControl("", "proteus/pages/customForms/scripts/view.js"));
+	$a->addStylesheetObject(new stylesheetControl("proteus/pages/customForms/styles/view.css"));
+	
+	$a->addScriptObject(new javascriptControl("", "proteus/pages/showcases/scripts/view.js"));
+	$a->addStylesheetObject(new stylesheetControl("proteus/pages/showcases/styles/view.css"));
 	
 	$g_sec = $a->authUser;
 	

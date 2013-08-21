@@ -5,6 +5,18 @@
 	
 	switch($action)
 	{
+		case "uploadFeatureFile":
+			uploadFeatureFile($featureID, $itemID);
+			break;
+			
+		case "getFeatureFiles":
+			getFeatureFiles($featureID, $itemID);
+			break;
+			
+		case "getFeatureContextMenu":
+			getFeatureContextMenu($featureID, $dataID);
+			break;
+			
 		case "clearFeatureImage":
 			clearFeatureImage($dataID);
 			break;
@@ -1002,9 +1014,17 @@ function getCategoryItemEdit($itemID, $catID)
 						
 						break;
 					case 6:
-						$addShowcaseTab = true;
-						continue 2;
-						
+						$ddlShowcases = new phpDDL("features[{$feature->id}]");
+						$ddlShowcases->selected = $dataObj->value;
+						$ddlShowcases->setLabel("Choose Showcase: ");
+						$ddlShowcases->addListItem(new phpListItem("",""));
+						$ddlShowcases->bind($d->qry("select id, name from showcase order by name asc"), "id", "name");
+						$ddlShowcases->onchange = "getFeatureContextMenu.call(this, {$feature->id})";
+
+						$fs->addControl($ddlShowcases);					
+						$fs->addControl(new phpDIV("", "contextMenu"));
+						$fs->addControl(new jqLoader("$(\"[name='{$ddlShowcases->id}']\").change();"));					
+												
 						break;					
 					case 7:						
 						$dtVal = new jqUI_datepicker("features[{$feature->id}]", validation::prepTextForInput($dataObj->value), "Date Value:", true, "null", "mm/dd/yy");
@@ -1013,24 +1033,23 @@ function getCategoryItemEdit($itemID, $catID)
 						
 						break;						
 					case 8:
-						$txtExtra = new phpTextArea("features[{$feature->id}]", validation::prepTextForInput($dataObj->value), 3, 85);						
+						$txtExtra = new phpTextArea("features[{$feature->id}]", validation::prepTextForInput($dataObj->value), 3, 84);						
 						$txtExtra->setLabel("HTML Literal:");
 						
 						$fs->addControl($txtExtra);			
 				
 						break;
-					case 9:
-						$sQry = $d->qry("select id, title from formBuilder order by title asc");
-			
+					case 9:						
 						$ddlForms = new phpDDL("features[{$feature->id}]");
 						$ddlForms->selected = $dataObj->value;
-						$ddlForms->addListItem(new phpListItem("",""));
-						$ddlForms->dataOrdinal = "id";
-						$ddlForms->displayOrdinal = "title";
-						$ddlForms->bind($sQry);						
 						$ddlForms->setLabel("Choose Custom Form: ");
+						$ddlForms->addListItem(new phpListItem("",""));
+						$ddlForms->bind($d->qry("select id, title from customForms order by title asc"), "id", "title");
+						$ddlForms->onchange = "getFeatureContextMenu.call(this, {$feature->id})";
 
 						$fs->addControl($ddlForms);					
+						$fs->addControl(new phpDIV("", "contextMenu"));
+						$fs->addControl(new jqLoader("$(\"[name='{$ddlForms->id}']\").change();"));
 					
 						break;
 					case 10:
@@ -1048,7 +1067,7 @@ function getCategoryItemEdit($itemID, $catID)
 				
 				foreach($featureImages as $feature)
 				{
-					$fs = new phpFormFieldset($feature->fieldName, "images");
+					$fs = new phpFormFieldset($feature->fieldName, "files");
 					$fs->id = "imgContainer_".$feature->id;					
 					$fs->addControl(new jqLoader("getFeatureImage({$feature->id}, {$itemObj->id})"));
 					$fs->addControl(new phpDIV());
@@ -1058,26 +1077,23 @@ function getCategoryItemEdit($itemID, $catID)
 				
 				$tabs->addTabPage($tpImages);
 			}
-
-			/*
+			
 			if (count($featureFiles))
 			{
+				$tpFiles = new jqUI_tabPage("item_files", "Files", "ui-icon-document");
+				
 				foreach($featureFiles as $feature)
 				{
-					$bForm = new phpDIV();
-						
-					$iForm = new phpDIV();
-					$iForm->addControl(new javaControl("$(function() { getFeatureFiles($inv[id], $itemID); });"));
-					$iForm->id = 'fileContainer_'.$inv[id];
-						
-					$bForm->addControl($iForm);
-						
-					$fTab->addControl(new phpHeader(1, $desc, 'topHeader'));
-					$fTab->addControl($bForm);
-						
-					$fileCt++;
+					$fs = new phpFormFieldset($feature->fieldName, "files");
+					$fs->id = "fileContainer_".$feature->id;					
+					$fs->addControl(new jqLoader("getFeatureFiles({$feature->id}, {$itemObj->id})"));
+					$fs->addControl(new phpDIV());
+					
+					$tpFiles->addControl($fs);
 				}
-			}	 */
+				
+				$tabs->addTabPage($tpFiles);
+			}
 		}
 		
 		$itemWin->addControl($tabs);
@@ -1198,7 +1214,7 @@ function getFeatureImage($featureID, $itemID)
 
 		$featureData = $itemObj->featureData[$featureObj->featureKey];
 
-		$resizeNote = new phpFiller();
+		$imgNote = new phpFiller();
 		
 		if ($featureData->value)
 		{	
@@ -1216,7 +1232,11 @@ function getFeatureImage($featureID, $itemID)
 					
 				$img->addAttribute('style', "width: 850px; height: {$height}px;");
 					
-				$resizeNote = new phpSpan("** Image has been resized to fit. Original Dimensions: $imgSize[0] x $imgSize[1]", "desc resized");				
+				$imgNote = new phpSpan("** Image has been resized to fit. Original Dimensions (px): $imgSize[0] x $imgSize[1]", "dimensions resized");				
+			}
+			else
+			{
+				$imgNote = new phpSpan("Image Dimensions (px): {$imgSize[0]}x{$imgSize[1]}", "dimensions");	
 			}
 		}
 		else
@@ -1225,7 +1245,7 @@ function getFeatureImage($featureID, $itemID)
 		}
 
 		$pc->addControl($img);
-		$pc->addControl($resizeNote);
+		$pc->addControl($imgNote);
 
 		$dvUpload = new phpDIV();
 		$dvUpload->class = 'uploadDiv';
@@ -1358,6 +1378,256 @@ function clearFeatureImage($dataID)
 	{
 		$eWin = new jqUI_errorNotify($ex);
 		$js->error = $eWin->render();
+	}
+
+	echo $js->render();
+	exit(0);
+}
+function getFeatureContextMenu($featureID, $dataID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+
+	try
+	{
+		validation::ensureInt($dataID, 0);
+		
+		if ($dataID)
+		{
+			$featureObj = new categoryFeature($featureID);
+			if (!$featureObj->id) throw new Exception("Error, that feature could not be found!");
+			
+			$mnu = new jqPopupMenu();
+			
+			switch($featureObj->featureType)
+			{
+				case 6:
+					// Custom Showcase
+					$obj = new customShowcase($dataID);
+					
+					if ($obj->hasAccess($g_sec, permissions::read))
+					{
+						$ctl = $mnu->addMenuItem("", "Manage Images", "", "ui-icon-image");
+						$ctl->onClick = "getShowcaseEntriesWin({$obj->id})";
+					}
+					break;
+				case 9:
+					// Custom Form
+					$obj = new customForm($dataID);
+
+					if ($obj->hasAccess($g_sec, permissions::read))
+					{
+						$ctl = $mnu->addMenuItem("", "View Submissions", "", "ui-icon-contact");
+						$ctl->onClick = "getSubmissionsWin({$obj->id})";
+					}
+					break;
+				default:
+					throw new Exception("Invalid feature type specified.");
+			}
+			if (count($mnu->ul->listItems))
+			{
+				$js->content = $mnu->render();
+			}
+			else
+			{
+				$js->content = "";
+			}
+		}
+		else
+		{
+			$js->content = "";
+		}
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+
+	echo $js->render();
+	exit(0);
+}
+function getFeatureFiles($featureID, $itemID)
+{
+	global $config, $g_sec;	
+	
+	$js = new json_a();	
+	
+	$pc = new pageContent();
+	
+	try
+	{
+		$featureObj = new categoryFeature($featureID);
+		if (!$featureObj->id) throw new Exception("Error, that feature could not be found!");
+		
+		$itemObj = new categoryItem($itemID);
+		if (!$itemObj->id) throw new Exception("Error, that Category Item could not be found!");
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
+		
+		$writeAccess = $itemObj->hasAccess($g_sec, permissions::write);
+		
+		$featureData = $itemObj->featureData[$featureObj->featureKey];		
+		if (!$featureData->id) $featureData = new categoryFeatureData();
+		
+		$baseLoc = $config["baseAppDir"].$itemObj->assetFolder."/";
+		
+		$t = new tblBuilder();
+		$t->class = "listTable filesTable";
+		
+		$r = $t->addRow();
+		$r->addHeader(new tblHeader("File Caption"));
+		$r->addHeader(new tblHeader("Download Link"));
+		$r->addHeader(new tblHeader("File Size"));
+		$r->addHeader(new tblHeader("Remove"));	
+	
+		$filesDiv = new phpDIV();
+
+		$files = $featureData->id ? $featureData->files : array();
+		
+		foreach($files as $file)
+		{
+			$fLink = new phpHyperlink($file->filePath);		
+						
+			$txtExtra = new phpParagraph("<strong>{$file->caption}</strong>");		
+			$txtExtra->id = "caption_{$featureID}_{$file->index}";
+			if ($writeAccess) $txtExtra->onclick = "showCaptionEdit(this)";
+			$txtExtra->style = "cursor: pointer;";		
+			
+			$txtSize = new phpParagraph("<strong>{$file->fileSize}mb</strong>");
+			
+			if ($writeAccess)
+			{
+				$dvEdit = new phpDIV();			
+				$dvEdit->class = 'captionEditDiv';
+				
+				$txtCap = new phpTextBox("edit_{$featureID}_{$file->index}", validation::prepTextForInput($file->caption), 35, 255);
+			
+				$lnkSave = new jqUI_hyperlink("javascript:void(0)", "&nbsp;", "", "ui-icon-disk");
+				$lnkSave->onclick = "saveFileCaption(this, {$featureData->id}, '{$file->index}')";
+				
+				$dvEdit->addControl($txtCap);
+				$dvEdit->addControl($lnkSave);
+				
+				$dCtl = new deleteControl("javascript:removeFeatureFile({$featureData->id}, '{$file->index}');");
+				$dCtl->setVerifyMessage("Are you sure you want to remove this file?");
+			}
+			else
+			{
+				$dvEdit = $dCtl = new phpFiller();
+			}
+			
+			$r = $t->addRow();			
+			$r->addCell(new tblCell(array($txtExtra, $dvEdit),"", "left"));		
+			$r->addCell(new tblCell($fLink, "", "left"));		
+			$r->addCell(new tblCell($txtSize,"","left"));
+			$r->addCell(new tblCell($dCtl, "", "center", "", "1%"));				
+		}
+	
+		if (!count($files))
+		{
+			$r = $t->addRow();			
+			$r->addCell(new tblCell("No Files Uploaded", "strong", "center", 4));
+		}
+		
+		$filesDiv->addControl($t);
+	
+		$pc->addControl($filesDiv);
+	
+		if ($writeAccess && (!$fileCount || $featureObj->featureConfigData))
+		{		
+			$dvUpload = new phpDIV();
+			$dvUpload->class = "uploadDiv";
+			
+			$btnUpload = new jqUI_button("btnUpload_$featureID", "Upload File", "", "ui-icon-extlink", true);
+			$btnUpload->style = "display: none;";
+			$btnUpload->onclick = "return uploadFeatureFile($featureID, $itemID);"; 			
+			
+			$fInput = new formInput("fileToUpload_$featureID",'file');	
+			$fInput->onchange = "$('#btnUpload_$featureID').show();";
+			$fInput->setLabel("Upload a File:");
+			
+			$dvUpload->addControl($fInput);
+			$dvUpload->addControl($btnUpload);
+
+			$pc->addControl($dvUpload);
+		}
+	
+		$js->content = $pc->render();		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();	
+}
+function uploadFeatureFile($featureID, $itemID)
+{
+	global $config, $g_sec;
+
+	$d = new DAL(true);
+	$js = new json_a();
+
+	try
+	{			
+		$featureObj = new categoryFeature($featureID);
+		if (!$featureObj->id) throw new Exception("Error, that feature could not be found!");
+		
+		$itemObj = new categoryItem($itemID);
+		if (!$itemObj->id) throw new Exception("Error, that Category Item could not be found!");
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+		
+		$featureData = $itemObj->featureData[$featureObj->featureKey];		
+		if (!$featureData->id) $featureData = new categoryFeatureData();
+		
+		if ($featureData->id && !$featureObj->featureConfigData) throw new Exception("Error, this feature is not configured to allow multiple file uploads.");
+		
+		$baseLoc = $config["baseAppDir"].$itemObj->assetFolder."/";
+		
+		$u = new upload($_FILES["fileToUpload_".$featureObj->id]);			
+			
+		$fExt = $u->getFileExtension($u->p_Name);
+		$fName = str_replace(".$fExt", "_".time().".$fExt", $u->p_Name);
+			
+		//Turn whitespaces into _ and everything non-alpha-numeric into nothing
+		$fName = preg_replace(array("/\s/","/[^a-zA-Z0-9\.\_]/"), array("_",""), $fName);
+		
+		$defCaption = str_replace("_", " ", $u->p_Name );
+		$defCaption = str_replace(".$fExt", "", $defCaption);		
+		
+		$u->uploadFile($baseLoc.$fName);
+		
+		if ($featureData->id)
+		{
+			$featureData->value = "'{$featureData->value}::$fName'";
+			$featureData->additionalData = "'{$featureData->additionalData}::$defCaption'";
+			
+			$featureData->save();	
+		}
+		else
+		{
+			$featureData->value = "'$fName'";
+			$featureData->additionalData = "'$defCaption'";
+			
+			$featureData->categoryFeatureID = $featureObj->id;
+			$featureData->categoryItemID = $itemObj->id;
+			
+			$dataID = $featureData->insert();
+		}
+					
+		pageClass::setNotify("Successfully uploaded Feature Image");
+
+		// Need *something* in the JS, or the parser freaks out when the upload is done.
+		$js->success = 1;
+	}
+	catch(Exception $ex)
+	{
+		$js->error = $ex->getMessage();
 	}
 
 	echo $js->render();

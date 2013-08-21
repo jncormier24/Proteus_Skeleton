@@ -64,43 +64,69 @@ span.imageEmpty
 	
 	text-align: center;
 }
-fieldset.images span.resized
+fieldset.files span.dimensions
 {
-	display: block;
+	float: left;
+	
+	margin-top: 10px;
+	
+	font-size: 14px;
+	color: #6a6a6a;
 }
-fieldset.images button, fieldset.images label, fieldset.images .fileinput-wrapper
+fieldset.files span.dimensions.resized
+{
+	color: #FF0000;
+}
+fieldset.files button, fieldset.files label, fieldset.files .fileinput-wrapper
 {
 	float: left;
 	margin-right: 5px;
 }
-fieldset.images label
+fieldset.files label
 {
 	margin-top: 6px;	
 }
-fieldset.images button .ui-button-text
+fieldset.files button .ui-button-text
 {
 	padding: 3px 12px 4px 30px;
 }
-fieldset.images div img.featureImage
+fieldset.files div img.featureImage
 {
 	display: block;
 	margin: 0px auto 12px auto;
 	
 	box-shadow: 2px 2px 3px #555555;
 }
-fieldset.images .uploadDiv
+fieldset.files .uploadDiv
 {
 	float: right;
 }
+fieldset.files table.filesTable
+{
+	margin-bottom: 12px;
+}
 #itemWin fieldset
 {	
+	position: relative;
 	clear: left;
-	margin-bottom: 8px;
+	
+	margin-bottom: 12px;
 
+	padding: 14px;
+	
 	border-radius: 5px;
+	border-width: 1px;
+	border-color: #4096CF;
 }
 #itemWin form fieldset .redactor_box
 {
 	width: 100%;
 	min-height: inherit;
+}
+div.contextMenu
+{
+	position: absolute;
+	
+	right: 5px;
+	top: 18px;
 }

@@ -169,7 +169,7 @@
 					
 					if (win.length)
 					{
-						win.bind("dialogbeforeclose", function(event, ui)
+						win.dialog("option", "beforeClose", function(event, ui)
 						{
 							if (!isDirty()) return true;							
 							

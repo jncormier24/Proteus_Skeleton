@@ -4,6 +4,9 @@ function getShowcases()
 	var filterObj = $("#showcasesFilter");	
 	var ajaxOpts = { action: "getShowcases" };	
 	
+	// If a management dialog has been called from another interface, this container may not exist
+	if (!cont.length) return;
+	
 	$.showLoading("Loading Showcases");	
 	
 	$.getJSON("admin/ajax/showcases", filterObj.filterHelper("getFilterData", ajaxOpts)).then(function(output)
@@ -277,7 +280,7 @@ function updateShowcaseItem()
 			
 			win.updateHelper("reset").dialog("close");
 			
-			getShowcaseItems(output.showcaseID);
+			getShowcaseEntries(output.showcaseID);
 			getShowcases();			
 			
 			dfd.resolve();

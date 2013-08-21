@@ -821,7 +821,7 @@ class phpDDL extends formInput
 		
 		while($entry = $query->fetch_assoc())
 		{	
-			$this->addListItem(new phpListItem($entry[$displayOrdinal], $entry[$dataOrdinal], $this->selected));
+			$this->addListItem(new phpListItem($entry[$displayOrdinal], $entry[$dataOrdinal]));
 		}	
 	}
 	public function bindByArray($inArr)

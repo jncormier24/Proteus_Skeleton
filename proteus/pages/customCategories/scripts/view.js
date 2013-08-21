@@ -293,7 +293,7 @@ function getFeatureImage(feaID, itemID)
 		if (!$.ajaxError(output, cont))
 		{
 			cont.html(output.content);
-			$('input[type=file]', cont).fileinput();
+			$("input[type=file]", cont).fileinput();
 			
 			if (parseInt(output.dataID))
 			{				
@@ -361,4 +361,71 @@ function clearFeatureImage(dataID)
 			}
 		});
 	});
+}
+function getFeatureContextMenu(featureID)
+{
+	// Next child, empty div
+	var mnuCont = $(this).next();
+	
+	mnuCont.setWorking(0);
+	
+	$.getJSON("admin/ajax/customCategories", { action: "getFeatureContextMenu", featureID: featureID, dataID: $(this).val() }).then(function(output)
+	{
+		if (!$.ajaxError(output))
+		{		
+			mnuCont.html(output.content);
+			
+			initJqPopupMenus();
+		}
+	});
+}
+function getFeatureFiles(featureID, itemID)
+{
+	var cont = $("#fileContainer_" + featureID + " div:first");
+	
+	cont.setWorking();
+	
+	$.getJSON("admin/ajax/customCategories", {action: "getFeatureFiles", featureID: featureID, itemID: itemID}).then(function(output)
+	{	
+		if (!$.ajaxError(output))
+		{		
+			cont.html(output.content).tableRowAlternate();
+			$("input[type=file]", cont).fileinput();
+		}
+	});
+}
+function uploadFeatureFile(feaID, itemID)
+{
+	var _element = "fileToUpload_" + feaID;
+	
+	$.showLoading("Uploading Feature File. Please wait for this box to close.");
+		
+	$.ajaxFileUpload(
+	{
+		url: "admin/ajax/customCategories",
+		data: { action: "uploadFeatureFile", featureID: feaID, itemID: itemID },
+		secureuri:false,
+		fileElementId: _element,
+		dataType: 'json',
+		success: function (data, status)
+		{				
+			$.hideLoading();
+			
+			if (data.error)
+			{								
+				$.jqAlert(data.error);				
+			}			
+			
+			$("[name='" + _element + "']").val("").fileinput();
+			
+			getMessages();
+			getFeatureFiles(feaID, itemID);			
+		},
+		error: function (data, status, e)
+		{
+			alert(e);
+		}
+	});
+	
+	return false;
 }

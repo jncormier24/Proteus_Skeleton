@@ -302,17 +302,19 @@ class categoryFeatureData extends phpDataset
 				// Return nothing if the type isn't Downloadable File. This is a drawback to using an array for types, as there's no
 				// constant to reference. This is a rare thing to have to do with Features, so for the sake of simplicity a static value
 				// has been used here (4) which represents Downloadable Files(s) at the current date.
-				if (!$feature->featureType != 4 || $feature->featureConfigData != 1) return false;
+				if ($feature->featureType != 4) return false;
 				
 				if (!$this->p_files)
 				{
+					$this->p_files = array();
+					
 					//split out multiple files
 					$files = explode("::", $this->value);
 					$captions = explode("::", $this->additionalData);
 			
 					foreach($files as $key=>$value)
 					{
-						$this->p_files[] = new categoryFeatureFile($value, $captions[$key], $key);
+						$this->p_files[] = new categoryFeatureFile($this->assetFolder."/".$value, $captions[$key], $key);
 					}
 				}	
 
@@ -486,22 +488,20 @@ class categoryItem extends phpDataset
 }
 class categoryFeatureFile
 {
-	var $fileName;
-	var $caption;	
-	var $index;
-	var $fileSize;
-	var $url;
+	public $filePath;
+	public $caption;	
+	public $index;
+	public $fileSize;	
 
-	public function __construct($fileName, $caption, $index)
+	public function __construct($filePath, $caption, $index)
 	{
 		global $config;
 		
-		$this->fileName = $fileName;
+		$this->filePath = $filePath;
 		$this->caption = $caption;	
 		$this->index = $index;
 		
-		$this->fileSize = @filesize($config[baseAppDir].'images/categoryItems/'.$fileName);
-		$this->url = 'images/categoryItems/'.$fileName;
+		$this->fileSize = @filesize($filePath);		
 	}
 }
 ?>

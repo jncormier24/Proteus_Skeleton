@@ -583,7 +583,7 @@ function getShowcaseEntries($showcaseID)
 		
 		$t = new tblBuilder('center',0,0,4,'100%');
 		//$t->class = "listTable";
-		$t->id = "itemsTable";
+		$t->id = "imagesTable";
 		
 		if ($writeAccess || $deleteAccess)
 		{

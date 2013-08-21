@@ -21,9 +21,7 @@ function showEntities()
 	$a->addPageModule(new jqFilterHelperModule());
 	$a->addPageModule(new jqTableSortModule());
 	$a->addPageModule(new subscriptionModule());
-	$a->addPageModule(new jqUpdateHelperModule());
-	
-	$a->addPostScriptObject(new javascriptControl("","proteus/pages/common/scripts/positionUpdate.js"));	
+	$a->addPageModule(new jqUpdateHelperModule());	
 	
 	if (!$g_sec->hasAccess(permissions::$manage_municipal_entities, permissions::read) && !$g_sec->hasAccess(permissions::$municipal_entity, permissions::read))
 	{

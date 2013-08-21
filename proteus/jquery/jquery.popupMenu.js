@@ -73,7 +73,7 @@ function initJqPopupMenus()
 		}, function()
 		{
 			parent.data("timer", setTimeout(function() { list.fadeOut(); }, 250));
-		}).hide().addClass("jqPopup").click(function() { $(this).fadeOut("fast"); }).appendTo("body");
+		}).hide().addClass("jqPopup").click(function() { $(this).fadeOut("fast"); }); //.appendTo("body");
 		
 		$("a", list).click(function() { list.fadeOut("fast"); });
 		

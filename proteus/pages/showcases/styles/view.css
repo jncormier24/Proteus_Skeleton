@@ -6,11 +6,11 @@
 {
 	padding: 5px 10px 0px 10px;
 }
-fieldset
+#showcaseWin fieldset
 {
 	margin-bottom: 8px;
 }
-fieldset legend
+#showcaseWin fieldset legend
 {
 	font-weight: bold;
 }
@@ -183,14 +183,14 @@ div.showcaseContainer > div.functions button
 	float: left;
 	width: 650px;
 }
-#itemsTable tr
+#imagesTable tr
 {
 	float: left;
 	clear: none;
 	
 	margin: 0px 4px 8px 0px;
 }
-#itemsTable tr td
+#imagesTable tr td
 {
 	background-color: #e2e2e2;
 	
@@ -199,15 +199,3 @@ div.showcaseContainer > div.functions button
 	
 	box-shadow: 2px 2px 3px #333333;
 }
-/* #itemsTable tr td > span
-{
-	display: none;
-	font-size: 10px;
-	
-	color: #ffffff;
-	background-color: #e2e2e2;
-	
-	border-radius: 5px;
-	
-	padding: 3px 4px;
-} */
