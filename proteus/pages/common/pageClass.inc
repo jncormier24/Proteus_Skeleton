@@ -229,7 +229,7 @@ class admin_header extends phpDIV
 		$this->id = "headerContent";
 		parent::__construct();
 	
-		$img = new image("themes/{$config["theme"]}/images/proteus_logo.png", "Proteus IV CMF", "logo");		
+		$img = new image("proteus/themes/{$config["theme"]}/images/proteus_logo.png", "Proteus IV CMF", "logo");		
 		
 		$this->addControl($img);
 		//$this->addControl(new phpHeader(1, "Proteus IV"));
