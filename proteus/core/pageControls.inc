@@ -202,6 +202,11 @@ class pageClass extends pageContent
 	
 		session_write_close();
 	}
+	public static function clearNotify()
+	{
+		// Use this to clear any previously stored message (such as a master insert succeeded, but descendant data failed)
+		pageClass::setNotify("");
+	}
 	public static function getNotify()
 	{
 		$arr[] = $_SESSION['updated_message'];

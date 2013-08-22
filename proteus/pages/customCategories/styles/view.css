@@ -130,7 +130,7 @@ div.contextMenu
 	right: 5px;
 	top: 18px;
 }
-div.captionEditDiv
+div.captionEditDiv, #btnLinkItem
 {
 	display: none;
 }
@@ -145,4 +145,10 @@ a.download span.ui-icon
 	
 	top: 3px;
 	margin-right: 6px;
+}
+span.featureReq
+{
+	color: #ff0000;
+	font-weight: bold;	
+	font-size: 16px;
 }

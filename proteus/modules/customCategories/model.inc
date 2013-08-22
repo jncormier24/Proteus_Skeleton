@@ -34,10 +34,10 @@ class customCategory_core
 											 `updatedUserID` int(11) NOT NULL DEFAULT '0',
 											 PRIMARY KEY (`id`)
 											) ENGINE=MyISAM DEFAULT CHARSET=utf8",
-							"categoryKeyLookup"=>"CREATE TABLE `categoryKeyLookup` (
+							"categoryItemLinks"=>"CREATE TABLE `categoryItemLinks` (
 												 `id` int(11) NOT NULL AUTO_INCREMENT,
 												 `categoryItemID` int(11) NOT NULL,
-												 `categoryID` int(11) NOT NULL,
+												 `linkedItemID` int(11) NOT NULL,
 												 `keyData` varchar(255) NOT NULL,
 												 `position` int(11) NOT NULL DEFAULT '0',
 												 PRIMARY KEY (`id`)
@@ -118,7 +118,7 @@ class customCategory extends phpDataset
 		
 		$qry = "select id
 				from categoryItems
-				where categoryID = {$this->id}
+				where categoryID = {$this->id} and inactive = 0
 				order by $sortOrd";
 		$fQry = $d->qry($qry);
 	
@@ -131,6 +131,8 @@ class customCategory extends phpDataset
 	}	
 	public function hasAccess(security $sec, $permission, $throwException = false)
 	{
+		if (!$this->id) return false;
+		
 		$access = $sec->hasAccess(permissions::$manage_category_types, $permission > permissions::read ? permissions::write : $permission) || 
 			   	  $sec->hasAccess(permissions::$modify_category_type, $permission, $this->id);
 		
@@ -323,12 +325,43 @@ class categoryFeatureData extends phpDataset
 			case "links":
 				$feature = $this->feature;
 				
-				if (!$feature->featureType != 10 && $feature->featureConfigData != 11) return false;
+				if ($feature->featureType != 10 && $feature->featureType != 11) return false;
 				
 				if (!$this->p_links)
 				{
+					$this->p_links = array();					
+					
 					// Separate the topics, or categories, by the internal delimeter. Sets the value to an indexed array of the corresponding data.
-					$this->p_links = explode("::", $this->value);
+					$tmp = explode("::", $this->value);
+					
+					foreach($tmp as $dataID)
+					{
+						switch($feature->featureType)
+						{
+							case 10:								
+								$obj = new customBlogTopic($dataID, false);
+								if ($obj->id) $this->p_links[] = $obj;
+								
+								break;								
+							case 11:
+								$obj = new customBlog($dataID);
+								if ($obj->id) $this->p_links[] = $obj;
+								
+								break;
+						}
+					}
+					
+					if ($this->value && count($tmp) != count($this->p_links))
+					{
+						// Some items in this delimited list are no longer valid. Rebuild the link string to cleanup
+						foreach($this->p_links as $obj)
+						{
+							$cleaned[] = $obj->id;
+						}
+						
+						$this->value = "'".implode("::", $cleaned)."'";
+						$this->save();
+					}					
 				}
 				
 				return $this->p_links;			
@@ -339,9 +372,8 @@ class categoryFeatureData extends phpDataset
 }
 class categoryItem extends phpDataset
 {
-	public $p_featureData;
-	
-	var $subKeys = array();
+	private $p_featureData;
+	private $p_linkedItems;
 	
 	public function __construct($categoryItemID)
 	{
@@ -351,6 +383,11 @@ class categoryItem extends phpDataset
 	{
 		switch($key)
 		{
+			case "linkedItems":
+				if (!$this->p_linkedItems) $this->p_linkedItems = $this->getLinkedItems();
+				return $this->p_linkedItems;
+				break;
+				
 			case "assetFolder":
 				return "assets/categories/{$this->categoryID}/{$this->id}";				
 						
@@ -442,10 +479,41 @@ class categoryItem extends phpDataset
 		{
 			$fObj = new categoryFeature($fea["categoryFeatureID"]);
 			
-			// Shouldn't ever happen (keys are forced), but just in case otherwise it'd add as [] which could potentially overwrite itself
-			$fKey = !$fObj->featureKey ? $ct++ : $fObj->featureKey;
-						
-			$data[$fKey] = new categoryFeatureData($fea["id"]);
+			$dataObj = new categoryFeatureData($fea["id"]);
+			
+			if ($fObj->featureKey)
+			{
+				$data[$fObj->featureKey] = $dataObj;	
+			}
+			
+			// Set this array up as both key and index based so that the feature can be accessed from the featureID, and also the Feature Key (if any)
+			$data[$fObj->id] = $dataObj;			
+		}
+		
+		return $data;
+	}
+	public function getLinkedItems()
+	{
+		if (!$this->id) return false;
+		
+		$d = new DAL(true);
+		
+		$data = array();
+		
+		$qry = "select id, linkedItemID
+				from categoryItemLinks
+				where categoryItemID = {$this->id}";		
+		$fQry = $d->qry($qry);
+			
+		$ct = 0;
+		while($lnk = $fQry->fetch_assoc())
+		{				
+			$linkObj = new categoryItemLink($lnk["id"]);
+			
+			$obj = new categoryItem($lnk["linkedItemID"]);
+			$obj->link = $linkObj;
+			
+			$data[$linkObj->id] = $obj;
 		}
 		
 		return $data;
@@ -478,6 +546,8 @@ class categoryItem extends phpDataset
 	}
 	public function hasAccess(security $sec, $permission, $throwException = false)
 	{
+		if (!$this->id) return false;
+		
 		$access = $sec->hasAccess(permissions::$manage_category_types, $permission > permissions::read ? permissions::write : $permission) || 
 			   	  $sec->hasAccess(permissions::$modify_category_type, $permission, $this->categoryID);
 		
@@ -502,6 +572,30 @@ class categoryFeatureFile
 		$this->index = $index;
 		
 		$this->fileSize = @filesize($config["baseAppDir"].$filePath);		
+	}
+}
+class categoryItemLink extends phpDataset
+{
+	/* SWB 8/13:
+	 * This class is overkill for something simple like this, but since the tableSorter requires an object to compare against it's
+	 * just as easy to wrap this in a tidy phpDatset package. There's no sense in using this object within the categoryItem class even 
+	 * though that's how it would appear at a glance. Linking directly to the categoryItem is more efficient, and the actual data for the 
+	 * link itself is really only needed for sorting them within the Category Item UI	 
+	 */
+	public function __construct($id=0)
+	{
+		parent::__construct("categoryItemLinks", $id, $id ? true : false);
+	}
+	public function hasAccess(security $sec, $permission, $throwException = false)
+	{
+		if (!$this->id) return false;
+		
+		$access = $sec->hasAccess(permissions::$manage_category_types, $permission > permissions::read ? permissions::write : $permission) || 
+			   	  $sec->hasAccess(permissions::$modify_category_type, $permission, $this->categoryID);
+		
+		if (!$access && $throwException) $sec->security_error_a();
+		
+		return $access;
 	}
 }
 ?>

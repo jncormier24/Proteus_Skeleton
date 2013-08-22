@@ -271,7 +271,7 @@ class security
 	public function hasAccess($permission, $accessLevels, $dataID = 0, $explicit=false)
 	{			
 		if (!$explicit && $this->global_admin) return true;
-		if (!$this->userID) return false;
+		if (!$this->userID) return false;		
 		
 		//Stored array of access keys with Bitwise comparison. Stops multiple DB lookups for the same key.
 		if (!$dataID && (($this->key_access[$permission["key"]] & $accessLevels) || ($this->key_access[$permission["key"]] && !$accessLevels))) return true;		

@@ -22,6 +22,7 @@ class tableSorter_core
 	public static $sort_showcase_item = array("sortType"=>12, "dataTable"=>"showcaseItems");
 	public static $sort_form_field = array("sortType"=>6, "dataTable"=>"customFormFields");
 	public static $sort_category_feature = array("sortType"=>7, "dataTable"=>"categoryFeatures");
+	public static $sort_category_item_link = array("sortType"=>8, "dataTable"=>"categoryItemLinks");
 	
 	public static function getSortTypes()
 	{
@@ -50,6 +51,12 @@ class tableSorter_core
 		
 		switch($sortType)
 		{
+			case tableSorter_core::$sort_category_feature["sortType"]:
+				$obj = new categoryItemLink($dataID);
+				$quantifyArray[] = "categoryID={$obj->categoryID}";
+				
+				return $obj;
+				
 			case tableSorter_core::$sort_category_feature["sortType"]:
 				$obj = new categoryFeature($dataID);
 				$quantifyArray[] = "categoryID={$obj->categoryID}";
@@ -101,6 +108,9 @@ class tableSorter_core
 		
 		switch($sortType)
 		{	
+			case tableSorter_core::$sort_category_item_link["sortType"]:
+				return $sec->hasAccess(permissions::$manage_category_types, permissions::write) || $sec->hasAccess(permissions::$modify_category_type, permissions::write, $obj->categoryID);
+			
 			case tableSorter_core::$sort_category_feature["sortType"]:
 				return $sec->hasAccess(permissions::$manage_category_types, permissions::write) || $sec->hasAccess(permissions::$modify_category_type, permissions::write, $obj->categoryID);
 				

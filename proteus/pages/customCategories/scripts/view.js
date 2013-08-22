@@ -243,8 +243,7 @@ function getCategoryItemEdit(itemID, categoryID)
 			
 			if (itemID)
 			{
-				//getCategoryFeatures(catID);
-				//getExposure(catID);
+				getCategoryItemLinks(itemID);
 			}
 		}
 	});
@@ -264,6 +263,7 @@ function updateCategoryItem()
 		{
 			getMessages();
 			getCategories();
+			getCategoryItems(output.categoryID);
 			
 			frm.updateHelper("reset");
 			
@@ -271,7 +271,7 @@ function updateCategoryItem()
 			
 			if (!itemID)
 			{
-				getCategoryEdit(output.itemID);
+				getCategoryItemEdit(output.itemID);
 			}
 		}
 		else
@@ -281,6 +281,44 @@ function updateCategoryItem()
 	});
 	
 	return dfd.promise();	
+}
+function deleteCategoryItem(itemID, stat)
+{
+	var msg = stat ? "Are you sure you want to permanently delete this Category Item and all associated data/assets? This CANNOT be undone!" : "Are you sure you want to deactivate this Category Item? This will delete no data/assets, but will mark the item status as Inactive.";
+
+	$.jqConfirm(msg, function()
+	{
+		$.showLoading(stat ? "Permanently deleting Category Item" : "Deactivating Category Item");	
+		
+		$.getJSON("admin/ajax/customCategories", { action: "deleteCategoryItem", itemID: itemID }).then(function(output)
+		{	
+			if (!$.ajaxError(output, $))
+			{
+				getMessages();
+				getCategoryItems(output.categoryID);
+			}
+		});
+	});
+}
+function activateCategoryItem(itemID, evt)
+{	
+	// The parameter evt is passed from the function hook of the dialog button. The target is the button pressed, and that needs to be accessed 
+	// after the call is successful to fade it from the UI (so as not to force a window refresh in case of pending changes, etc); just a more 
+	// elegant way of refreshing UI after activation
+	
+	$.showLoading("Activating Category Item");	
+	
+	$.getJSON("admin/ajax/customCategories", { action: "activateCategoryItem", itemID: itemID }).then(function(output)
+	{	
+		if (!$.ajaxError(output, $))
+		{
+			getMessages();
+			getCategoryItems(output.categoryID);
+			
+			// Fade out the activate button since this call was successful
+			$(evt.target).fadeOut();
+		}
+	});	
 }
 function getFeatureImage(feaID, itemID)
 {
@@ -468,18 +506,120 @@ function updateFileCaption(dataID, indexID)
 		}
 	});
 }
-function removeFeatureFile(dataID, indexID)
+function deleteFeatureFile(dataID, indexID)
 {
-	$.jqConfirm("Are you SURE you want to remove this file? This will remove the physical file on the server, and CANNOT be undone!", function()
+	$.jqConfirm("Are you SURE you want to delete this file? This will remove the physical file on the server, and CANNOT be undone!", function()
 	{
-		$.showLoading("Removing File");
+		$.showLoading("Deleting File");
 	
-		$.getJSON("admin/ajax/customCategories", { action: "removeFeatureFile", dataID: dataID, indexID: indexID}).then(function(output)
+		$.getJSON("admin/ajax/customCategories", { action: "deleteFeatureFile", dataID: dataID, indexID: indexID}).then(function(output)
 		{
 			if (!$.ajaxError(output, $))
 			{
 				getMessages();
 				getFeatureFiles(output.featureID, output.itemID);
+			}
+		});
+	});
+}
+function getCategoryItemLinks(itemID, featureID, altContainerSelector)
+{
+	// This function is used to wrap not only the linked items, but also linked blogs, topics, etc.
+	var cont = altContainerSelector ? $(altContainerSelector) : $("#itemLinks");	
+	
+	cont.setWorking("Loading Linked Items");
+	
+	$.getJSON("admin/ajax/customCategories", { action: "getCategoryItemLinks", itemID: itemID, featureID: featureID }).then(function(output)
+	{
+		if (!$.ajaxError(output))
+		{
+			cont.html(output.content).tableRowAlternate();
+			
+			initTableSort();
+			initJqPopupMenus();
+		}
+	});
+}
+function getCategoryItemLinkOptions()
+{
+	var itemCtl = $("#linkItemID");
+	
+	$.showLoading("Loading Options");
+	
+	$.getJSON("admin/ajax/customCategories", { action: "getCategoryItemLinkOptions", categoryID: $(this).val()}).then(function(output)
+	{
+		if (!$.ajaxError(output, $))
+		{
+			if (output.content)
+			{
+				itemCtl.html(output.content).fadeIn().next().fadeIn();
+			}
+			else
+			{
+				itemCtl.fadeOut().next().fadeOut();				
+			}
+		}
+	});
+}
+function linkCategoryItem(itemID)
+{
+	var itemCtl = $("#linkItemID");
+	
+	$.showLoading("Loading Options");
+	
+	$.getJSON("admin/ajax/customCategories", { action: "linkCategoryItem", itemID: itemID, linkedItemID: itemCtl.val() }).then(function(output)
+	{
+		if (!$.ajaxError(output, $))
+		{
+			getMessages();
+			getCategoryItemLinks(itemID);
+			
+			// Sneaky DDL adjustment; avoids a refresh
+			$("option:selected", itemCtl).remove();
+		}
+	});
+}
+function deleteCategoryItemLink(linkID)
+{
+	$.jqConfirm("Are you SURE you want to unlink this Category Item? This will only remove the link, no actual data/assets.", function()
+	{
+		$.showLoading("Removing Category Link");
+	
+		$.getJSON("admin/ajax/customCategories", { action: "deleteCategoryItemLink", linkID: linkID}).then(function(output)
+		{
+			if (!$.ajaxError(output, $))
+			{
+				getMessages();
+				getCategoryItemLinks(output.itemID);
+			}
+		});
+	});	
+}
+function addItemFeatureLink(itemID, featureID)
+{
+	// Called in the context of the link button
+	var obj = $(this);
+	var dataID = obj.prev().val();
+	
+	$.getJSON("admin/ajax/customCategories", { action: "addItemFeatureLink", itemID: itemID, featureID: featureID, dataID: dataID }).then(function(output)
+	{
+		if (!$.ajaxError(output, $))
+		{
+			getMessages();
+			getCategoryItemLinks(itemID, featureID, "#link_" + featureID);			
+		}
+	});
+}
+function deleteItemFeatureLink(itemID, featureID, dataID)
+{
+	$.jqConfirm("Are you sure you want to unlink this feature data?", function()
+	{
+		$.getJSON("admin/ajax/customCategories", { action: "deleteItemFeatureLink", itemID: itemID, featureID: featureID, dataID: dataID }).then(function(output)
+		{
+			if (!$.ajaxError(output, $))
+			{
+				getMessages();
+				getCategoryItemLinks(itemID, featureID, "#link_" + featureID);			
 			}
 		});
 	});

@@ -199,3 +199,16 @@ div.showcaseContainer > div.functions button
 	
 	box-shadow: 2px 2px 3px #333333;
 }
+#linkItemID
+{
+	display: none;
+}
+div.selector select, div.selector label, div.selector button
+{
+	float: left;
+	margin: 12px 6px 5px 0px;
+}
+div.selector label
+{
+	margin-top: 18px;
+}

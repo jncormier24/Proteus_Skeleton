@@ -5,8 +5,32 @@
 	
 	switch($action)
 	{
-		case "removeFeatureFile":
-			removeFeatureFile($dataID, $indexID);
+		case "deleteItemFeatureLink":
+			deleteItemFeatureLink($itemID, $featureID, $dataID);
+			break;
+			
+		case "addItemFeatureLink":
+			addItemFeatureLink($itemID, $featureID, $dataID);
+			break;
+			
+		case "deleteCategoryItemLink":
+			deleteCategoryItemLink($linkID);
+			break;
+			
+		case "linkCategoryItem":
+			linkCategoryItem($itemID, $linkedItemID);
+			break;
+			
+		case "getCategoryItemLinks":
+			getCategoryItemLinks($itemID, $featureID);
+			break;
+			
+		case "getCategoryItemLinkOptions":
+			getCategoryItemLinkOptions($categoryID);
+			break;
+			
+		case "deleteFeatureFile":
+			deleteFeatureFile($dataID, $indexID);
 			break;
 		
 		case "updateFileCaption":
@@ -38,7 +62,15 @@
 			break;
 			
 		case "updateCategoryItem":
-			updateCategoryItem($itemID, $categoryID, $item);
+			updateCategoryItem($itemID, $categoryID, $item, $features, $extras);
+			break;
+			
+		case "activateCategoryItem":
+			activateCategoryItem($itemID);
+			break;
+			
+		case "deleteCategoryItem":
+			deleteCategoryItem($itemID);
 			break;
 			
 		case "getCategoryItemEdit":
@@ -838,7 +870,7 @@ function getCategoryItems($categoryID, $paging, $sortData, $filterColumns, $cust
 		
 		$qry = "select categoryItems.id
 				from categoryItems   
-				where 1 $whClause
+				where categoryID = {$catObj->id} $whClause
 				".tableFilter::getHavingClause($hvArr)."
 				order by ".tableFilter::getOrderClause($sortData, "title asc");
 		
@@ -855,7 +887,7 @@ function getCategoryItems($categoryID, $paging, $sortData, $filterColumns, $cust
 			if ($writeAccess)
 			{
 				$dCtl = new deleteControl();
-				$dCtl->onclick = "deleteCategoryItem({$itemObj->id})";
+				$dCtl->onclick = "deleteCategoryItem({$itemObj->id}, {$itemObj->inactive})";
 			}
 			else
 			{
@@ -936,8 +968,9 @@ function getCategoryItemEdit($itemID, $catID)
 								
 			if ($writeAccess)
 			{
+				if ($itemObj->inactive) $itemWin->addButton("Re-Activate Item","function(evt) { activateCategoryItem({$itemObj->id}, evt); }");
 				$itemWin->addButton("Save","function() { updateCategoryItem(); }");
-			}
+			}			
 			else
 			{
 				$js->disabled = 1;
@@ -985,8 +1018,10 @@ function getCategoryItemEdit($itemID, $catID)
 			foreach($features as $feature)				
 			{
 				$dataObj = $featureData[$feature->featureKey];		
-				 
-				$fs = new phpFormFieldset($feature->fieldName."&nbsp;<span class='featureType'>({$feature->type})</span>");				
+
+				$req = $feature->featureRequired ? "<span class='featureReq' title='Value required to save Category Item'>*&nbsp;-&nbsp;</span>" : "";
+				
+				$fs = new phpFormFieldset($req.$feature->fieldName."&nbsp;<span class='featureType'>({$feature->type})</span>");				
 			
 				switch($feature->featureType)
 				{
@@ -998,10 +1033,10 @@ function getCategoryItemEdit($itemID, $catID)
 						
 						break;			
 					case 2:
-						$txtExtra = new phpTextBox("extra[{$feature->id}]", validation::prepTextForInput($dataObj->value), 86, 255);
+						$txtExtra = new phpTextBox("extras[{$feature->id}]", validation::prepTextForInput($dataObj->additionalData), 86, 255);
 						$txtExtra->setLabel("Link Display:");					
 			
-						$txtData = new phpTextBox("features[{$feature->id}]", validation::prepTextForInput($dataObj->additionalData), 86, 255, 'textBox floating');
+						$txtData = new phpTextBox("features[{$feature->id}]", validation::prepTextForInput($dataObj->value), 86, 255, 'textBox floating');
 						$txtData->setLabel("Link URL:");
 				
 						$fs->addControl($txtExtra);
@@ -1069,6 +1104,61 @@ function getCategoryItemEdit($itemID, $catID)
 				$frmItem->addControl($fs);
 			}
 			
+			if ($d->qryCount("select count(id) from categoryExposure where linkedCategoryID = {$catObj->id}"))
+			{			
+				$tpLinks = new jqUI_tabPage("item_links", "Data Links", "ui-icon-link");
+				
+				$fs = new phpFormFieldset("Category Item Links");
+				
+				$fs->addControl(new phpParagraph("Use the interface below to add links from this Category Item, to other Category Items. The  
+												  Categories available are those that have configured their <strong>exposure</strong> to allow linking from 
+												  the Custom Category this item belongs to.<br /><br />
+												  <span class='attn'>NOTE:</span> These are one-way links. The linked item will not backreference 
+												  this item unless explicitly linked itself."));				
+				$dv = new phpDIV();
+				$dv->id = "itemLinks";
+				
+				$fs->addControl($dv);
+				
+				$qry = "select categories.id, categories.name
+						from categories inner join categoryExposure on categoryExposure.categoryID = categories.id
+						where linkedCategoryID = {$catObj->id}
+						order by name asc";
+				$ddlCat = new phpDDL("linkCategoryID");
+				$ddlCat->setLabel("Choose a Category to browse Items:");
+				$ddlCat->addListItem(new phpListItem("", ""));
+				$ddlCat->bind($d->qry($qry), "id", "name");		
+				$ddlCat->onchange = "getCategoryItemLinkOptions.call(this)";
+	
+				$ddlItems = new phpDDL("linkItemID");
+
+				$btnLink = new jqUI_button("btnLinkItem", "Link Category Item", "", "ui-icon-link", true);
+				$btnLink->onclick = "linkCategoryItem({$itemObj->id})";
+				
+				$dvSel = new phpDIV("", "selector");				
+				$dvSel->addControl($ddlCat);
+				$dvSel->addControl($ddlItems);
+				$dvSel->addControl($btnLink);
+	
+				$fs->addControl($dvSel);
+				$tpLinks->addControl($fs);
+				
+				foreach($featureBlogs as $feature)
+				{
+					$fs = new phpFormFieldset($feature->fieldName."&nbsp;<span class='featureType'>({$feature->type}s)</span>");
+					
+					$dv = new phpDIV();
+					$dv->id = "link_".$feature->id;
+					
+					$fs->addControl($dv);
+					$fs->addControl(new jqLoader("getCategoryItemLinks({$itemObj->id}, {$feature->id}, '#{$dv->id}')"));
+					
+					$tpLinks->addControl($fs);
+				}
+				
+				$tabs->addTabPage($tpLinks);
+			}
+						
 	 		if (count($featureImages))
 			{
 				$tpImages = new jqUI_tabPage("item_images", "Images", "ui-icon-image");
@@ -1149,7 +1239,7 @@ function getCategoryItemEdit($itemID, $catID)
 	echo $js->render();
 	exit(0);
 }
-function updateCategoryItem($itemID, $catID, $item)
+function updateCategoryItem($itemID, $catID, $item, $features, $extras)
 {
 	global $g_sec;
 
@@ -1175,9 +1265,43 @@ function updateCategoryItem($itemID, $catID, $item)
 		
 		if (!$item["title"]) throw new Exception("Error, no Item Title specified; all Category items must have a title!");		
 		
+		$featureArr = array();
+		
+		foreach((array)$features as $key=>$value)
+		{
+			$fObj = new categoryFeature($key);
+			if ($fObj->featureRequired && !$value) throw new Exception("Missing data for `{$fObj->fieldName}`. Please fill in required data and try again.");
+			
+			$featureArr[] = $fObj;
+		}
+		
 		if ($itemObj->id)
 		{
 			$itemObj->save($item);
+			
+			$featureData = $itemObj->featureData;
+			
+			foreach($featureArr as $featureObj)
+			{
+				$dataObj = $featureData[$featureObj->id];
+				if (!$dataObj) $dataObj = new categoryFeatureData();
+				
+				$dataObj->value = "'".$features[$featureObj->id]."'";
+				$dataObj->additionalData = "'".$extras[$featureObj->id]."'";
+				
+				if ($dataObj->id)
+				{
+					$dataObj->save();
+				}
+				else
+				{
+					$dataObj->categoryItemID = $itemObj->id;
+					$dataObj->categoryFeatureID = $featureObj->id;
+					
+					$dataObj->insert();
+				}
+			}
+			
 			pageClass::setNotify("Category Item Saved");
 		}
 		else
@@ -1187,10 +1311,82 @@ function updateCategoryItem($itemID, $catID, $item)
 			$itemObj->addedDateTime = "now()";
 			
 			$itemID = $itemObj->insert($item);
-			pageClass::setNotify("Successfully added new Category Item");
+			pageClass::setNotify("Successfully added new Category Item");			
 			
 			$js->itemID = $itemID;
 		}		
+		
+		$js->categoryID = $itemObj->categoryID;
+	}
+	catch(Exception $ex)
+	{		
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function deleteCategoryItem($itemID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		$itemObj = new categoryItem($itemID);
+		if (!$itemObj->id) throw new Exception("Error, that Category Item could not be found.");
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::delete)) $g_sec->security_error_a();	
+		
+		if ($itemObj->inactive)
+		{
+			$itemObj->delete();
+			
+			pageClass::setNotify("Category Item Permanently Deleted");
+		}
+		else
+		{
+			$itemObj->inactive = 1;
+			$itemObj->save();
+			
+			pageClass::setNotify("Successfully deactivated Category Item");
+		}
+		
+		$js->categoryID = $itemObj->categoryID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function activateCategoryItem($itemID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	
+	try
+	{	
+		$itemObj = new categoryItem($itemID);
+		if (!$itemObj->id) throw new Exception("Error, that Category Item could not be found.");
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();	
+		
+		// Shouldn't ever happen		
+		if (!$itemObj->inactive) throw new Exception("Item not in correct state.");
+		
+		$itemObj->inactive = 0;
+		$itemObj->save();
+		
+		pageClass::setNotify("Successfully Activated Category Item");		
+		
+		$js->categoryID = $itemObj->categoryID;
 	}
 	catch(Exception $ex)
 	{
@@ -1541,7 +1737,7 @@ function getFeatureFiles($featureID, $itemID)
 				$ctl->onclick = "showCaptionEdit.call(this)";
 				
 				$ctl = $mnu->addMenuItem("", "Remove File", "ui-state-error", "ui-icon-trash");
-				$ctl->onclick = "removeFeatureFile({$featureData->id}, '{$file->index}')";
+				$ctl->onclick = "deleteFeatureFile({$featureData->id}, '{$file->index}')";
 				
 				$r->addCell(new tblCell($mnu, "", "center", "", "1%"));
 			}							
@@ -1693,7 +1889,7 @@ function updateFileCaption($dataID, $indexID, $caption)
 
 	echo $js->render();
 }
-function removeFeatureFile($dataID, $indexID)
+function deleteFeatureFile($dataID, $indexID)
 {
 	global $config, $g_sec;
 		
@@ -1748,5 +1944,385 @@ function removeFeatureFile($dataID, $indexID)
 	}
 
 	echo $js->render();
+}
+function getCategoryItemLinkOptions($categoryID)
+{
+	global $config, $g_sec;		
+	
+	$js = new json_a();
+	$pc = new pageContent();
+
+	try
+	{
+		validation::ensureInt($categoryID);
+		
+		if (!$categoryID)
+		{
+			$js->content = "";
+		}
+		else
+		{
+			$catObj = new customCategory($categoryID);
+			if (!$catObj->id) throw new Exception("Error, that Custom Category could not be found.");
+			
+			foreach($catObj->items as $itemObj)
+			{
+				$li = new phpListItem($itemObj->title, $itemObj->id);
+				
+				$pc->addControl($li);
+			}
+			
+			if (!count($pc->controls))
+			{
+				throw new Exception("No items found in the selected category. Please choose another.");
+			}
+			
+			$js->content = $pc->render();
+		}		
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();
+	}
+
+	echo $js->render();
+}
+function getCategoryItemLinks($itemID, $featureID)
+{
+	global $g_sec;
+
+	$d = new DAL(true);
+	
+	$js = new json_a();
+	$pc = new pageContent();
+	
+	try
+	{	
+		validation::ensureInt($featureID, 0);
+	
+		$itemObj = new categoryItem($itemID);
+		if (!$itemObj->id) throw new Exception("Error, that Category Item could not be found.");
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::read)) $g_sec->security_error_a();
+
+		$writeAccess = $itemObj->hasAccess($g_sec, permissions::write);
+		
+		$t = new tblBuilder();
+		$t->class = "listTable sortable";
+		
+		if (!$featureID)
+		{
+			$t->addAttribute("data-sort-type", tableSorter_core::$sort_category_item_link["sortType"]);
+			
+			$r = $t->addRow();
+			$r->addHeader(new tblHeader("Linked Category Items", "", "", 4));	
+			
+			$r = $t->addRow();
+			$r->addHeader(new tblHeader("itemID"));
+			$r->addHeader(new tblHeader("Item Title"));
+			$r->addHeader(new tblHeader("Custom Category"));		
+			$r->addHeader(new tblHeader("&nbsp;"));
+			
+			$links = $itemObj->linkedItems;
+			
+			foreach($links as $linkID=>$iObj)
+			{
+				$linkObj = new categoryItemLink($linkID);
+				
+				if ($writeAccess)
+				{
+					$dCtl = new deleteControl();
+					$dCtl->title = "Remove Item Link";
+					$dCtl->onclick = "deleteCategoryItemLink({$linkObj->id})"; 				
+				}
+				else
+				{
+					$dCtl = new phpFiller();
+				}
+				
+				$r = $t->addRow();
+				$r->addCell(new tblCell($iObj->id, "", "center"));
+				$r->addCell(new tblCell($iObj->title, "", "left"));
+				$r->addCell(new tblCell($iObj->category->name, "", ""));
+				$r->addCell(new tblCell($dCtl, "", "center"));			
+			}
+			
+			if (!count($links))
+			{
+				$r = $t->addRow();
+				$r->addCell(new tblCell("No items linked", "strong", "center", 4));
+			}
+			
+			$js->content = $t->render();
+		}
+		else
+		{
+			$featureObj = new categoryFeature($featureID);
+			
+			switch($featureObj->featureType)
+			{
+				case 10:								
+					$dataObj = $itemObj->featureData[$featureObj->id];
+					
+					//Topic
+					$r = $t->addRow();
+					$r->addHeader(new tblHeader("Topic:"));
+					$r->addHeader(new tblHeader("Linked Blogs"));
+					if ($writeAccess) $r->addHeader(new tblHeader("&nbsp;"));
+
+					$topics = $dataObj->links;
+
+					foreach((array)$topics as $topicObj)
+					{												
+						$topicObj->populateBlogEntries();												
+						$blogCt = count($topicObj->blogEntries);
+							
+						$r = $t->addRow();
+						$r->addCell(new tblCell(validation::prepForDisplay($topicObj->title), "evenCell", "left"));
+						$r->addCell(new tblCell($blogCt, "oddCell", "center"));
+						
+						if ($writeAccess)
+						{
+							$dCtl = new deleteControl();
+							$dCtl->onclick = "deleteItemFeatureLink({$itemObj->id}, {$featureObj->id}, {$topicObj->id})";
+							
+							$r->addCell(new tblCell($dCtl, "evenCell", "center"));
+						}
+						
+						$linkedTopics[] = $topicObj->id;						
+					}	
+
+					if (!count($topics))
+					{
+						$r = $t->addRow();
+						$r->addCell(new tblCell("- No Blog Topics Currently Linked -", "strong", "center", 3));
+					}
+					else
+					{
+						// have to generate the where statement here since it's a delimited list; no way to query it via joins
+						$whCl = "and id <> ".implode(" and id <> ", $linkedTopics);					
+					}
+
+					$pc->addControl($t);
+					
+					$ddl = new phpDDL("blogTopic_{$featureObj->id}");
+					$ddl->setLabel("Select a Blog Topic:");
+					$ddl->bind($d->qry("select id, title 
+										from blogTopics
+										where 1 $whCl
+										order by title asc"), "id", "title");						
+					
+					$btnBind = new jqUI_button("", "Link Blog Topic", "", "ui-icon-link", true);
+					$btnBind->onclick = "addItemFeatureLink.call(this, $itemID, {$featureObj->id})";
+					
+					if ($writeAccess && count($ddl->listItems))
+					{
+						$dv = new phpDIV("","selector");
+						
+						$dv->addControl($ddl);
+						$dv->addControl($btnBind);
+						
+						$pc->addControl($dv);
+					}
+					
+					break;
+				case 11:
+					
+					break;
+			}
+			
+			$js->content = $pc->render();
+		}
+		
+		$js->categoryID = $itemObj->categoryID;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function linkCategoryItem($itemID, $linkedItemID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	$d = new DAL(true);
+	
+	try
+	{	
+		$itemObj = new categoryItem($itemID);
+		if (!$itemObj->id) throw new Exception("Error, that Category Item could not be found.");
+		
+		$lItemObj = new categoryItem($linkedItemID);
+		if (!$lItemObj->id) throw new Exception("Error, that Linked Category Item could not be found.");		
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+		
+		if ($d->qryCount("select id from categoryItemLinks where categoryItemID=$itemID and linkedItemID=$linkedItemID")) throw new Exception("Error, that link already exists.");	
+		
+		$lnkObj = new categoryItemLink();
+		$lnkObj->categoryItemID = $itemObj->id;
+		$lnkObj->linkedItemID = $lItemObj->id;
+		
+		$lnkObj->insert();
+		
+		pageClass::setNotify("Successfully linked Category Item");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function deleteCategoryItemLink($linkID)
+{
+	global $g_sec;
+
+	$js = new json_a();
+	$d = new DAL(true);
+	
+	try
+	{	
+		$linkObj = new categoryItemLink($linkID);
+		if (!$linkObj->id) throw new Exception("Error, that Category Item Link could not be found.");
+		
+		$itemObj = new categoryItem($linkObj->categoryItemID);
+		if (!$itemObj->id) throw new Exception("Error, that Category Item could not be found.");		
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+		
+		$linkObj->delete();
+		
+		pageClass::setNotify("Successfully unlinked Category Item");
+		
+		$js->itemID = $itemObj->id;
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function addItemFeatureLink($itemID, $featureID, $dataID)
+{
+	global $g_sec;
+
+	$d = new DAL(true);
+	
+	$js = new json_a();
+	$pc = new pageContent();
+	
+	try
+	{	
+		$itemObj = new categoryItem($itemID);
+		if (!$itemObj->id) throw new Exception("Error, that Category Item could not be found.");
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+		
+		$featureObj = new categoryFeature($featureID);
+		if (!$featureObj->id) throw new Exception("Error, that feature could not be found.");
+		
+		switch($featureObj->featureType)
+		{
+			case 10:
+				$obj = new customBlogTopic($dataID, false);
+				if (!$obj->id) throw new Exception("Error, that Blog Topic could not be found.");
+				
+				break;
+			case 11:
+				$obj = new customBlog($dataID);
+				if (!$obj->id) throw new Exception("Error, that Blog Category could not be found.");
+				
+				break;
+		}
+		
+		$dataObj = $itemObj->featureData[$featureObj->id];
+		
+		if ($dataObj->id)
+		{
+			$dataObj->value = "'".$dataObj->value."::".$obj->id."'";
+			$dataObj->save();
+		}
+		else
+		{
+			$dataObj = new categoryFeatureData();
+			$dataObj->categoryItemID = $itemObj->id;
+			$dataObj->categoryFeatureID = $featureObj->id;
+			$dataObj->value = $dataID;
+			
+			$dataObj->insert();
+		}
+		
+		pageClass::setNotify("Successfully linked Feature Data");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
+}
+function deleteItemFeatureLink($itemID, $featureID, $dataID)
+{
+	global $g_sec;
+
+	$d = new DAL(true);
+	
+	$js = new json_a();
+	$pc = new pageContent();
+	
+	try
+	{	
+		$itemObj = new categoryItem($itemID);
+		if (!$itemObj->id) throw new Exception("Error, that Category Item could not be found.");
+		
+		if (!$itemObj->hasAccess($g_sec, permissions::write)) $g_sec->security_error_a();
+		
+		$featureObj = new categoryFeature($featureID);
+		if (!$featureObj->id) throw new Exception("Error, that feature could not be found.");		
+		
+		$dataObj = $itemObj->featureData[$featureObj->id];
+		if (!$dataObj->id) throw new Exception("Error, that feature link could not be found.");
+		
+		$links = array();
+		
+		foreach((array)$dataObj->links as $obj)
+		{
+			if ($obj->id != $dataID) $links[] = $obj->id;
+		}
+		
+		if (count($links))
+		{
+			$dataObj->value = "'".implode("::", $links)."'";
+			$dataObj->save();			
+		}
+		else
+		{
+			$dataObj->delete();
+		}		
+		
+		pageClass::setNotify("Successfully Unlinked Feature Data");
+	}
+	catch(Exception $ex)
+	{
+		$eWin = new jqUI_errorNotify($ex);
+		$js->error = $eWin->render();	
+	}
+	
+	echo $js->render();
+	exit(0);
 }
 ?>

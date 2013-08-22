@@ -269,6 +269,11 @@ h1, h2, h3, h4, h5
 {
 	font-weight: bold;
 }
+.attn
+{
+	color: #ff0000;
+	font-weight: bold;
+}
 table.hoverTable tr:hover td
 {
 	background-color: #9f9f9f !important;

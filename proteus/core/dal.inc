@@ -304,6 +304,8 @@ class phpDataset
 	}
 	public function __set($key, $value)
 	{
+		if (is_object($value)) return true;
+		
 		if (!isset($this->p_data))
 		{					
 			$this->fill();	
